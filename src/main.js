@@ -434,7 +434,7 @@ function createDashboardView() {
       
       let targetName = 'Neutral';
       if (item.rootFor === 'Away') targetName = item.awayTeam.shortName;
-      if (item.rootFor === 'Home') targetName = homeTeam.shortName;
+      if (item.rootFor === 'Home') targetName = item.homeTeam.shortName;
       badgeTarget.innerText = item.rootFor !== 'Neutral' ? `Root for: ${targetName}` : 'No Impact';
 
       const expl = document.createElement('div');
