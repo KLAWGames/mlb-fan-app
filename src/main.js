@@ -260,6 +260,7 @@ function createDashboardView() {
   textNode.className = 'banner-team-text';
   const name = document.createElement('h2');
   name.innerText = team.name;
+  const desc = document.createElement('p');
   const leagueName = team.leagueId === 103 ? 'American League' : 'National League';
   desc.innerText = `${leagueName} • ${team.divisionName}`;
   textNode.appendChild(name);
