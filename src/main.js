@@ -260,8 +260,8 @@ function createDashboardView() {
   textNode.className = 'banner-team-text';
   const name = document.createElement('h2');
   name.innerText = team.name;
-  const desc = document.createElement('p');
-  desc.innerText = `${team.divisionName} • League ID ${team.leagueId}`;
+  const leagueName = team.leagueId === 103 ? 'American League' : 'National League';
+  desc.innerText = `${leagueName} • ${team.divisionName}`;
   textNode.appendChild(name);
   textNode.appendChild(desc);
 
@@ -356,7 +356,7 @@ function createDashboardView() {
           const lead = ((team.wins - secondPlace.wins) + (secondPlace.losses - team.losses)) / 2;
           const gap = document.createElement('div');
           gap.className = 'timeline-gap-text';
-          gap.innerText = `+${lead} games lead`;
+          gap.innerText = `+${lead} GB`;
           line.appendChild(gap);
         }
 
@@ -373,7 +373,7 @@ function createDashboardView() {
         
         const gap = document.createElement('div');
         gap.className = 'timeline-gap-text';
-        gap.innerText = `${team.gamesBack} games back`;
+        gap.innerText = `${team.gamesBack} GB`;
         line.appendChild(gap);
 
         const nodeActive = createTimelineNode(team, true);
