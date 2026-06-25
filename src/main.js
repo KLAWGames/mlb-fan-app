@@ -13,7 +13,9 @@ let state = {
   rawSchedule: null,
   processedStandings: null,
   loading: false,
-  searchQuery: ''
+  searchQuery: '',
+  magicNumberExpanded: false,
+  activeTrackerTab: 'division' // 'division' | 'wildcard'
 };
 
 // Helper: Convert Hex color to RGB string for custom CSS transparency gradients
@@ -270,6 +272,15 @@ function createDashboardView() {
   const record = document.createElement('div');
   record.className = 'banner-record';
   record.innerText = team.wins !== undefined ? `${team.wins}-${team.losses}` : '0-0';
+  
+  const wins = team.wins !== undefined ? team.wins : 0;
+  const losses = team.losses !== undefined ? team.losses : 0;
+  const gamesRemaining = 162 - wins - losses;
+
+  const gamesLeftLabel = document.createElement('div');
+  gamesLeftLabel.className = 'games-left-label';
+  gamesLeftLabel.innerText = `${gamesRemaining} games left`;
+
   const standingBadge = document.createElement('div');
   standingBadge.className = 'banner-standing';
   
@@ -279,6 +290,7 @@ function createDashboardView() {
   standingBadge.innerText = standingText;
 
   right.appendChild(record);
+  right.appendChild(gamesLeftLabel);
   right.appendChild(standingBadge);
 
   content.appendChild(left);
@@ -286,59 +298,280 @@ function createDashboardView() {
   banner.appendChild(content);
   container.appendChild(banner);
 
-  // 2. Magic Numbers Row
-  const magicRow = document.createElement('div');
-  magicRow.className = 'magic-number-container';
+  // 2. Playoff Position Visual Tracker Card
+  const trackerCard = document.createElement('div');
+  trackerCard.className = 'glass-card';
+  
+  const trackerTitle = document.createElement('h3');
+  trackerTitle.className = 'section-title';
+  trackerTitle.innerText = 'Playoff Position Tracker';
+  trackerCard.appendChild(trackerTitle);
+
+  // Toggle buttons
+  const toggleGroup = document.createElement('div');
+  toggleGroup.className = 'tracker-toggle-group';
+  
+  const divToggle = document.createElement('button');
+  divToggle.className = `tracker-toggle-btn ${state.activeTrackerTab === 'division' ? 'active' : ''}`;
+  divToggle.innerText = 'Division Race';
+  divToggle.addEventListener('click', () => {
+    state.activeTrackerTab = 'division';
+    render();
+  });
+
+  const wcToggle = document.createElement('button');
+  wcToggle.className = `tracker-toggle-btn ${state.activeTrackerTab === 'wildcard' ? 'active' : ''}`;
+  wcToggle.innerText = 'Wild Card Race';
+  wcToggle.addEventListener('click', () => {
+    state.activeTrackerTab = 'wildcard';
+    render();
+  });
+
+  toggleGroup.appendChild(divToggle);
+  toggleGroup.appendChild(wcToggle);
+  trackerCard.appendChild(toggleGroup);
+
+  // Visuals content
+  if (state.activeTrackerTab === 'division') {
+    // DIVISION VISUAL TIMELINE
+    const timeline = document.createElement('div');
+    timeline.className = 'division-timeline';
+
+    const divId = team.divisionId;
+    const divTeams = state.processedStandings?.divisionTeams?.[divId] || [];
+
+    if (divTeams.length > 0) {
+      const leader = divTeams[0];
+      
+      if (team.divisionLeader) {
+        // We are the leader! Show us first, then the 2nd place team
+        const nodeActive = createTimelineNode(team, true);
+        const line = document.createElement('div');
+        line.className = 'timeline-line';
+        
+        // Lead details
+        const secondPlace = divTeams[1];
+        if (secondPlace) {
+          const lead = ((team.wins - secondPlace.wins) + (secondPlace.losses - team.losses)) / 2;
+          const gap = document.createElement('div');
+          gap.className = 'timeline-gap-text';
+          gap.innerText = `+${lead} games lead`;
+          line.appendChild(gap);
+        }
+
+        const nodeSecond = secondPlace ? createTimelineNode(secondPlace, false) : null;
+
+        timeline.appendChild(nodeActive);
+        timeline.appendChild(line);
+        if (nodeSecond) timeline.appendChild(nodeSecond);
+      } else {
+        // We are chasing the leader! Show leader first, then us
+        const nodeLeader = createTimelineNode(leader, false);
+        const line = document.createElement('div');
+        line.className = 'timeline-line';
+        
+        const gap = document.createElement('div');
+        gap.className = 'timeline-gap-text';
+        gap.innerText = `${team.gamesBack} games back`;
+        line.appendChild(gap);
+
+        const nodeActive = createTimelineNode(team, true);
+
+        timeline.appendChild(nodeLeader);
+        timeline.appendChild(line);
+        timeline.appendChild(nodeActive);
+      }
+    }
+    trackerCard.appendChild(timeline);
+  } else {
+    // WILD CARD VISUAL LADDER
+    const ladder = document.createElement('div');
+    ladder.className = 'ladder-container';
+
+    const leagueId = team.leagueId;
+    const allLeague = state.processedStandings?.leagueTeams?.[leagueId] || [];
+    // Wild Card pool: teams that are NOT division leaders
+    const wcPool = allLeague.filter(t => !t.divisionLeader).sort((a, b) => a.wildCardRank - b.wildCardRank);
+
+    if (wcPool.length > 0) {
+      // We will show WC1, WC2, WC3, then Cutoff Line, then WC4, WC5
+      const showCount = Math.min(wcPool.length, 5);
+      
+      for (let i = 0; i < showCount; i++) {
+        if (i === 3) {
+          // Render Cutoff Line
+          const cutoff = document.createElement('div');
+          cutoff.className = 'ladder-cutoff-line';
+          const label = document.createElement('span');
+          label.className = 'ladder-cutoff-label';
+          label.innerText = 'Playoff Cutoff';
+          cutoff.appendChild(label);
+          ladder.appendChild(cutoff);
+        }
+
+        const tRec = wcPool[i];
+        ladder.appendChild(createLadderRow(tRec, i < 3, tRec.id === state.activeTeamId));
+      }
+
+      // If active team is below WC5 (i.e. index >= 5 in wcPool)
+      const activeIdx = wcPool.findIndex(t => t.id === state.activeTeamId);
+      if (activeIdx >= 5) {
+        // Draw ellipsis divider
+        const ellipsis = document.createElement('div');
+        ellipsis.style.textAlign = 'center';
+        ellipsis.style.color = 'var(--text-muted)';
+        ellipsis.style.fontSize = '12px';
+        ellipsis.style.margin = '4px 0';
+        ellipsis.innerText = '• • •';
+        ladder.appendChild(ellipsis);
+
+        // Draw active team row
+        const tRec = wcPool[activeIdx];
+        ladder.appendChild(createLadderRow(tRec, false, true));
+      }
+    }
+    trackerCard.appendChild(ladder);
+  }
+  container.appendChild(trackerCard);
+
+  // Helper: Create a visual timeline node for division timeline
+  function createTimelineNode(tRecord, isCurrent) {
+    const node = document.createElement('div');
+    node.className = `timeline-node ${isCurrent ? 'highlight' : ''}`;
+    
+    const leftSide = document.createElement('div');
+    leftSide.className = 'standings-team-cell';
+    const tBadge = document.createElement('div');
+    tBadge.className = 'team-badge-small';
+    tBadge.innerText = tRecord.abbreviation;
+    tBadge.style.background = tRecord.primaryColor;
+    tBadge.style.color = tRecord.textColor;
+
+    const tName = document.createElement('span');
+    tName.innerText = tRecord.name;
+    tName.style.fontWeight = isCurrent ? '700' : '500';
+
+    leftSide.appendChild(tBadge);
+    leftSide.appendChild(tName);
+
+    const rightSide = document.createElement('span');
+    rightSide.style.fontFamily = 'var(--font-title)';
+    rightSide.style.fontWeight = '700';
+    rightSide.innerText = `${tRecord.wins}-${tRecord.losses}`;
+
+    node.appendChild(leftSide);
+    node.appendChild(rightSide);
+    return node;
+  }
+
+  // Helper: Create a row for wildcard visual ladder
+  function createLadderRow(tRecord, inPlayoffs, isCurrent) {
+    const row = document.createElement('div');
+    row.className = `ladder-row ${inPlayoffs ? 'in-playoffs' : ''} ${isCurrent ? 'highlight' : ''}`;
+
+    const label = document.createElement('span');
+    label.className = 'ladder-label';
+    label.innerText = tRecord.wildCardRank <= 3 ? `WC ${tRecord.wildCardRank}` : 'OUT';
+
+    const teamCol = document.createElement('div');
+    teamCol.className = 'ladder-team';
+    const tBadge = document.createElement('div');
+    tBadge.className = 'team-badge-small';
+    tBadge.innerText = tRecord.abbreviation;
+    tBadge.style.background = tRecord.primaryColor;
+    tBadge.style.color = tRecord.textColor;
+    tBadge.style.fontSize = '9px';
+    const tName = document.createElement('span');
+    tName.innerText = tRecord.shortName;
+
+    teamCol.appendChild(tBadge);
+    teamCol.appendChild(tName);
+
+    const gap = document.createElement('span');
+    gap.className = `ladder-gap ${tRecord.wildCardGamesBack <= 0 ? 'ahead' : 'behind'}`;
+    
+    if (tRecord.wildCardGamesBack < 0) {
+      gap.innerText = `+${Math.abs(tRecord.wildCardGamesBack)}`;
+    } else if (tRecord.wildCardGamesBack > 0) {
+      gap.innerText = `${tRecord.wildCardGamesBack} GB`;
+    } else {
+      gap.innerText = '0.0';
+    }
+
+    row.appendChild(label);
+    row.appendChild(teamCol);
+    row.appendChild(gap);
+    return row;
+  }
+
+  // 3. Collapsible Magic Numbers Accordion (🔒 Clinch Math)
+  const magicAccordion = document.createElement('div');
+  magicAccordion.className = `magic-accordion ${state.magicNumberExpanded ? 'expanded' : ''}`;
+
+  const accordionHeader = document.createElement('button');
+  accordionHeader.className = 'magic-accordion-header';
+  
+  const headerTitle = document.createElement('span');
+  headerTitle.innerHTML = '🔒 Playoff Clinch Math';
+  
+  const caret = document.createElement('span');
+  caret.className = 'magic-accordion-caret';
+  caret.innerText = '▼';
+
+  accordionHeader.appendChild(headerTitle);
+  accordionHeader.appendChild(caret);
+  magicAccordion.appendChild(accordionHeader);
+
+  const accordionContent = document.createElement('div');
+  accordionContent.className = 'magic-accordion-content';
+
+  accordionHeader.addEventListener('click', () => {
+    state.magicNumberExpanded = !state.magicNumberExpanded;
+    render();
+  });
 
   const hasDivMagic = team.divisionMagicNumber !== undefined && team.divisionMagicNumber !== null;
   const hasWcMagic = team.wildCardMagicNumber !== undefined && team.wildCardMagicNumber !== null;
 
-  if (hasDivMagic || hasWcMagic) {
+  if (state.magicNumberExpanded) {
+    let clinchs = [];
+
+    // Division magic number info
+    const divText = document.createElement('p');
+    divText.style.marginBottom = '10px';
+    divText.style.fontSize = '13px';
     if (hasDivMagic) {
-      const card = document.createElement('div');
-      card.className = 'magic-card';
-      const num = document.createElement('div');
-      num.className = 'magic-num';
-      num.innerText = team.divisionMagicNumber;
-      const label = document.createElement('div');
-      label.className = 'magic-label';
-      label.innerText = 'Div Magic #';
-      card.appendChild(num);
-      card.appendChild(label);
-      magicRow.appendChild(card);
+      divText.innerHTML = `<strong>Division Magic Number: <span style="color:var(--color-gold); font-size:16px;">${team.divisionMagicNumber}</span></strong><br/>Any combination of ${team.shortName} wins and division rivals losses totaling ${team.divisionMagicNumber} clinches the division. <span style="color:var(--text-muted); font-size:11px;">(${gamesRemaining} games remaining)</span>`;
+    } else if (team.divisionLeader) {
+      divText.innerHTML = `<strong>Division Magic Number:</strong> No active magic number. You are leading the division. <span style="color:var(--text-muted); font-size:11px;">(${gamesRemaining} games remaining)</span>`;
+    } else {
+      divText.innerHTML = `<strong>Division Position:</strong> Trailing the division leader by ${team.gamesBack} games. <span style="color:var(--text-muted); font-size:11px;">(${gamesRemaining} games remaining)</span>`;
     }
+    accordionContent.appendChild(divText);
+
+    // Wild Card magic number info
+    const wcText = document.createElement('p');
+    wcText.style.fontSize = '13px';
     if (hasWcMagic) {
-      const card = document.createElement('div');
-      card.className = 'magic-card';
-      const num = document.createElement('div');
-      num.className = 'magic-num';
-      num.innerText = team.wildCardMagicNumber;
-      const label = document.createElement('div');
-      label.className = 'magic-label';
-      label.innerText = 'WC Magic #';
-      card.appendChild(num);
-      card.appendChild(label);
-      magicRow.appendChild(card);
+      wcText.innerHTML = `<strong>Wild Card Magic Number: <span style="color:var(--color-gold); font-size:16px;">${team.wildCardMagicNumber}</span></strong><br/>Any combination of ${team.shortName} wins and the first-out team's losses totaling ${team.wildCardMagicNumber} clinches a Wild Card spot. <span style="color:var(--text-muted); font-size:11px;">(${gamesRemaining} games remaining)</span>`;
+    } else if (team.isWildCardSpot) {
+      wcText.innerHTML = `<strong>Wild Card Position:</strong> Holding a Wild Card spot (+${Math.abs(team.wildCardGamesBack)} ahead of cutoff). <span style="color:var(--text-muted); font-size:11px;">(${gamesRemaining} games remaining)</span>`;
+    } else {
+      wcText.innerHTML = `<strong>Wild Card Position:</strong> Trailing the Wild Card cutoff by ${team.wildCardGamesBack} games. <span style="color:var(--text-muted); font-size:11px;">(${gamesRemaining} games remaining)</span>`;
     }
-    container.appendChild(magicRow);
-  } else {
-    // Show Wild Card position details if not leading division
-    if (!team.divisionLeader && team.wildCardRank) {
-      const card = document.createElement('div');
-      card.className = 'magic-card';
-      const num = document.createElement('div');
-      num.className = 'magic-num';
-      num.style.color = team.wildCardGamesBack <= 0 ? 'var(--color-win)' : 'var(--text-secondary)';
-      num.innerText = team.wildCardGamesBack <= 0 ? `+${Math.abs(team.wildCardGamesBack)}` : `${team.wildCardGamesBack}`;
-      const label = document.createElement('div');
-      label.className = 'magic-label';
-      label.innerText = team.wildCardGamesBack <= 0 ? 'Games Ahead of WC Cut' : 'Games Behind Wild Card';
-      card.appendChild(num);
-      card.appendChild(label);
-      magicRow.appendChild(card);
-      container.appendChild(magicRow);
-    }
+    accordionContent.appendChild(wcText);
+
+    const explText = document.createElement('div');
+    explText.className = 'magic-explain-text';
+    explText.innerHTML = `
+      <strong>What is a Magic Number?</strong><br/>
+      In baseball, the magic number is the total number of wins by your team and/or losses by your closest challenger required to mathematically clinch a playoff position. It represents guaranteed advancement.
+    `;
+    accordionContent.appendChild(explText);
   }
+
+  magicAccordion.appendChild(accordionContent);
+  container.appendChild(magicAccordion);
 
   // 3. Matchup / Rooting Guide Section
   const gamesTitle = document.createElement('h3');
