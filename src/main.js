@@ -15,7 +15,8 @@ let state = {
   loading: false,
   searchQuery: '',
   magicNumberExpanded: false,
-  activeTrackerTab: 'division' // 'division' | 'wildcard'
+  activeTrackerTab: 'division', // 'division' | 'wildcard'
+  expandedGamePks: [] // List of gamePk IDs that are expanded
 };
 
 // Helper: Convert Hex color to RGB string for custom CSS transparency gradients
@@ -576,7 +577,7 @@ function createDashboardView() {
   // 3. Matchup / Rooting Guide Section
   const gamesTitle = document.createElement('h3');
   gamesTitle.className = 'section-title';
-  gamesTitle.innerText = 'Daily Standings Relevance';
+  gamesTitle.innerText = 'Games That Matter Today';
   container.appendChild(gamesTitle);
 
   const games = state.rawSchedule || [];
@@ -586,25 +587,102 @@ function createDashboardView() {
   }
 
   const analysis = analyzeMatchups(games, state.processedStandings, state.activeTeamId);
+  const relevantGames = analysis.filter(g => g.priority > 0 || g.awayTeam.id === state.activeTeamId || g.homeTeam.id === state.activeTeamId);
+  const neutralGames = analysis.filter(g => g.priority === 0 && g.awayTeam.id !== state.activeTeamId && g.homeTeam.id !== state.activeTeamId);
 
-  analysis.forEach(item => {
+  if (relevantGames.length === 0) {
+    const noGamesMsg = document.createElement('p');
+    noGamesMsg.style.fontSize = '13px';
+    noGamesMsg.style.color = 'var(--text-secondary)';
+    noGamesMsg.style.textAlign = 'center';
+    noGamesMsg.style.padding = '20px 0';
+    noGamesMsg.innerText = 'No matchups directly impacting your standing today.';
+    container.appendChild(noGamesMsg);
+  } else {
+    relevantGames.forEach(item => {
+      container.appendChild(createGameCard(item, false));
+    });
+  }
+
+  if (neutralGames.length > 0) {
+    const divider = document.createElement('div');
+    divider.className = 'relevance-divider';
+    divider.innerText = 'Other Matchups (No Standing Impact)';
+    container.appendChild(divider);
+
+    neutralGames.forEach(item => {
+      container.appendChild(createGameCard(item, true));
+    });
+  }
+
+  // Helper inside createDashboardView to render cards
+  function createGameCard(item, isNeutral) {
     const card = document.createElement('div');
-    card.className = 'glass-card game-card';
+    card.className = `glass-card game-card ${isNeutral ? 'neutral' : ''}`;
+    
+    const isExpanded = state.expandedGamePks.includes(item.gamePk);
+
+    // Click handler to toggle details (only relevant games can be expanded)
+    if (!isNeutral) {
+      card.addEventListener('click', () => {
+        if (isExpanded) {
+          state.expandedGamePks = state.expandedGamePks.filter(pk => pk !== item.gamePk);
+        } else {
+          state.expandedGamePks.push(item.gamePk);
+        }
+        render();
+      });
+    }
 
     // Game Header
     const gHeader = document.createElement('div');
     gHeader.className = 'game-header';
     const date = new Date(item.gameDate);
     const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const timeNode = document.createElement('span');
-    timeNode.innerText = timeStr;
+    
+    const headerLeft = document.createElement('span');
+    headerLeft.innerText = timeStr;
+
+    const headerRight = document.createElement('div');
+    headerRight.style.display = 'flex';
+    headerRight.style.alignItems = 'center';
+    headerRight.style.gap = '8px';
 
     const statusNode = document.createElement('span');
     statusNode.className = `game-status ${item.status.statusCode === 'I' ? 'live' : ''}`;
     statusNode.innerText = item.status.detailedState;
+    headerRight.appendChild(statusNode);
 
-    gHeader.appendChild(timeNode);
-    gHeader.appendChild(statusNode);
+    // Completed game outcome badge (Happy/Sad Emoji)
+    const isFinal = item.status.statusCode === 'F' || item.status.detailedState === 'Final';
+    if (isFinal) {
+      const outcomeBadge = document.createElement('span');
+      
+      const isAwayWinner = item.awayScore > item.homeScore;
+      const winnerSide = isAwayWinner ? 'Away' : 'Home';
+      
+      if (item.rootFor === 'Neutral') {
+        outcomeBadge.className = 'outcome-badge neutral';
+        outcomeBadge.innerHTML = 'Neutral 😐';
+      } else if (item.rootFor === winnerSide) {
+        outcomeBadge.className = 'outcome-badge good';
+        outcomeBadge.innerHTML = 'Nice 😊';
+      } else {
+        outcomeBadge.className = 'outcome-badge bad';
+        outcomeBadge.innerHTML = 'Tough 😢';
+      }
+      headerRight.appendChild(outcomeBadge);
+    }
+
+    if (!isNeutral) {
+      const expandHint = document.createElement('span');
+      expandHint.className = 'card-expand-hint';
+      expandHint.innerText = isExpanded ? 'Collapse ▲' : 'Details ▼';
+      headerRight.appendChild(expandHint);
+    }
+
+    gHeader.appendChild(headerLeft);
+    gHeader.appendChild(headerRight);
     card.appendChild(gHeader);
 
     // Teams details
@@ -624,10 +702,20 @@ function createDashboardView() {
     const awayName = document.createElement('span');
     awayName.className = `team-name ${item.awayTeam.id === state.activeTeamId ? 'favorite' : ''}`;
     awayName.innerText = item.awayTeam.name;
+    
     awayInfo.appendChild(awayBadge);
     awayInfo.appendChild(awayName);
+
+    // Thumbs-up root indicator
+    if (item.rootFor === 'Away') {
+      const rootIcon = document.createElement('span');
+      rootIcon.className = 'root-indicator';
+      rootIcon.innerHTML = '👍';
+      awayInfo.appendChild(rootIcon);
+    }
+
     const awayScore = document.createElement('span');
-    awayScore.className = `team-score ${item.status.statusCode === 'F' ? (item.awayScore > item.homeScore ? 'winner' : 'loser') : ''}`;
+    awayScore.className = `team-score ${isFinal ? (item.awayScore > item.homeScore ? 'winner' : 'loser') : ''}`;
     awayScore.innerText = item.awayScore !== null && item.awayScore !== undefined ? item.awayScore : '';
     awayRow.appendChild(awayInfo);
     awayRow.appendChild(awayScore);
@@ -645,10 +733,20 @@ function createDashboardView() {
     const homeName = document.createElement('span');
     homeName.className = `team-name ${item.homeTeam.id === state.activeTeamId ? 'favorite' : ''}`;
     homeName.innerText = item.homeTeam.name;
+    
     homeInfo.appendChild(homeBadge);
     homeInfo.appendChild(homeName);
+
+    // Thumbs-up root indicator
+    if (item.rootFor === 'Home') {
+      const rootIcon = document.createElement('span');
+      rootIcon.className = 'root-indicator';
+      rootIcon.innerHTML = '👍';
+      homeInfo.appendChild(rootIcon);
+    }
+
     const homeScore = document.createElement('span');
-    homeScore.className = `team-score ${item.status.statusCode === 'F' ? (item.homeScore > item.awayScore ? 'winner' : 'loser') : ''}`;
+    homeScore.className = `team-score ${isFinal ? (item.homeScore > item.awayScore ? 'winner' : 'loser') : ''}`;
     homeScore.innerText = item.homeScore !== null && item.homeScore !== undefined ? item.homeScore : '';
     homeRow.appendChild(homeInfo);
     homeRow.appendChild(homeScore);
@@ -657,8 +755,8 @@ function createDashboardView() {
     gTeams.appendChild(homeRow);
     card.appendChild(gTeams);
 
-    // Rooting Advice Banner
-    if (item.rootFor !== 'Neutral' || item.priority > 0) {
+    // Rooting Advice Banner (Only visible on demand when expanded)
+    if (isExpanded && !isNeutral && (item.rootFor !== 'Neutral' || item.priority > 0)) {
       const banner = document.createElement('div');
       banner.className = `rooting-banner ${item.rootFor === 'Away' ? 'root-away' : item.rootFor === 'Home' ? 'root-home' : 'neutral'}`;
 
@@ -677,10 +775,15 @@ function createDashboardView() {
       banner.appendChild(badgeTarget);
       banner.appendChild(expl);
       card.appendChild(banner);
+
+      const footerHint = document.createElement('div');
+      footerHint.className = 'game-card-footer';
+      footerHint.innerText = 'Click card to collapse details';
+      card.appendChild(footerHint);
     }
 
-    container.appendChild(card);
-  });
+    return card;
+  }
 
   return container;
 }

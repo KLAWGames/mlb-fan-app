@@ -998,3 +998,116 @@ header {
   padding-top: 10px;
 }
 
+/* Expandable Game Cards & Relevance Layouts */
+.game-card {
+  cursor: pointer;
+  user-select: none;
+}
+
+.game-card.neutral {
+  opacity: 0.65;
+  box-shadow: none;
+}
+
+.game-card.neutral:hover {
+  opacity: 0.85;
+}
+
+.relevance-divider {
+  display: flex;
+  align-items: center;
+  margin: 32px 0 16px 0;
+  color: var(--text-muted);
+  font-family: var(--font-title);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.relevance-divider::before,
+.relevance-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.relevance-divider::before {
+  margin-right: 12px;
+}
+
+.relevance-divider::after {
+  margin-left: 12px;
+}
+
+/* Thumbs Up Root Indicator */
+.root-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-win);
+  font-size: 14px;
+  margin-left: 8px;
+  text-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+  animation: float-horizontal 2s ease-in-out infinite alternate;
+}
+
+@keyframes float-horizontal {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(3px); }
+}
+
+/* Completed Game Outcome Badges */
+.outcome-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.outcome-badge.good {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.outcome-badge.bad {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.outcome-badge.neutral {
+  background: rgba(107, 114, 128, 0.15);
+  color: #9ca3af;
+  border: 1px solid rgba(107, 114, 128, 0.25);
+}
+
+.card-expand-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-left: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+
+.game-card-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.04);
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+
