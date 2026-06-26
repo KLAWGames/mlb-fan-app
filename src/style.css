@@ -1338,3 +1338,52 @@ header {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.25);
 }
+
+/* Dashboard Banner Hover Override to prevent turning white on click/hover */
+.dashboard-banner:hover {
+  background: linear-gradient(135deg, var(--team-primary) 0%, var(--team-secondary) 100%) !important;
+  transform: none !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 4px 20px rgba(var(--team-primary-rgb, 19, 74, 142), 0.15) !important;
+}
+
+/* Pulse animation for selected game bar in banner */
+@keyframes selected-bar-pulse {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
+}
+
+.selected-bar-active {
+  animation: selected-bar-pulse 1.4s infinite ease-in-out;
+}
+
+/* Nav arrow buttons inside banner detail strip */
+.banner-nav-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.banner-nav-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.banner-nav-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.banner-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}

@@ -266,17 +266,16 @@ function generateSeasonGames(teamId, wins, losses) {
     outcomes[j] = temp;
   }
   
-  const startDate = new Date(2026, 3, 2); // April 2, 2026
+  const parts = state.selectedDate.split('-');
+  const baseDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
   const gamesList = [];
   const otherTeamIds = Object.keys(teamsData).map(Number).filter(id => id !== teamId);
   
-  let daysElapsed = 0;
   for (let i = 0; i < G; i++) {
-    if (i > 0 && i % 6 === 0) {
-      daysElapsed += 1; // off day
-    }
-    const gameDate = new Date(startDate.getTime() + daysElapsed * 24 * 60 * 60 * 1000);
-    daysElapsed += 1;
+    // Spacing out games going backward from selected date
+    const reverseIdx = G - 1 - i;
+    const offsetDays = reverseIdx + Math.floor(reverseIdx / 6);
+    const gameDate = new Date(baseDate.getTime() - offsetDays * 24 * 60 * 60 * 1000);
     
     // Opponent
     const oppIdx = Math.floor(lcg() * otherTeamIds.length);
@@ -1084,13 +1083,15 @@ function createDashboardView() {
       
       let fill = isWin ? '#34d399' : '#f87171'; // Teal for win, Rose for loss
       let strokeHtml = '';
+      let classList = 'run-diff-bar';
       if (isSelected) {
         fill = '#ffffff'; // White fill for selected game
         strokeHtml = `stroke="#ffffff" stroke-width="1.5"`;
+        classList += ' selected-bar-active';
       }
 
       barsHtml += `
-        <rect class="run-diff-bar" 
+        <rect class="${classList}" 
               data-game-idx="${idx}"
               x="${barX.toFixed(2)}" 
               y="${barY.toFixed(2)}" 
@@ -1099,12 +1100,12 @@ function createDashboardView() {
               fill="${fill}" 
               ${strokeHtml}
               rx="1.5"
-              style="cursor: pointer; transition: fill 0.15s; opacity: ${isSelected ? '1' : '0.85'};" />
+              style="pointer-events: none; opacity: ${isSelected ? '1' : '0.65'};" />
       `;
     });
 
     const svgHtml = `
-      <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%" height="auto" style="overflow: visible; background: none;">
+      <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%" height="auto" style="overflow: visible; background: none; pointer-events: none;">
         <!-- Zero baseline -->
         <line x1="${padL}" y1="${zeroY}" x2="${svgWidth - padR}" y2="${zeroY}" stroke="rgba(255, 255, 255, 0.25)" stroke-width="1" stroke-dasharray="2,2" />
         
@@ -1114,55 +1115,65 @@ function createDashboardView() {
     `;
 
     chartContainer.innerHTML = svgHtml;
-    
-    // Add event listeners to the SVG for selecting bars
-    const svgEl = chartContainer.querySelector('svg');
-    
-    svgEl.addEventListener('click', (e) => {
-      const bar = e.target.closest('.run-diff-bar');
-      if (!bar) return;
-      const idx = parseInt(bar.getAttribute('data-game-idx'));
-      state.selectedGameIdx = idx;
-      render(); // Trigger re-render to update detail strip and highlight
-    });
-    
-    svgEl.addEventListener('mouseover', (e) => {
-      const bar = e.target.closest('.run-diff-bar');
-      if (!bar) return;
-      const idx = parseInt(bar.getAttribute('data-game-idx'));
-      updateDetailStrip(seasonGames[idx]);
-    });
-    
-    svgEl.addEventListener('mouseleave', () => {
-      if (state.selectedGameIdx !== null && seasonGames[state.selectedGameIdx]) {
-        updateDetailStrip(seasonGames[state.selectedGameIdx]);
-      }
-    });
-
     banner.appendChild(chartContainer);
 
-    // --- Row 3: Selected Game Detail Strip ---
+    // --- Row 3: Selected Game Detail Strip with Arrow Navigation ---
     const detailStrip = document.createElement('div');
     detailStrip.className = 'banner-detail-strip';
-    detailStrip.style.textAlign = 'center';
-    detailStrip.style.fontSize = '11px';
-    detailStrip.style.color = 'rgba(255, 255, 255, 0.95)';
+    detailStrip.style.display = 'flex';
+    detailStrip.style.alignItems = 'center';
+    detailStrip.style.justifyContent = 'space-between';
+    detailStrip.style.gap = '8px';
     detailStrip.style.padding = '4px 8px';
     detailStrip.style.background = 'rgba(0, 0, 0, 0.18)';
     detailStrip.style.borderRadius = '4px';
     detailStrip.style.border = '1px solid rgba(255, 255, 255, 0.08)';
-    detailStrip.style.fontWeight = '500';
-    detailStrip.style.letterSpacing = '0.02em';
+    detailStrip.style.width = '100%';
+
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'banner-nav-btn';
+    prevBtn.innerText = '◀';
+    prevBtn.disabled = state.selectedGameIdx <= 0;
+    prevBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (state.selectedGameIdx > 0) {
+        state.selectedGameIdx--;
+        render();
+      }
+    });
+
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'banner-nav-btn';
+    nextBtn.innerText = '▶';
+    nextBtn.disabled = state.selectedGameIdx >= seasonGames.length - 1;
+    nextBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (state.selectedGameIdx < seasonGames.length - 1) {
+        state.selectedGameIdx++;
+        render();
+      }
+    });
+
+    const textContainer = document.createElement('div');
+    textContainer.style.flex = '1';
+    textContainer.style.textAlign = 'center';
+    textContainer.style.fontSize = '11px';
+    textContainer.style.color = 'rgba(255, 255, 255, 0.95)';
+    textContainer.style.fontWeight = '500';
+    textContainer.style.letterSpacing = '0.02em';
+    textContainer.style.whiteSpace = 'nowrap';
+    textContainer.style.overflow = 'hidden';
+    textContainer.style.textOverflow = 'ellipsis';
     
     function updateDetailStrip(g) {
       const resultText = g.isWin ? 'Win' : 'Loss';
       const resultColor = g.isWin ? '#6ee7b7' : '#fca5a5';
       const diffText = g.runDiff > 0 ? `+${g.runDiff}` : `${g.runDiff}`;
       
-      detailStrip.innerHTML = `
+      textContainer.innerHTML = `
         <span style="color: rgba(255,255,255,0.6); font-weight:600;">Game ${g.gameNumber} (${g.dateStr}):</span> 
         <span style="font-weight:700; color:${resultColor};">${resultText} ${g.teamScore}-${g.oppScore}</span> 
-        vs ${g.opponent} 
+        vs ${g.opponentAbbr} 
         <span style="color: rgba(255,255,255,0.6); font-weight:600;">(Diff: ${diffText})</span>
       `;
     }
@@ -1170,6 +1181,10 @@ function createDashboardView() {
     if (seasonGames[state.selectedGameIdx]) {
       updateDetailStrip(seasonGames[state.selectedGameIdx]);
     }
+
+    detailStrip.appendChild(prevBtn);
+    detailStrip.appendChild(textContainer);
+    detailStrip.appendChild(nextBtn);
     banner.appendChild(detailStrip);
   }
 
