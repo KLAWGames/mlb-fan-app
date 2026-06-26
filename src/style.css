@@ -220,6 +220,48 @@ header {
   pointer-events: none;
 }
 
+.banner-zoom-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-title);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  outline: none;
+}
+
+.banner-zoom-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.banner-zoom-btn:active {
+  transform: scale(0.95);
+}
+
+.banner-stats-ticker {
+  margin-right: 75px; /* Leave space for the absolute-positioned Zoom button */
+}
+
+@media (max-width: 480px) {
+  .banner-stats-ticker {
+    margin-right: 75px;
+  }
+}
+
 .banner-content {
   display: flex;
   justify-content: space-between;

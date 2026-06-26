@@ -23,6 +23,7 @@ let state = {
   selectedGameIdx: null, // Index of the selected game in the active team's run differential chart
   lastActiveTeamId: null, // Tracks the last team ID to reset selection index on switch
   teamGames: {}, // Cache of season games by team ID
+  bannerZoomedIn: false, // Tracks whether the run differential chart is zoomed to the last 10 games
   fetchingSchedules: {} // Track ongoing schedule fetches
 };
 
@@ -1099,6 +1100,35 @@ function createDashboardView() {
   banner.style.flexDirection = 'column';
   banner.style.gap = '14px';
   banner.style.padding = '16px';
+  banner.style.position = 'relative';
+
+  // Zoom Button (Toggle Zoom level of the run differential chart)
+  const zoomBtn = document.createElement('button');
+  zoomBtn.className = 'banner-zoom-btn';
+  zoomBtn.setAttribute('title', state.bannerZoomedIn ? 'Show All Games' : 'Zoom to Last 10 Games');
+  
+  const zoomIconSvg = state.bannerZoomedIn 
+    ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>` // Zoom Out (minus)
+    : `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>`; // Zoom In (plus)
+
+  zoomBtn.innerHTML = `${zoomIconSvg} <span style="vertical-align:middle;">${state.bannerZoomedIn ? 'ALL' : '10G'}</span>`;
+  
+  zoomBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    state.bannerZoomedIn = !state.bannerZoomedIn;
+    
+    // Adjust selectedGameIdx if it goes out of bounds of the zoom view
+    const seasonGames = generateSeasonGames(team.id, team.wins || 0, team.losses || 0);
+    if (state.bannerZoomedIn && seasonGames.length > 10) {
+      const minVisibleIdx = seasonGames.length - 10;
+      if (state.selectedGameIdx === null || state.selectedGameIdx < minVisibleIdx) {
+        state.selectedGameIdx = seasonGames.length - 1;
+      }
+    }
+    render();
+  });
+  
+  banner.appendChild(zoomBtn);
 
   // --- Row 1: Team Info & Stats Ticker ---
   const headerRow = document.createElement('div');
@@ -1132,6 +1162,7 @@ function createDashboardView() {
 
   // Right side stats ticker
   const right = document.createElement('div');
+  right.className = 'banner-stats-ticker';
   right.style.display = 'flex';
   right.style.gap = '8px';
   right.style.flexWrap = 'wrap';
@@ -1193,7 +1224,14 @@ function createDashboardView() {
   const seasonGames = generateSeasonGames(team.id, wins, losses);
   
   if (seasonGames.length > 0) {
+    const displayGames = state.bannerZoomedIn ? seasonGames.slice(-10) : seasonGames;
+    const startIndex = state.bannerZoomedIn ? (seasonGames.length - displayGames.length) : 0;
+
     if (state.selectedGameIdx === null || state.selectedGameIdx >= seasonGames.length) {
+      state.selectedGameIdx = seasonGames.length - 1;
+    }
+    // If zoomed in and selected index is out of visible range, adjust it to the latest game
+    if (state.bannerZoomedIn && state.selectedGameIdx < startIndex) {
       state.selectedGameIdx = seasonGames.length - 1;
     }
 
@@ -1217,16 +1255,17 @@ function createDashboardView() {
     const maxDiff = Math.max(...runDiffs, 1);
     const halfH = plotH / 2;
 
-    const G_count = seasonGames.length;
+    const G_count = displayGames.length;
     const slotW = plotW / G_count;
     const barWidth = Math.max(2.5, slotW - 1.5);
 
     let barsHtml = '';
-    seasonGames.forEach((g, idx) => {
+    displayGames.forEach((g, displayIdx) => {
+      const idx = startIndex + displayIdx;
       const isWin = g.isWin;
       const diff = Math.abs(g.runDiff);
       const barH = (diff / maxDiff) * halfH;
-      const barX = padL + idx * slotW;
+      const barX = padL + displayIdx * slotW;
       const barY = isWin ? (zeroY - barH) : zeroY;
       
       const isSelected = idx === state.selectedGameIdx;
