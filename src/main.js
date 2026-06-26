@@ -19,7 +19,9 @@ let state = {
   magicNumberExpanded: false,
   activeTrackerTab: 'division', // 'division' | 'wildcard'
   expandedGamePks: [], // List of gamePk IDs that are expanded
-  expandedTiebreakerTeamIds: [] // List of team IDs whose tiebreakers are expanded in the Wild Card view
+  expandedTiebreakerTeamIds: [], // List of team IDs whose tiebreakers are expanded in the Wild Card view
+  selectedGameIdx: null, // Index of the selected game in the active team's run differential chart
+  lastActiveTeamId: null // Tracks the last team ID to reset selection index on switch
 };
 
 // Helper: Convert Hex color to RGB string for custom CSS transparency gradients
@@ -237,6 +239,114 @@ function createDivisionRaceChart(teamA, teamB) {
   `;
 
   return div;
+}
+
+// Generate deterministic game-by-game results for a team
+function generateSeasonGames(teamId, wins, losses) {
+  const G = wins + losses;
+  if (G === 0) return [];
+  
+  // Seed based on teamId so it's stable
+  let seed = teamId * 17;
+  function lcg() {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed / 0x7fffffff;
+  }
+  
+  // Outcomes: wins (+1) and losses (-1)
+  const outcomes = [];
+  for (let i = 0; i < wins; i++) outcomes.push(1);
+  for (let i = 0; i < losses; i++) outcomes.push(-1);
+  
+  // Deterministic shuffle
+  for (let i = G - 1; i > 0; i--) {
+    const j = Math.floor(lcg() * (i + 1));
+    const temp = outcomes[i];
+    outcomes[i] = outcomes[j];
+    outcomes[j] = temp;
+  }
+  
+  const startDate = new Date(2026, 3, 2); // April 2, 2026
+  const gamesList = [];
+  const otherTeamIds = Object.keys(teamsData).map(Number).filter(id => id !== teamId);
+  
+  let daysElapsed = 0;
+  for (let i = 0; i < G; i++) {
+    if (i > 0 && i % 6 === 0) {
+      daysElapsed += 1; // off day
+    }
+    const gameDate = new Date(startDate.getTime() + daysElapsed * 24 * 60 * 60 * 1000);
+    daysElapsed += 1;
+    
+    // Opponent
+    const oppIdx = Math.floor(lcg() * otherTeamIds.length);
+    const oppId = otherTeamIds[oppIdx];
+    const opponent = teamsData[oppId] || { name: "Opponent", abbreviation: "OPP" };
+    
+    // Scores
+    const isWin = outcomes[i] === 1;
+    const runDiff = Math.floor(lcg() * 7) + 1; // 1 to 7
+    const oppScore = Math.floor(lcg() * 5); // 0 to 4
+    
+    let teamScore, finalOppScore;
+    if (isWin) {
+      teamScore = oppScore + runDiff;
+      finalOppScore = oppScore;
+    } else {
+      teamScore = oppScore;
+      finalOppScore = oppScore + runDiff;
+    }
+    
+    gamesList.push({
+      gameNumber: i + 1,
+      dateStr: gameDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      opponent: opponent.name,
+      opponentAbbr: opponent.abbreviation,
+      isWin,
+      teamScore,
+      oppScore: finalOppScore,
+      runDiff: isWin ? runDiff : -runDiff
+    });
+  }
+  
+  return gamesList;
+}
+
+// Calculate games out of the closest wildcard spot (or safety cushion if leading)
+function getWildCardStats(team, standings) {
+  if (!standings) return '-';
+  const leagueId = team.leagueId;
+  const allLeague = standings.leagueTeams?.[leagueId] || [];
+  const wcPool = allLeague.filter(t => !t.divisionLeader).sort((a, b) => a.wildCardRank - b.wildCardRank);
+  
+  if (wcPool.length < 3) return '-';
+  
+  const cutoffTeam = wcPool[2]; // 3rd spot
+  
+  if (team.divisionLeader) {
+    const gb = ((cutoffTeam.wins - team.wins) + (team.losses - cutoffTeam.losses)) / 2;
+    if (gb < 0) {
+      return `+${Math.abs(gb)} WC`;
+    } else {
+      return `${gb} GB`;
+    }
+  }
+  
+  // If in wcPool, find the record
+  const teamRec = wcPool.find(t => t.id === team.id);
+  if (!teamRec) return '-';
+  
+  if (teamRec.wildCardRank <= 3) {
+    const gb = teamRec.wildCardGamesBack; // negative or 0
+    if (gb < 0) {
+      return `+${Math.abs(gb)} WC`;
+    } else {
+      return '0.0 WC';
+    }
+  } else {
+    const gb = teamRec.wildCardGamesBack; // positive
+    return `${gb} GB`;
+  }
 }
 
 // Dynamically inject custom CSS variables for the active team's branding
@@ -829,11 +939,26 @@ function createDashboardView() {
   if (!team) return container;
 
   // 1. Dashboard Active Team Banner
+  // If activeTeamId changed, reset selectedGameIdx to null
+  if (state.lastActiveTeamId !== state.activeTeamId) {
+    state.selectedGameIdx = null;
+    state.lastActiveTeamId = state.activeTeamId;
+  }
+
   const banner = document.createElement('div');
   banner.className = 'glass-card dashboard-banner';
+  banner.style.display = 'flex';
+  banner.style.flexDirection = 'column';
+  banner.style.gap = '14px';
+  banner.style.padding = '16px';
 
-  const content = document.createElement('div');
-  content.className = 'banner-content';
+  // --- Row 1: Team Info & Stats Ticker ---
+  const headerRow = document.createElement('div');
+  headerRow.style.display = 'flex';
+  headerRow.style.justifyContent = 'space-between';
+  headerRow.style.alignItems = 'center';
+  headerRow.style.flexWrap = 'wrap';
+  headerRow.style.gap = '12px';
 
   const left = document.createElement('div');
   left.className = 'banner-team-info';
@@ -841,8 +966,8 @@ function createDashboardView() {
   const badge = document.createElement('div');
   badge.className = 'team-badge-large';
   badge.innerText = team.abbreviation;
-  badge.style.background = team.primaryColor;
-  badge.style.color = team.textColor;
+  badge.style.background = 'rgba(255, 255, 255, 0.12)';
+  badge.style.color = '#ffffff';
 
   const textNode = document.createElement('div');
   textNode.className = 'banner-team-text';
@@ -857,35 +982,197 @@ function createDashboardView() {
   left.appendChild(badge);
   left.appendChild(textNode);
 
+  // Right side stats ticker
   const right = document.createElement('div');
-  right.className = 'banner-stats';
-  const record = document.createElement('div');
-  record.className = 'banner-record';
-  record.innerText = team.wins !== undefined ? `${team.wins}-${team.losses}` : '0-0';
-  
+  right.style.display = 'flex';
+  right.style.gap = '8px';
+  right.style.flexWrap = 'wrap';
+
   const wins = team.wins !== undefined ? team.wins : 0;
   const losses = team.losses !== undefined ? team.losses : 0;
   const gamesRemaining = 162 - wins - losses;
-
-  const gamesLeftLabel = document.createElement('div');
-  gamesLeftLabel.className = 'games-left-label';
-  gamesLeftLabel.innerText = `${gamesRemaining} games left`;
-
-  const standingBadge = document.createElement('div');
-  standingBadge.className = 'banner-standing';
   
-  let standingText = `Rank ${team.divisionRank || '-'}`;
-  if (team.divisionLeader) standingText = "Division Leader";
-  else if (team.gamesBack !== undefined) standingText = `${team.gamesBack} GB`;
-  standingBadge.innerText = standingText;
+  let divStandingText = '-';
+  if (team.divisionLeader) divStandingText = "Leader";
+  else if (team.gamesBack !== undefined) divStandingText = `${team.gamesBack} GB`;
+  
+  const wcStandingText = getWildCardStats(team, state.processedStandings);
 
-  right.appendChild(record);
-  right.appendChild(gamesLeftLabel);
-  right.appendChild(standingBadge);
+  const statBoxes = [
+    { label: 'Record', value: `${wins}-${losses}` },
+    { label: 'Left', value: `${gamesRemaining}` },
+    { label: 'Division', value: divStandingText },
+    { label: 'Wild Card', value: wcStandingText }
+  ];
 
-  content.appendChild(left);
-  content.appendChild(right);
-  banner.appendChild(content);
+  statBoxes.forEach(box => {
+    const boxEl = document.createElement('div');
+    boxEl.style.background = 'rgba(255, 255, 255, 0.10)';
+    boxEl.style.border = '1px solid rgba(255, 255, 255, 0.18)';
+    boxEl.style.padding = '4px 10px';
+    boxEl.style.borderRadius = '4px';
+    boxEl.style.display = 'flex';
+    boxEl.style.flexDirection = 'column';
+    boxEl.style.alignItems = 'center';
+    boxEl.style.minWidth = '70px';
+
+    const labelEl = document.createElement('span');
+    labelEl.innerText = box.label;
+    labelEl.style.fontSize = '8px';
+    labelEl.style.textTransform = 'uppercase';
+    labelEl.style.color = 'rgba(255, 255, 255, 0.7)';
+    labelEl.style.fontWeight = '700';
+    labelEl.style.letterSpacing = '0.05em';
+    labelEl.style.marginBottom = '2px';
+
+    const valEl = document.createElement('span');
+    valEl.innerText = box.value;
+    valEl.style.fontSize = '13px';
+    valEl.style.color = '#ffffff';
+    valEl.style.fontWeight = '800';
+    valEl.style.fontFamily = 'var(--font-title)';
+
+    boxEl.appendChild(labelEl);
+    boxEl.appendChild(valEl);
+    right.appendChild(boxEl);
+  });
+
+  headerRow.appendChild(left);
+  headerRow.appendChild(right);
+  banner.appendChild(headerRow);
+
+  // --- Row 2: Run Differential Bar Chart ---
+  const seasonGames = generateSeasonGames(team.id, wins, losses);
+  
+  if (seasonGames.length > 0) {
+    if (state.selectedGameIdx === null || state.selectedGameIdx >= seasonGames.length) {
+      state.selectedGameIdx = seasonGames.length - 1;
+    }
+
+    const chartContainer = document.createElement('div');
+    chartContainer.className = 'banner-chart-container';
+    chartContainer.style.width = '100%';
+    chartContainer.style.marginTop = '4px';
+
+    const svgWidth = 500;
+    const svgHeight = 90;
+    const padL = 10;
+    const padR = 10;
+    const padT = 8;
+    const padB = 8;
+    const plotW = svgWidth - padL - padR;
+    const plotH = svgHeight - padT - padB;
+    const zeroY = padT + plotH / 2; // Center zero line
+    
+    const runDiffs = seasonGames.map(g => Math.abs(g.runDiff));
+    const maxDiff = Math.max(...runDiffs, 1);
+    const halfH = plotH / 2;
+
+    const G_count = seasonGames.length;
+    const slotW = plotW / G_count;
+    const barWidth = Math.max(2.5, slotW - 1.5);
+
+    let barsHtml = '';
+    seasonGames.forEach((g, idx) => {
+      const isWin = g.isWin;
+      const diff = Math.abs(g.runDiff);
+      const barH = (diff / maxDiff) * halfH;
+      const barX = padL + idx * slotW;
+      const barY = isWin ? (zeroY - barH) : zeroY;
+      
+      const isSelected = idx === state.selectedGameIdx;
+      
+      let fill = isWin ? '#34d399' : '#f87171'; // Teal for win, Rose for loss
+      let strokeHtml = '';
+      if (isSelected) {
+        fill = '#ffffff'; // White fill for selected game
+        strokeHtml = `stroke="#ffffff" stroke-width="1.5"`;
+      }
+
+      barsHtml += `
+        <rect class="run-diff-bar" 
+              data-game-idx="${idx}"
+              x="${barX.toFixed(2)}" 
+              y="${barY.toFixed(2)}" 
+              width="${barWidth.toFixed(2)}" 
+              height="${barH.toFixed(2)}" 
+              fill="${fill}" 
+              ${strokeHtml}
+              rx="1.5"
+              style="cursor: pointer; transition: fill 0.15s; opacity: ${isSelected ? '1' : '0.85'};" />
+      `;
+    });
+
+    const svgHtml = `
+      <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%" height="auto" style="overflow: visible; background: none;">
+        <!-- Zero baseline -->
+        <line x1="${padL}" y1="${zeroY}" x2="${svgWidth - padR}" y2="${zeroY}" stroke="rgba(255, 255, 255, 0.25)" stroke-width="1" stroke-dasharray="2,2" />
+        
+        <!-- Game Bars -->
+        ${barsHtml}
+      </svg>
+    `;
+
+    chartContainer.innerHTML = svgHtml;
+    
+    // Add event listeners to the SVG for selecting bars
+    const svgEl = chartContainer.querySelector('svg');
+    
+    svgEl.addEventListener('click', (e) => {
+      const bar = e.target.closest('.run-diff-bar');
+      if (!bar) return;
+      const idx = parseInt(bar.getAttribute('data-game-idx'));
+      state.selectedGameIdx = idx;
+      render(); // Trigger re-render to update detail strip and highlight
+    });
+    
+    svgEl.addEventListener('mouseover', (e) => {
+      const bar = e.target.closest('.run-diff-bar');
+      if (!bar) return;
+      const idx = parseInt(bar.getAttribute('data-game-idx'));
+      updateDetailStrip(seasonGames[idx]);
+    });
+    
+    svgEl.addEventListener('mouseleave', () => {
+      if (state.selectedGameIdx !== null && seasonGames[state.selectedGameIdx]) {
+        updateDetailStrip(seasonGames[state.selectedGameIdx]);
+      }
+    });
+
+    banner.appendChild(chartContainer);
+
+    // --- Row 3: Selected Game Detail Strip ---
+    const detailStrip = document.createElement('div');
+    detailStrip.className = 'banner-detail-strip';
+    detailStrip.style.textAlign = 'center';
+    detailStrip.style.fontSize = '11px';
+    detailStrip.style.color = 'rgba(255, 255, 255, 0.95)';
+    detailStrip.style.padding = '4px 8px';
+    detailStrip.style.background = 'rgba(0, 0, 0, 0.18)';
+    detailStrip.style.borderRadius = '4px';
+    detailStrip.style.border = '1px solid rgba(255, 255, 255, 0.08)';
+    detailStrip.style.fontWeight = '500';
+    detailStrip.style.letterSpacing = '0.02em';
+    
+    function updateDetailStrip(g) {
+      const resultText = g.isWin ? 'Win' : 'Loss';
+      const resultColor = g.isWin ? '#6ee7b7' : '#fca5a5';
+      const diffText = g.runDiff > 0 ? `+${g.runDiff}` : `${g.runDiff}`;
+      
+      detailStrip.innerHTML = `
+        <span style="color: rgba(255,255,255,0.6); font-weight:600;">Game ${g.gameNumber} (${g.dateStr}):</span> 
+        <span style="font-weight:700; color:${resultColor};">${resultText} ${g.teamScore}-${g.oppScore}</span> 
+        vs ${g.opponent} 
+        <span style="color: rgba(255,255,255,0.6); font-weight:600;">(Diff: ${diffText})</span>
+      `;
+    }
+
+    if (seasonGames[state.selectedGameIdx]) {
+      updateDetailStrip(seasonGames[state.selectedGameIdx]);
+    }
+    banner.appendChild(detailStrip);
+  }
+
   container.appendChild(banner);
 
   // 2. Playoff Position Visual Tracker Card
