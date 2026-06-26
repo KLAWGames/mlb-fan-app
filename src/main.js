@@ -829,16 +829,18 @@ function createDashboardView() {
           }
         }
         
-        // Find the team immediately behind this tied group
-        const maxGroupIdx = Math.max(...tiedGroup);
-        const nextIdx = maxGroupIdx + 1;
-        if (nextIdx < wcPool.length) {
-          newAdditions.push(nextIdx);
-          
-          // Also include any teams tied with this next team (to avoid half-hidden ties)
-          for (let j = 0; j < wcPool.length; j++) {
-            if (wcPool[j].wildCardGamesBack === wcPool[nextIdx].wildCardGamesBack) {
-              newAdditions.push(j);
+        // Find the team immediately behind this tied group if it is a tied group (size > 1)
+        if (tiedGroup.length > 1) {
+          const maxGroupIdx = Math.max(...tiedGroup);
+          const nextIdx = maxGroupIdx + 1;
+          if (nextIdx < wcPool.length) {
+            newAdditions.push(nextIdx);
+            
+            // Also include any teams tied with this next team (to avoid half-hidden ties)
+            for (let j = 0; j < wcPool.length; j++) {
+              if (wcPool[j].wildCardGamesBack === wcPool[nextIdx].wildCardGamesBack) {
+                newAdditions.push(j);
+              }
             }
           }
         }
