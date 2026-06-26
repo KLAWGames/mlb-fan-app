@@ -722,14 +722,14 @@ function createDashboardView() {
     const tiedTeams = wcPool.filter(t => t.wildCardGamesBack === tRecord.wildCardGamesBack);
     if (tiedTeams.length <= 1) return "";
 
-    let explanation = `<div style="font-weight:700; margin-bottom:4px; font-size:11px; text-transform:uppercase; color:#f59e0b; display:flex; align-items:center; gap:4px;">⚠️ Tiebreaker Breakdown</div>`;
+    let explanation = `<div style="font-weight:700; margin-bottom:4px; font-size:11px; text-transform:uppercase; color:#d97706; display:flex; align-items:center; gap:4px;">⚠️ Tiebreaker Breakdown</div>`;
     explanation += `<p style="margin-bottom:6px; font-size:11px; color:var(--text-secondary);">These teams are tied in games back (${tRecord.wildCardGamesBack < 0 ? '+' : ''}${Math.abs(tRecord.wildCardGamesBack)} GB). Standing rank is determined by winning percentage:</p>`;
     
     explanation += `<ul style="list-style:none; padding-left:0; display:flex; flex-direction:column; gap:4px;">`;
     tiedTeams.forEach(t => {
       const isCurrentTeam = t.id === tRecord.id;
       explanation += `
-        <li style="display:flex; justify-content:space-between; font-size:11px; padding:3px 6px; background:${isCurrentTeam ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.15)'}; border-radius:6px; border: 1px solid ${isCurrentTeam ? 'rgba(255,255,255,0.08)' : 'transparent'};">
+        <li style="display:flex; justify-content:space-between; font-size:11px; padding:4px 8px; background:${isCurrentTeam ? 'rgba(var(--team-primary-rgb), 0.1)' : 'rgba(0,0,0,0.03)'}; border-radius:6px; border: 1px solid ${isCurrentTeam ? 'rgba(var(--team-primary-rgb), 0.25)' : 'transparent'};">
           <span style="font-weight:${isCurrentTeam ? '700' : '500'}">${t.name}</span>
           <span style="font-family:monospace; font-weight:700;">${t.wins}-${t.losses} (${t.pct})</span>
         </li>
@@ -738,7 +738,7 @@ function createDashboardView() {
     explanation += `</ul>`;
 
     const bestTeam = tiedTeams[0];
-    explanation += `<p style="margin-top:8px; font-size:11px; border-top:1px solid rgba(255,255,255,0.05); padding-top:6px; color:var(--text-secondary);">
+    explanation += `<p style="margin-top:8px; font-size:11px; border-top:1px solid rgba(0,0,0,0.06); padding-top:6px; color:var(--text-secondary);">
       <strong>${bestTeam.shortName}</strong> currently holds the higher seed due to a superior winning percentage (<strong>${bestTeam.pct}</strong>).
     </p>`;
     
