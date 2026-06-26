@@ -27,7 +27,8 @@ let state = {
   fetchingSchedules: {}, // Track ongoing schedule fetches
   rawScheduleYesterday: null, // Cache of yesterday's schedule
   recapOpened: false, // Tracks whether the recap modal is currently open
-  highFivedTeams: [] // Track which team IDs have been high-fived
+  highFivedTeams: [], // Track which team IDs have been high-fived
+  previousMainView: 'dashboard' // Tracks previous view ('dashboard' | 'standings')
 };
 
 // Helper: Safely parse ISO UTC date strings to work reliably on all browsers (including iOS Safari)
@@ -1408,8 +1409,11 @@ function render() {
       case 'standings':
         mainContent.appendChild(createStandingsView());
         break;
-      case 'settings':
-        mainContent.appendChild(createSettingsView());
+      case 'team-select':
+        mainContent.appendChild(createTeamSelectView());
+        break;
+      case 'credits-version':
+        mainContent.appendChild(createCreditsVersionView());
         break;
       default:
         mainContent.appendChild(createDashboardView());
@@ -1418,8 +1422,92 @@ function render() {
 
   appContainer.appendChild(mainContent);
 
-  // 3. Render Bottom Navigation Bar
-  appContainer.appendChild(createNavigation());
+  // 3. Bottom Nav removed as tabs moved to header sticky navigation
+}
+
+// Global Hamburger Menu Controller
+function toggleHamburgerMenu(open) {
+  let drawer = document.getElementById('hamburger-drawer');
+  if (!drawer) {
+    drawer = document.createElement('div');
+    drawer.id = 'hamburger-drawer';
+    drawer.className = 'hamburger-drawer';
+    
+    const backdrop = document.createElement('div');
+    backdrop.className = 'drawer-backdrop';
+    backdrop.addEventListener('click', () => toggleHamburgerMenu(false));
+    drawer.appendChild(backdrop);
+    
+    const content = document.createElement('div');
+    content.className = 'drawer-content';
+    
+    const header = document.createElement('div');
+    header.className = 'drawer-header';
+    const title = document.createElement('h3');
+    title.innerText = 'BaseTab Menu';
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'drawer-close-btn';
+    closeBtn.innerHTML = '×';
+    closeBtn.addEventListener('click', () => toggleHamburgerMenu(false));
+    
+    header.appendChild(title);
+    header.appendChild(closeBtn);
+    content.appendChild(header);
+    
+    const list = document.createElement('div');
+    list.className = 'drawer-menu-list';
+    
+    // Option 1: Team Select
+    const optTeamSelect = document.createElement('button');
+    optTeamSelect.className = 'drawer-menu-item';
+    optTeamSelect.innerHTML = '👥 <span>Configure Teams</span>';
+    optTeamSelect.addEventListener('click', () => {
+      toggleHamburgerMenu(false);
+      state.activeView = 'team-select';
+      state.searchQuery = '';
+      render();
+    });
+    
+    // Option 2: Credits & Version
+    const optCredits = document.createElement('button');
+    optCredits.className = 'drawer-menu-item';
+    optCredits.innerHTML = 'ℹ️ <span>Credits & Version</span>';
+    optCredits.addEventListener('click', () => {
+      toggleHamburgerMenu(false);
+      state.activeView = 'credits-version';
+      render();
+    });
+    
+    // Option 3: Force Reload
+    const optReload = document.createElement('button');
+    optReload.className = 'drawer-menu-item';
+    optReload.innerHTML = '🔄 <span>Force Reload App</span>';
+    optReload.addEventListener('click', () => {
+      toggleHamburgerMenu(false);
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+          for (let registration of registrations) {
+            registration.unregister();
+          }
+        });
+      }
+      window.location.reload(true);
+    });
+    
+    list.appendChild(optTeamSelect);
+    list.appendChild(optCredits);
+    list.appendChild(optReload);
+    content.appendChild(list);
+    
+    drawer.appendChild(content);
+    document.body.appendChild(drawer);
+  }
+  
+  if (open) {
+    drawer.classList.add('show');
+  } else {
+    drawer.classList.remove('show');
+  }
 }
 
 // Header Component
@@ -1452,24 +1540,26 @@ function createHeader() {
     await loadData();
   });
 
-  const settingsBtn = document.createElement('button');
-  settingsBtn.className = 'settings-btn';
-  settingsBtn.innerHTML = '⚙️';
-  settingsBtn.title = 'App Settings';
-  settingsBtn.addEventListener('click', () => {
-    state.activeView = 'settings';
-    render();
+  const menuBtn = document.createElement('button');
+  menuBtn.className = 'menu-hamburger-btn';
+  menuBtn.innerHTML = '☰';
+  menuBtn.title = 'App Menu';
+  menuBtn.addEventListener('click', () => {
+    if (state.activeView === 'dashboard' || state.activeView === 'standings') {
+      state.previousMainView = state.activeView;
+    }
+    toggleHamburgerMenu(true);
   });
 
   rightControls.appendChild(dateInput);
-  rightControls.appendChild(settingsBtn);
+  rightControls.appendChild(menuBtn);
 
   topRow.appendChild(logo);
   topRow.appendChild(rightControls);
   header.appendChild(topRow);
 
-  // Team Switcher Tabs (Only visible on dashboard and standings views)
-  if (state.activeView !== 'settings') {
+  // Team Switcher & Standings Tabs (Only visible on dashboard and standings views)
+  if (state.activeView === 'dashboard' || state.activeView === 'standings') {
     const tabs = document.createElement('div');
     tabs.className = 'team-tabs';
 
@@ -1478,7 +1568,8 @@ function createHeader() {
       if (!team) return;
 
       const btn = document.createElement('button');
-      btn.className = `team-tab ${state.activeTeamId === id ? 'active' : ''}`;
+      const isTeamActive = state.activeView === 'dashboard' && state.activeTeamId === id;
+      btn.className = `team-tab ${isTeamActive ? 'active' : ''}`;
       
       const badge = document.createElement('div');
       badge.className = 'team-tab-badge';
@@ -1493,6 +1584,7 @@ function createHeader() {
       btn.appendChild(nameLabel);
 
       btn.addEventListener('click', () => {
+        state.activeView = 'dashboard';
         state.activeTeamId = id;
         updateTeamTheme(id);
         syncDefaultTab();
@@ -1502,21 +1594,54 @@ function createHeader() {
       tabs.appendChild(btn);
     });
 
+    // Standings Switcher Tab (🏆) next to teams
+    const standingsBtn = document.createElement('button');
+    const isStandingsActive = state.activeView === 'standings';
+    standingsBtn.className = `team-tab standings-tab-item ${isStandingsActive ? 'active' : ''}`;
+
+    const standingsBadge = document.createElement('div');
+    standingsBadge.className = 'team-tab-badge';
+    standingsBadge.innerText = '🏆';
+    standingsBadge.style.background = '#64748b';
+    standingsBadge.style.border = '1px solid #475569';
+    standingsBadge.style.color = '#ffffff';
+
+    const standingsLabel = document.createElement('span');
+    standingsLabel.innerText = 'Standings';
+
+    standingsBtn.appendChild(standingsBadge);
+    standingsBtn.appendChild(standingsLabel);
+
+    standingsBtn.addEventListener('click', () => {
+      state.activeView = 'standings';
+      render();
+    });
+
+    tabs.appendChild(standingsBtn);
+
     // Add team button if under limit of 3
     if (state.selectedTeamIds.length < 3) {
       const addBtn = document.createElement('button');
       addBtn.className = 'team-tab team-tab-add';
       addBtn.innerHTML = '＋';
       addBtn.title = 'Add Team to Track';
+      addBtn.style.flex = '0 0 auto';
       addBtn.addEventListener('click', () => {
-        state.activeView = 'settings';
+        if (state.activeView === 'dashboard' || state.activeView === 'standings') {
+          state.previousMainView = state.activeView;
+        }
+        state.activeView = 'team-select';
         state.searchQuery = '';
         render();
       });
       tabs.appendChild(addBtn);
     }
 
-    header.appendChild(tabs);
+    // Wrap in sticky wrapper to fix to top on scroll
+    const stickyWrapper = document.createElement('div');
+    stickyWrapper.className = 'sticky-nav-wrapper';
+    stickyWrapper.appendChild(tabs);
+    header.appendChild(stickyWrapper);
   }
 
   return header;
@@ -2980,31 +3105,45 @@ function createStandingsView() {
   return container;
 }
 
-// Settings / Team selection View
-function createSettingsView() {
+// Team Selection View (Settings sub-page)
+function createTeamSelectView() {
   const container = document.createElement('div');
   container.className = 'setup-container';
 
+  // Back Header Row
+  const backHeader = document.createElement('div');
+  backHeader.style.display = 'flex';
+  backHeader.style.alignItems = 'center';
+  backHeader.style.gap = '12px';
+  backHeader.style.marginBottom = '20px';
+
+  const backBtn = document.createElement('button');
+  backBtn.className = 'drawer-menu-item';
+  backBtn.style.cssText = 'font-size: 14px; font-weight: 700; color: var(--text-primary); background: var(--bg-card-hover); border: 1px solid var(--border-glass); border-radius: 6px; cursor: pointer; padding: 6px 12px; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; width: auto;';
+  backBtn.innerHTML = '← Back';
+  backBtn.addEventListener('click', () => {
+    state.activeView = state.previousMainView || 'dashboard';
+    render();
+  });
+
   const title = document.createElement('h2');
   title.className = 'setup-title';
-  title.innerText = 'App Settings';
+  title.innerText = 'Configure Teams';
+  title.style.margin = '0';
+
+  backHeader.appendChild(backBtn);
+  backHeader.appendChild(title);
+  container.appendChild(backHeader);
 
   const desc = document.createElement('p');
   desc.className = 'setup-desc';
-  desc.innerText = 'Configure your favorite teams and manage application preferences.';
+  desc.innerText = 'Select up to 3 favorite teams to track. Tap a team to select or deselect it.';
   desc.style.marginBottom = '20px';
-
-  container.appendChild(title);
   container.appendChild(desc);
 
   // Section 1: Tracked Teams
   const teamsSection = document.createElement('div');
   teamsSection.className = 'settings-section';
-
-  const teamsTitle = document.createElement('h3');
-  teamsTitle.className = 'settings-section-title';
-  teamsTitle.innerText = 'Tracked Teams (Max 3)';
-  teamsSection.appendChild(teamsTitle);
 
   const searchBox = document.createElement('div');
   searchBox.className = 'search-container';
@@ -3027,48 +3166,78 @@ function createSettingsView() {
 
   container.appendChild(teamsSection);
 
-  // Section 2: Diagnostics
-  const diagSection = document.createElement('div');
-  diagSection.className = 'settings-section';
-
-  const diagTitle = document.createElement('h3');
-  diagTitle.className = 'settings-section-title';
-  diagTitle.innerText = 'Diagnostics';
-  diagSection.appendChild(diagTitle);
-
-  const diagDesc = document.createElement('p');
-  diagDesc.style.fontSize = '12px';
-  diagDesc.style.color = 'var(--text-secondary)';
-  diagDesc.style.lineHeight = '1.5';
-  diagDesc.innerText = 'Perform a hard reload if the home screen web app caching prevents it from pulling the latest codebase updates.';
-  diagSection.appendChild(diagDesc);
-
-  const reloadBtn = document.createElement('button');
-  reloadBtn.className = 'force-reload-btn';
-  reloadBtn.innerHTML = '🔄 Force Reload App';
-  reloadBtn.addEventListener('click', () => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(registrations => {
-        for (let registration of registrations) {
-          registration.unregister();
-        }
-      });
-    }
-    // Perform hard reload
-    window.location.reload(true);
-  });
-  diagSection.appendChild(reloadBtn);
-
-  container.appendChild(diagSection);
-
-  // Section 3: Metadata Footer
-  const metadata = document.createElement('div');
-  metadata.className = 'settings-metadata';
-  metadata.innerHTML = `BaseTab Web App • <span class="settings-version">v1.2.0</span> • Production Build`;
-  container.appendChild(metadata);
-
   // Helper to populate grid
   setTimeout(() => filterTeamsList(), 0);
+
+  return container;
+}
+
+// Credits & Info View (Settings sub-page)
+function createCreditsVersionView() {
+  const container = document.createElement('div');
+  container.className = 'setup-container';
+
+  // Back Header Row
+  const backHeader = document.createElement('div');
+  backHeader.style.display = 'flex';
+  backHeader.style.alignItems = 'center';
+  backHeader.style.gap = '12px';
+  backHeader.style.marginBottom = '20px';
+
+  const backBtn = document.createElement('button');
+  backBtn.style.cssText = 'font-size: 14px; font-weight: 700; color: var(--text-primary); background: var(--bg-card-hover); border: 1px solid var(--border-glass); border-radius: 6px; cursor: pointer; padding: 6px 12px; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; width: auto;';
+  backBtn.innerHTML = '← Back';
+  backBtn.addEventListener('click', () => {
+    state.activeView = state.previousMainView || 'dashboard';
+    render();
+  });
+
+  const title = document.createElement('h2');
+  title.className = 'setup-title';
+  title.innerText = 'Credits & Info';
+  title.style.margin = '0';
+
+  backHeader.appendChild(backBtn);
+  backHeader.appendChild(title);
+  container.appendChild(backHeader);
+
+  // Credits info card
+  const creditsCard = document.createElement('div');
+  creditsCard.className = 'glass-card';
+  creditsCard.style.padding = '20px';
+  creditsCard.style.display = 'flex';
+  creditsCard.style.flexDirection = 'column';
+  creditsCard.style.gap = '14px';
+
+  const creditsTitle = document.createElement('h3');
+  creditsTitle.innerText = 'Data Source';
+  creditsTitle.style.fontFamily = 'var(--font-title)';
+  creditsTitle.style.fontSize = '16px';
+  creditsTitle.style.margin = '0';
+  creditsCard.appendChild(creditsTitle);
+
+  const creditsText = document.createElement('p');
+  creditsText.style.fontSize = '13px';
+  creditsText.style.color = 'var(--text-secondary)';
+  creditsText.style.lineHeight = '1.6';
+  creditsText.innerHTML = 'All schedules, standings, division/wildcard structures, and game statuses are fetched dynamically from the official <strong>MLB Stats API</strong>.';
+  creditsCard.appendChild(creditsText);
+
+  const appMetaTitle = document.createElement('h3');
+  appMetaTitle.innerText = 'App Version';
+  appMetaTitle.style.fontFamily = 'var(--font-title)';
+  appMetaTitle.style.fontSize = '16px';
+  appMetaTitle.style.margin = '0';
+  creditsCard.appendChild(appMetaTitle);
+
+  const appMetaText = document.createElement('p');
+  appMetaText.style.fontSize = '13px';
+  appMetaText.style.color = 'var(--text-secondary)';
+  appMetaText.style.lineHeight = '1.6';
+  appMetaText.innerHTML = '<strong>BaseTab Web App</strong><br>Version: v1.2.0<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
+  creditsCard.appendChild(appMetaText);
+
+  container.appendChild(creditsCard);
 
   return container;
 }
@@ -3172,42 +3341,97 @@ function createEmptyState(message) {
   return div;
 }
 
-// Navigation Bar Component
-function createNavigation() {
-  const nav = document.createElement('nav');
-  nav.className = 'bottom-nav';
-
-  const items = [
-    { view: 'dashboard', label: 'Games', icon: '📅' },
-    { view: 'standings', label: 'Standings', icon: '🏆' }
-  ];
-
-  items.forEach(item => {
-    const btn = document.createElement('button');
-    btn.className = `nav-item ${state.activeView === item.view ? 'active' : ''}`;
-    
-    const icon = document.createElement('span');
-    icon.className = 'nav-icon';
-    icon.innerText = item.icon;
-
-    const label = document.createElement('span');
-    label.className = 'nav-label';
-    label.innerText = item.label;
-
-    btn.appendChild(icon);
-    btn.appendChild(label);
-
-    btn.addEventListener('click', () => {
-      state.activeView = item.view;
-      state.searchQuery = '';
-      render();
-    });
-
-    nav.appendChild(btn);
+// Navigate between team dashboards and standings using swipe actions
+function navigateToTab(direction) {
+  // Build a list of valid switcher view targets
+  const viewsList = [];
+  state.selectedTeamIds.forEach(id => {
+    viewsList.push({ view: 'dashboard', teamId: id });
   });
+  viewsList.push({ view: 'standings' });
 
-  return nav;
+  // Resolve current active view index
+  let currentIndex = -1;
+  if (state.activeView === 'standings') {
+    currentIndex = viewsList.length - 1;
+  } else if (state.activeView === 'dashboard') {
+    currentIndex = viewsList.findIndex(item => item.view === 'dashboard' && item.teamId === state.activeTeamId);
+  }
+
+  // Swipe only functional on main switcher pages (dashboard & standings)
+  if (currentIndex === -1) return;
+
+  let nextIndex = currentIndex;
+  if (direction === 'left') {
+    // Swipe left (drags right-to-left) -> go to next view
+    if (currentIndex < viewsList.length - 1) {
+      nextIndex = currentIndex + 1;
+    }
+  } else if (direction === 'right') {
+    // Swipe right (drags left-to-right) -> go to previous view
+    if (currentIndex > 0) {
+      nextIndex = currentIndex - 1;
+    }
+  }
+
+  if (nextIndex !== currentIndex) {
+    const target = viewsList[nextIndex];
+    if (target.view === 'dashboard') {
+      state.activeView = 'dashboard';
+      state.activeTeamId = target.teamId;
+      updateTeamTheme(target.teamId);
+      syncDefaultTab();
+    } else {
+      state.activeView = 'standings';
+    }
+    render();
+  }
 }
+
+// Bind swipe gesture event listeners globally
+let touchStartX = 0;
+let touchStartY = 0;
+
+document.addEventListener('touchstart', (e) => {
+  // Ignore swipe triggers on active charts, maps, inputs, modal drawer backdrop or modals
+  if (e.target.closest('.banner-chart-container') || 
+      e.target.closest('.division-chart-container') || 
+      e.target.closest('.date-selector') || 
+      e.target.closest('.recap-content') ||
+      e.target.closest('.drawer-content') ||
+      e.target.closest('.team-list-grid')) {
+    return;
+  }
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, { passive: true });
+
+document.addEventListener('touchend', (e) => {
+  if (!touchStartX) return;
+
+  const touchEndX = e.changedTouches[0].clientX;
+  const touchEndY = e.changedTouches[0].clientY;
+
+  const diffX = touchEndX - touchStartX;
+  const diffY = touchEndY - touchStartY;
+
+  // Ignore primarily vertical scrolls (vertical swipe larger than horizontal)
+  if (Math.abs(diffY) > Math.abs(diffX)) {
+    touchStartX = 0;
+    return;
+  }
+
+  const threshold = 60; // minimum horizontal swipe pixels
+  if (Math.abs(diffX) > threshold) {
+    if (diffX > 0) {
+      navigateToTab('right');
+    } else {
+      navigateToTab('left');
+    }
+  }
+
+  touchStartX = 0;
+}, { passive: true });
 
 // Fire application initialization
 document.addEventListener('DOMContentLoaded', init);
