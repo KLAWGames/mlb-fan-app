@@ -785,12 +785,50 @@ function createDashboardView() {
     const wcPool = allLeague.filter(t => !t.divisionLeader).sort((a, b) => a.wildCardRank - b.wildCardRank);
 
     if (wcPool.length > 0) {
-      // We will show WC1, WC2, WC3, then Cutoff Line, then WC4, WC5
-      const showCount = Math.min(wcPool.length, 5);
+      const displayedIndices = new Set();
       
-      for (let i = 0; i < showCount; i++) {
-        if (i === 3) {
-          // Render Cutoff Line
+      // 1. Always display the top 5 (indices 0 to 4)
+      const baseLimit = Math.min(wcPool.length, 5);
+      for (let i = 0; i < baseLimit; i++) {
+        displayedIndices.add(i);
+      }
+      
+      // 2. Find active team index and add it + its chaser (the team immediately behind them)
+      const activeIdx = wcPool.findIndex(t => t.id === state.activeTeamId);
+      if (activeIdx >= 0) {
+        displayedIndices.add(activeIdx);
+        if (activeIdx + 1 < wcPool.length) {
+          displayedIndices.add(activeIdx + 1);
+        }
+      }
+      
+      // 3. Closure: Include all teams tied in games back with any team already selected
+      let addedNew = true;
+      while (addedNew) {
+        addedNew = false;
+        const currentIndices = Array.from(displayedIndices);
+        for (const idx of currentIndices) {
+          const team = wcPool[idx];
+          for (let j = 0; j < wcPool.length; j++) {
+            if (displayedIndices.has(j)) continue;
+            if (wcPool[j].wildCardGamesBack === team.wildCardGamesBack) {
+              displayedIndices.add(j);
+              addedNew = true;
+            }
+          }
+        }
+      }
+      
+      // 4. Sort indices ascending to render in correct standing order
+      const sortedIndices = Array.from(displayedIndices).sort((a, b) => a - b);
+      
+      // 5. Render rows, drawing cutoff line and ellipsis as needed
+      let cutoffDrawn = false;
+      let lastIdx = -1;
+      
+      sortedIndices.forEach((idx) => {
+        // Draw Cutoff Line when crossing the playoff threshold (index >= 3)
+        if (idx >= 3 && !cutoffDrawn) {
           const cutoff = document.createElement('div');
           cutoff.className = 'ladder-cutoff-line';
           const label = document.createElement('span');
@@ -798,28 +836,24 @@ function createDashboardView() {
           label.innerText = 'Playoff Cutoff';
           cutoff.appendChild(label);
           ladder.appendChild(cutoff);
+          cutoffDrawn = true;
         }
 
-        const tRec = wcPool[i];
-        ladder.appendChild(createLadderRow(tRec, i < 3, tRec.id === state.activeTeamId));
-      }
+        // Draw ellipsis if there's a gap in indices
+        if (lastIdx !== -1 && idx > lastIdx + 1) {
+          const ellipsis = document.createElement('div');
+          ellipsis.style.textAlign = 'center';
+          ellipsis.style.color = 'var(--text-muted)';
+          ellipsis.style.fontSize = '12px';
+          ellipsis.style.margin = '6px 0';
+          ellipsis.innerText = '• • •';
+          ladder.appendChild(ellipsis);
+        }
 
-      // If active team is below WC5 (i.e. index >= 5 in wcPool)
-      const activeIdx = wcPool.findIndex(t => t.id === state.activeTeamId);
-      if (activeIdx >= 5) {
-        // Draw ellipsis divider
-        const ellipsis = document.createElement('div');
-        ellipsis.style.textAlign = 'center';
-        ellipsis.style.color = 'var(--text-muted)';
-        ellipsis.style.fontSize = '12px';
-        ellipsis.style.margin = '4px 0';
-        ellipsis.innerText = '• • •';
-        ladder.appendChild(ellipsis);
-
-        // Draw active team row
-        const tRec = wcPool[activeIdx];
-        ladder.appendChild(createLadderRow(tRec, false, true));
-      }
+        const tRec = wcPool[idx];
+        ladder.appendChild(createLadderRow(tRec, idx < 3, tRec.id === state.activeTeamId));
+        lastIdx = idx;
+      });
     }
     trackerCard.appendChild(ladder);
   }
