@@ -32,6 +32,213 @@ function hexToRgbString(hex) {
     : "19, 74, 142";
 }
 
+// Generate season standings history (wins - losses) deterministically using LCG
+function generateSeasonHistory(teamId, wins, losses) {
+  const G = wins + losses;
+  if (G === 0) return [0];
+  
+  const history = [0];
+  
+  // Seed based on teamId so it's stable and unique per team
+  let seed = teamId * 13;
+  function lcg() {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed / 0x7fffffff;
+  }
+  
+  // Distribute wins (+1) and losses (-1)
+  const games = [];
+  for (let i = 0; i < wins; i++) games.push(1);
+  for (let i = 0; i < losses; i++) games.push(-1);
+  
+  // Deterministic shuffle using LCG
+  for (let i = G - 1; i > 0; i--) {
+    const j = Math.floor(lcg() * (i + 1));
+    const temp = games[i];
+    games[i] = games[j];
+    games[j] = temp;
+  }
+  
+  // Build cumulative wins - losses history
+  let diff = 0;
+  for (let i = 0; i < G; i++) {
+    diff += games[i];
+    history.push(diff);
+  }
+  
+  return history;
+}
+
+// Generate interactive SVG chart comparing two division teams
+function createDivisionRaceChart(teamA, teamB) {
+  const historyA = generateSeasonHistory(teamA.id, teamA.wins, teamA.losses);
+  const historyB = generateSeasonHistory(teamB.id, teamB.wins, teamB.losses);
+
+  const maxG = Math.max(historyA.length - 1, historyB.length - 1, 1);
+  const allY = [...historyA, ...historyB];
+  const minYVal = Math.min(...allY);
+  const maxYVal = Math.max(...allY);
+
+  // Buffer for Y-axis
+  const minY = Math.min(minYVal - 2, 0);
+  const maxY = Math.max(maxYVal + 2, 2);
+  const rangeY = maxY - minY;
+
+  // SVG dimensions
+  const svgWidth = 480;
+  const svgHeight = 200;
+  const padLeft = 45;
+  const padRight = 35;
+  const padTop = 15;
+  const padBottom = 25;
+  const chartWidth = svgWidth - padLeft - padRight;
+  const chartHeight = svgHeight - padTop - padBottom;
+
+  // Helper to map (game, val) to (x, y) pixels
+  function getCoords(g, val) {
+    const x = padLeft + (g / maxG) * chartWidth;
+    const y = padTop + chartHeight - ((val - minY) / rangeY) * chartHeight;
+    return { x, y };
+  }
+
+  // Draw grid lines and labels for Y-axis
+  const ySteps = 4;
+  let gridLinesHtml = '';
+  const drawnValues = new Set();
+  
+  // First, if 0 is in the range, let's draw it and add 0 to drawnValues
+  if (minY <= 0 && maxY >= 0) {
+    const { y } = getCoords(0, 0);
+    gridLinesHtml += `
+      <line x1="${padLeft}" y1="${y}" x2="${svgWidth - padRight}" y2="${y}" stroke="var(--border-glass-highlight)" stroke-width="1.5" />
+      <text x="${padLeft - 8}" y="${y}" font-size="9px" font-family="var(--font-body)" font-weight="600" fill="var(--text-muted)" text-anchor="end" alignment-baseline="middle">.500</text>
+    `;
+    drawnValues.add(0);
+  }
+
+  for (let i = 0; i <= ySteps; i++) {
+    const val = Math.round(minY + (i / ySteps) * rangeY);
+    if (drawnValues.has(val)) continue;
+    drawnValues.add(val);
+    
+    const { y } = getCoords(0, val);
+    gridLinesHtml += `
+      <line x1="${padLeft}" y1="${y}" x2="${svgWidth - padRight}" y2="${y}" stroke="var(--border-glass)" stroke-width="1" stroke-dasharray="3,3" />
+      <text x="${padLeft - 8}" y="${y}" font-size="9px" font-family="var(--font-body)" fill="var(--text-muted)" text-anchor="end" alignment-baseline="middle">${val > 0 ? `+${val}` : val}</text>
+    `;
+  }
+
+  // Draw X-axis grid lines and labels (game numbers)
+  const xSteps = [0, Math.round(maxG / 2), maxG];
+  let xAxisHtml = '';
+  xSteps.forEach(g => {
+    const { x } = getCoords(g, 0);
+    xAxisHtml += `<line x1="${x}" y1="${padTop}" x2="${x}" y2="${svgHeight - padBottom}" stroke="var(--border-glass)" stroke-width="1" stroke-dasharray="3,3" />`;
+    xAxisHtml += `<text x="${x}" y="${svgHeight - padBottom + 12}" font-size="9px" font-family="var(--font-body)" fill="var(--text-muted)" text-anchor="middle">Gm ${g}</text>`;
+  });
+
+  // Generate path string for Team A
+  let pathA = '';
+  historyA.forEach((val, g) => {
+    const { x, y } = getCoords(g, val);
+    pathA += (g === 0 ? 'M' : 'L') + ` ${x.toFixed(1)} ${y.toFixed(1)}`;
+  });
+
+  // Generate path string for Team B
+  let pathB = '';
+  historyB.forEach((val, g) => {
+    const { x, y } = getCoords(g, val);
+    pathB += (g === 0 ? 'M' : 'L') + ` ${x.toFixed(1)} ${y.toFixed(1)}`;
+  });
+
+  // Generate gradient area path string for Team A
+  let areaA = pathA;
+  const endCoordsA = getCoords(historyA.length - 1, minY);
+  const startCoordsA = getCoords(0, minY);
+  areaA += ` L ${endCoordsA.x.toFixed(1)} ${endCoordsA.y.toFixed(1)} L ${startCoordsA.x.toFixed(1)} ${startCoordsA.y.toFixed(1)} Z`;
+
+  // Generate gradient area path string for Team B
+  let areaB = pathB;
+  const endCoordsB = getCoords(historyB.length - 1, minY);
+  const startCoordsB = getCoords(0, minY);
+  areaB += ` L ${endCoordsB.x.toFixed(1)} ${endCoordsB.y.toFixed(1)} L ${startCoordsB.x.toFixed(1)} ${startCoordsB.y.toFixed(1)} Z`;
+
+  // Colors
+  const colorA = teamA.primaryColor || '#134a8e';
+  const colorB = teamB.primaryColor || '#f5d130';
+
+  // Last points coordinates
+  const lastGA = historyA.length - 1;
+  const lastValA = historyA[lastGA];
+  const ptA = getCoords(lastGA, lastValA);
+
+  const lastGB = historyB.length - 1;
+  const lastValB = historyB[lastGB];
+  const ptB = getCoords(lastGB, lastValB);
+
+  // Label overlap adjustment
+  let labelYA = ptA.y;
+  let labelYB = ptB.y;
+  if (Math.abs(labelYA - labelYB) < 12) {
+    if (labelYA <= labelYB) {
+      labelYA -= 6;
+      labelYB += 6;
+    } else {
+      labelYA += 6;
+      labelYB -= 6;
+    }
+  }
+
+  // Create wrapper div
+  const div = document.createElement('div');
+  div.className = 'division-chart-container';
+  div.style.width = '100%';
+
+  // Gradient definitions
+  const defsHtml = `
+    <defs>
+      <linearGradient id="gradA-${teamA.id}" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="${colorA}" stop-opacity="0.10" />
+        <stop offset="100%" stop-color="${colorA}" stop-opacity="0.00" />
+      </linearGradient>
+      <linearGradient id="gradB-${teamB.id}" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="${colorB}" stop-opacity="0.10" />
+        <stop offset="100%" stop-color="${colorB}" stop-opacity="0.00" />
+      </linearGradient>
+    </defs>
+  `;
+
+  div.innerHTML = `
+    <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%" height="auto" style="overflow: visible; background: none; border-radius: 4px;">
+      ${defsHtml}
+      
+      <!-- Grid -->
+      ${gridLinesHtml}
+      ${xAxisHtml}
+      
+      <!-- Area Gradients -->
+      <path d="${areaB}" fill="url(#gradB-${teamB.id})" />
+      <path d="${areaA}" fill="url(#gradA-${teamA.id})" />
+      
+      <!-- Team B Line -->
+      <path d="${pathB}" fill="none" stroke="${colorB}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+      
+      <!-- Team A Line -->
+      <path d="${pathA}" fill="none" stroke="${colorA}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+      
+      <!-- Today Dots -->
+      <circle cx="${ptB.x}" cy="${ptB.y}" r="4" fill="#ffffff" stroke="${colorB}" stroke-width="2" />
+      <circle cx="${ptA.x}" cy="${ptA.y}" r="5" fill="#ffffff" stroke="${colorA}" stroke-width="2.5" />
+      
+      <!-- Labels at end of lines -->
+      <text x="${ptB.x + 8}" y="${labelYB}" font-size="9px" font-weight="700" font-family="var(--font-title)" fill="${colorB}" alignment-baseline="middle">${teamB.abbreviation}</text>
+      <text x="${ptA.x + 8}" y="${labelYA}" font-size="9px" font-weight="700" font-family="var(--font-title)" fill="${colorA}" alignment-baseline="middle">${teamA.abbreviation}</text>
+    </svg>
+  `;
+
+  return div;
+}
+
 // Dynamically inject custom CSS variables for the active team's branding
 function updateTeamTheme(teamId) {
   const team = teamsData[teamId];
@@ -716,7 +923,7 @@ function createDashboardView() {
 
   // Visuals content
   if (state.activeTrackerTab === 'division') {
-    // DIVISION VISUAL TIMELINE
+    // DIVISION RACE CHART (replaced visual timeline with SVG comparison chart)
     const timeline = document.createElement('div');
     timeline.className = 'division-timeline';
 
@@ -725,52 +932,65 @@ function createDashboardView() {
 
     if (divTeams.length > 0) {
       const leader = divTeams[0];
+      const isLeader = team.divisionLeader;
+      const opponent = isLeader ? divTeams[1] : leader;
       
-      if (team.divisionLeader) {
-        // We are the leader! Show us first, then the 2nd place team
-        const nodeActive = createTimelineNode(team, true);
-        const line = document.createElement('div');
-        line.className = 'timeline-line';
+      if (opponent) {
+        // Render the legend at the top
+        const legend = document.createElement('div');
+        legend.className = 'chart-legend';
+        legend.style.display = 'flex';
+        legend.style.justifyContent = 'center';
+        legend.style.gap = '20px';
+        legend.style.fontSize = '11px';
+        legend.style.marginBottom = '8px';
+        legend.style.marginTop = '4px';
         
-        // Lead details
-        const secondPlace = divTeams[1];
-        if (secondPlace) {
-          const lead = ((team.wins - secondPlace.wins) + (secondPlace.losses - team.losses)) / 2;
-          const gap = document.createElement('div');
-          gap.className = 'timeline-gap-text';
-          gap.innerText = `+${lead} GB`;
-          
-          const trend = getDivisionTrend(team.id);
-          gap.appendChild(renderTrendBadge(trend));
-          
-          line.appendChild(gap);
+        const colorA = team.primaryColor || '#134a8e';
+        const colorB = opponent.primaryColor || '#f5d130';
+        const opponentLabel = isLeader ? '2nd Place' : 'Div Leader';
+        
+        legend.innerHTML = `
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="display:inline-block; width:8px; height:8px; background:${colorA}; border-radius:50%;"></span>
+            <span style="color:var(--text-primary); font-weight:700;">${team.shortName} (Active)</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="display:inline-block; width:8px; height:8px; background:${colorB}; border-radius:50%;"></span>
+            <span style="color:var(--text-secondary); font-weight:600;">${opponent.shortName} (${opponentLabel})</span>
+          </div>
+        `;
+        timeline.appendChild(legend);
+        
+        // Generate SVG chart
+        const chartNode = createDivisionRaceChart(team, opponent);
+        timeline.appendChild(chartNode);
+        
+        // Add info subtitle
+        const info = document.createElement('div');
+        info.style.textAlign = 'center';
+        info.style.fontSize = '12px';
+        info.style.color = 'var(--text-secondary)';
+        info.style.marginTop = '10px';
+        info.style.fontWeight = '500';
+        
+        let leadText = '';
+        if (isLeader) {
+          const lead = ((team.wins - opponent.wins) + (opponent.losses - team.losses)) / 2;
+          leadText = `Holding a <strong>+${lead} GB</strong> lead over ${opponent.shortName}.`;
+        } else {
+          leadText = `Trailing ${opponent.shortName} by <strong>${team.gamesBack} GB</strong>.`;
         }
-
-        const nodeSecond = secondPlace ? createTimelineNode(secondPlace, false) : null;
-
-        timeline.appendChild(nodeActive);
-        timeline.appendChild(line);
-        if (nodeSecond) timeline.appendChild(nodeSecond);
-      } else {
-        // We are chasing the leader! Show leader first, then us
-        const nodeLeader = createTimelineNode(leader, false);
-        const line = document.createElement('div');
-        line.className = 'timeline-line';
-        
-        const gap = document.createElement('div');
-        gap.className = 'timeline-gap-text';
-        gap.innerText = `${team.gamesBack} GB`;
         
         const trend = getDivisionTrend(team.id);
-        gap.appendChild(renderTrendBadge(trend));
+        const trendBadge = renderTrendBadge(trend);
         
-        line.appendChild(gap);
-
-        const nodeActive = createTimelineNode(team, true);
-
-        timeline.appendChild(nodeLeader);
-        timeline.appendChild(line);
-        timeline.appendChild(nodeActive);
+        info.innerHTML = leadText;
+        if (trend && trendBadge.innerText !== '') {
+          info.appendChild(document.createTextNode(' '));
+          info.appendChild(trendBadge);
+        }
+        timeline.appendChild(info);
       }
     }
     trackerCard.appendChild(timeline);
