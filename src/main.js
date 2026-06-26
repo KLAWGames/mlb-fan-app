@@ -2799,7 +2799,7 @@ function createDashboardView() {
       
       const label = document.createElement('span');
       label.style.fontWeight = '700';
-      label.innerText = 'Hot Bats: ';
+      label.innerText = 'Hitting Streaks: ';
       hotBatsRow.appendChild(label);
       
       const playersListSpan = document.createElement('span');
