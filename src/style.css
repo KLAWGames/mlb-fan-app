@@ -468,6 +468,12 @@ header {
   letter-spacing: -0.02em; /* Prevents overflow of wider team abbreviation letters */
 }
 
+.team-name-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px; /* Tight, controlled space between team name and badges, and between badges themselves */
+}
+
 .team-name {
   font-size: 14px;
   font-weight: 500;
@@ -490,7 +496,6 @@ header {
   font-weight: 800;
   padding: 1px 5px;
   border-radius: 2px; /* Halved from 4px */
-  margin-left: 6px;
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
@@ -506,7 +511,6 @@ header {
   font-weight: 800;
   padding: 1px 5px;
   border-radius: 2px; /* Halved from 4px */
-  margin-left: 6px;
   text-transform: uppercase;
   letter-spacing: 0.02em;
 }
