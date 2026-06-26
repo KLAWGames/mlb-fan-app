@@ -1542,6 +1542,152 @@ function createLoader() {
   return container;
 }
 
+// Calculate current win/loss streak for a team
+function getTeamStreak(teamId, wins, losses) {
+  const games = generateSeasonGames(teamId, wins, losses);
+  if (!games || games.length === 0) return { type: 'neutral', count: 0 };
+  
+  const lastGame = games[games.length - 1];
+  const isWinStreak = lastGame.isWin;
+  let count = 0;
+  
+  for (let i = games.length - 1; i >= 0; i--) {
+    if (games[i].isWin === isWinStreak) {
+      count++;
+    } else {
+      break;
+    }
+  }
+  
+  return {
+    type: isWinStreak ? 'win' : 'loss',
+    count: count
+  };
+}
+
+// Create a DOM element for the team streak badge (heating up, hot, on fire, cooling down, cold, ice cold)
+function createStreakBadge(streak) {
+  const badge = document.createElement('span');
+  badge.className = 'team-streak-badge';
+  
+  const count = streak.count;
+  const isWin = streak.type === 'win';
+  
+  let emoji = '';
+  let label = '';
+  let styleStr = '';
+  
+  if (isWin) {
+    badge.classList.add('hot-streak');
+    if (count >= 10) {
+      emoji = '🔥';
+      label = `On Fire (${count} Wins)`;
+      badge.classList.add('on-fire');
+      const glowRadius = Math.min(8 + (count - 10) * 1.5, 20);
+      styleStr = `background: linear-gradient(135deg, #ef4444, #a855f7); color: #ffffff; border: 1px solid #f43f5e; box-shadow: 0 0 ${glowRadius}px rgba(244, 63, 94, 0.7); font-weight: 800;`;
+    } else if (count >= 6) {
+      emoji = '🔥';
+      label = `Hot (${count} Wins)`;
+      const opacity = 0.4 + (count - 6) * 0.1;
+      styleStr = `background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, ${opacity});`;
+    } else { // 3-5 wins
+      emoji = '🔥';
+      label = `Heating Up (${count} Wins)`;
+      const opacity = 0.25 + (count - 3) * 0.08;
+      styleStr = `background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, ${opacity});`;
+    }
+  } else {
+    badge.classList.add('cold-streak');
+    if (count >= 10) {
+      emoji = '❄️';
+      label = `Ice Cold (${count} Losses)`;
+      badge.classList.add('ice-cold');
+      const glowRadius = Math.min(8 + (count - 10) * 1.5, 20);
+      styleStr = `background: linear-gradient(135deg, #0ea5e9, #2563eb); color: #ffffff; border: 1px solid #38bdf8; box-shadow: 0 0 ${glowRadius}px rgba(56, 189, 248, 0.7); font-weight: 800;`;
+    } else if (count >= 6) {
+      emoji = '❄️';
+      label = `Cold (${count} Losses)`;
+      const opacity = 0.4 + (count - 6) * 0.1;
+      styleStr = `background: rgba(37, 99, 235, 0.2); color: #3b82f6; border: 1px solid rgba(59, 130, 246, ${opacity});`;
+    } else { // 3-5 losses
+      emoji = '❄️';
+      label = `Cooling Down (${count} Losses)`;
+      const opacity = 0.25 + (count - 3) * 0.08;
+      styleStr = `background: rgba(186, 230, 253, 0.25); color: #0ea5e9; border: 1px solid rgba(14, 165, 233, ${opacity});`;
+    }
+  }
+  
+  badge.innerHTML = `<span class="streak-emoji">${emoji}</span><span class="streak-count">${count}</span>`;
+  badge.setAttribute('title', label);
+  if (styleStr) {
+    badge.style.cssText += styleStr;
+  }
+  return badge;
+}
+
+// Star players by team ID for realism
+const STAR_PLAYERS = {
+  141: ["Vladimir Guerrero Jr.", "Bo Bichette", "George Springer", "Daulton Varsho"], // Blue Jays
+  147: ["Aaron Judge", "Juan Soto", "Giancarlo Stanton", "Gleyber Torres"], // Yankees
+  119: ["Shohei Ohtani", "Mookie Betts", "Freddie Freeman", "Teoscar Hernández"], // Dodgers
+  144: ["Ronald Acuña Jr.", "Matt Olson", "Austin Riley", "Marcell Ozuna"], // Braves
+  143: ["Bryce Harper", "Trea Turner", "Kyle Schwarber", "J.T. Realmuto"], // Phillies
+  110: ["Adley Rutschman", "Gunnar Henderson", "Anthony Santander", "Cedric Mullins"], // Orioles
+  136: ["Julio Rodríguez", "Cal Raleigh", "J.P. Crawford", "Mitch Haniger"], // Mariners
+  117: ["Jose Altuve", "Yordan Alvarez", "Alex Bregman", "Kyle Tucker"], // Astros
+  135: ["Manny Machado", "Fernando Tatis Jr.", "Xander Bogaerts", "Jake Cronenworth"], // Padres
+  139: ["Randy Arozarena", "Yandy Díaz", "Isaac Paredes", "Brandon Lowe"], // Rays
+  111: ["Rafael Devers", "Triston Casas", "Jarren Duran", "Masataka Yoshida"], // Red Sox
+  112: ["Cody Bellinger", "Dansby Swanson", "Nico Hoerner", "Seiya Suzuki"], // Cubs
+  138: ["Paul Goldschmidt", "Nolan Arenado", "Willson Contreras", "Masyn Winn"], // Cardinals
+  158: ["Christian Yelich", "William Contreras", "Willy Adames", "Rhys Hoskins"], // Brewers
+  137: ["Matt Chapman", "Logan Webb", "Jung Hoo Lee", "Jorge Soler"] // Giants
+};
+
+const GENERIC_FIRST_NAMES = ["Mike", "John", "David", "James", "Brandon", "Tyler", "Chris", "Alex", "Bobby", "Austin", "Jose", "Carlos", "Luis", "Rafael", "Justin", "Marcus", "Zack", "Kyle"];
+const GENERIC_LAST_NAMES = ["Smith", "Johnson", "Rodriguez", "Hernandez", "Martinez", "Davis", "Miller", "Garcia", "Wilson", "Anderson", "Taylor", "Thomas", "Moore", "Jackson", "Martin", "Lee"];
+
+// Generate deterministic player hit streaks (>=10 games) for a team on a given date
+function getPlayerHitStreaks(teamId, dateStr) {
+  let seed = 0;
+  for (let i = 0; i < dateStr.length; i++) {
+    seed += dateStr.charCodeAt(i);
+  }
+  seed = (seed * 31 + teamId) % 10000;
+  
+  function random() {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    return seed / 0x7fffffff;
+  }
+  
+  const players = STAR_PLAYERS[teamId] || [];
+  if (players.length === 0) {
+    const generated = [];
+    for (let i = 0; i < 4; i++) {
+      const first = GENERIC_FIRST_NAMES[Math.floor(random() * GENERIC_FIRST_NAMES.length)];
+      const last = GENERIC_LAST_NAMES[Math.floor(random() * GENERIC_LAST_NAMES.length)];
+      generated.push(`${first} ${last}`);
+    }
+    players.push(...generated);
+  }
+  
+  const activeStreaks = [];
+  players.forEach((name, idx) => {
+    // 25% chance of a hit streak per player
+    const hasStreak = random() < 0.28;
+    if (hasStreak) {
+      const streakLength = Math.floor(random() * 17) + 10;
+      activeStreaks.push({
+        name,
+        streak: streakLength
+      });
+    }
+  });
+  
+  activeStreaks.sort((a, b) => b.streak - a.streak);
+  return activeStreaks;
+}
+
 // Dashboard View
 function createDashboardView() {
   const container = document.createElement('div');
@@ -1879,6 +2025,89 @@ function createDashboardView() {
     detailStrip.appendChild(textContainer);
     detailStrip.appendChild(btnGroup);
     banner.appendChild(detailStrip);
+
+    // Dynamic Player Hitting Streaks Section
+    const streaks = getPlayerHitStreaks(team.id, state.selectedDate);
+    const streaksContainer = document.createElement('div');
+    streaksContainer.className = 'banner-streaks-container';
+    streaksContainer.style.display = 'flex';
+    streaksContainer.style.flexDirection = 'column';
+    streaksContainer.style.gap = '6px';
+    streaksContainer.style.padding = '8px';
+    streaksContainer.style.background = 'rgba(0, 0, 0, 0.18)';
+    streaksContainer.style.borderRadius = '4px';
+    streaksContainer.style.border = '1px solid rgba(255, 255, 255, 0.08)';
+    streaksContainer.style.width = '100%';
+    streaksContainer.style.marginTop = '6px';
+
+    const streaksHeader = document.createElement('div');
+    streaksHeader.style.display = 'flex';
+    streaksHeader.style.justifyContent = 'space-between';
+    streaksHeader.style.alignItems = 'center';
+    
+    const streaksTitle = document.createElement('span');
+    streaksTitle.innerHTML = '⚡ <strong>Player Hitting Streaks</strong>';
+    streaksTitle.style.fontSize = '9px';
+    streaksTitle.style.color = 'rgba(255, 255, 255, 0.65)';
+    streaksTitle.style.textTransform = 'uppercase';
+    streaksTitle.style.letterSpacing = '0.05em';
+    streaksTitle.style.fontWeight = '700';
+    streaksHeader.appendChild(streaksTitle);
+    
+    streaksContainer.appendChild(streaksHeader);
+
+    const streaksList = document.createElement('div');
+    streaksList.style.display = 'flex';
+    streaksList.style.flexWrap = 'wrap';
+    streaksList.style.gap = '6px';
+    
+    if (streaks.length > 0) {
+      streaks.forEach(p => {
+        const playerBadge = document.createElement('div');
+        playerBadge.className = 'player-streak-badge';
+        
+        let color = '#ea580c';
+        let glow = '';
+        if (p.streak >= 20) {
+          color = '#f43f5e';
+          glow = 'box-shadow: 0 0 6px rgba(244, 63, 94, 0.4);';
+        } else if (p.streak >= 15) {
+          color = '#f97316';
+        } else {
+          color = '#f59e0b';
+        }
+        
+        playerBadge.style.cssText = `
+          background: rgba(255, 255, 255, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          padding: 3px 8px;
+          border-radius: 4px;
+          font-size: 11px;
+          font-weight: 500;
+          color: #ffffff;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          ${glow}
+        `;
+        
+        playerBadge.innerHTML = `
+          <span>${p.name}</span>
+          <span style="font-weight: 800; color: ${color}; font-family: var(--font-title);">${p.streak} Gms</span>
+        `;
+        streaksList.appendChild(playerBadge);
+      });
+    } else {
+      const emptyMsg = document.createElement('span');
+      emptyMsg.innerText = 'No active 10+ game hitting streaks.';
+      emptyMsg.style.fontSize = '11px';
+      emptyMsg.style.color = 'rgba(255, 255, 255, 0.5)';
+      emptyMsg.style.fontStyle = 'italic';
+      streaksList.appendChild(emptyMsg);
+    }
+    
+    streaksContainer.appendChild(streaksList);
+    banner.appendChild(streaksContainer);
   }
 
   container.appendChild(banner);
@@ -2556,6 +2785,12 @@ function createDashboardView() {
       awayInfoWrapper.appendChild(rootIcon);
     }
 
+    // Streak indicator
+    const awayStreak = getTeamStreak(item.awayTeam.id, item.awayTeam.wins || 0, item.awayTeam.losses || 0);
+    if (awayStreak && awayStreak.count >= 3) {
+      awayInfoWrapper.appendChild(createStreakBadge(awayStreak));
+    }
+
     awayInfo.appendChild(awayInfoWrapper);
 
     const awayScore = document.createElement('span');
@@ -2599,6 +2834,12 @@ function createDashboardView() {
       rootIcon.className = 'root-indicator-badge';
       rootIcon.innerText = 'ROOT';
       homeInfoWrapper.appendChild(rootIcon);
+    }
+
+    // Streak indicator
+    const homeStreak = getTeamStreak(item.homeTeam.id, item.homeTeam.wins || 0, item.homeTeam.losses || 0);
+    if (homeStreak && homeStreak.count >= 3) {
+      homeInfoWrapper.appendChild(createStreakBadge(homeStreak));
     }
 
     homeInfo.appendChild(homeInfoWrapper);

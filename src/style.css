@@ -1713,4 +1713,49 @@ header {
   transform: scale(1.2) rotate(-5deg);
 }
 
+/* Team Streak Badges */
+.team-streak-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1.5px 5px;
+  border-radius: 4px;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: middle;
+  transition: var(--transition-smooth);
+}
+
+.team-streak-badge.on-fire {
+  animation: pulse-glow-fire 1.5s infinite alternate;
+}
+
+.team-streak-badge.ice-cold {
+  animation: pulse-glow-ice 1.5s infinite alternate;
+}
+
+@keyframes pulse-glow-fire {
+  0% {
+    box-shadow: 0 0 4px rgba(244, 63, 94, 0.4);
+    transform: scale(1);
+  }
+  100% {
+    box-shadow: 0 0 12px rgba(244, 63, 94, 0.8);
+    transform: scale(1.05);
+  }
+}
+
+@keyframes pulse-glow-ice {
+  0% {
+    box-shadow: 0 0 4px rgba(56, 189, 248, 0.4);
+    transform: scale(1);
+  }
+  100% {
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.8);
+    transform: scale(1.05);
+  }
+}
+
 
