@@ -223,11 +223,31 @@ export function analyzeMatchups(games, processedStandings, favoriteTeamId) {
 
     if (awayTeam.id === favoriteTeamId) {
       rootFor = "Away";
-      explanation = "This is your team! Root for a big win today to boost your standing.";
+      if (favorite.divisionLeader) {
+        explanation = `This is your team! You are currently leading the division. Root for a big win today to secure your lead!`;
+      } else {
+        let wcText = "";
+        if (favorite.isWildCardSpot) {
+          wcText = ` (+${Math.abs(favorite.wildCardGamesBack).toFixed(1)} up in the Wild Card)`;
+        } else {
+          wcText = ` (${favorite.wildCardGamesBack.toFixed(1)} GB in the Wild Card)`;
+        }
+        explanation = `This is your team! You are currently ${favorite.gamesBack.toFixed(1)} GB in the division${wcText}. Root for a big win today to catch up!`;
+      }
       priority = 100;
     } else if (homeTeam.id === favoriteTeamId) {
       rootFor = "Home";
-      explanation = "This is your team! Root for a big win today to boost your standing.";
+      if (favorite.divisionLeader) {
+        explanation = `This is your team! You are currently leading the division. Root for a big win today to secure your lead!`;
+      } else {
+        let wcText = "";
+        if (favorite.isWildCardSpot) {
+          wcText = ` (+${Math.abs(favorite.wildCardGamesBack).toFixed(1)} up in the Wild Card)`;
+        } else {
+          wcText = ` (${favorite.wildCardGamesBack.toFixed(1)} GB in the Wild Card)`;
+        }
+        explanation = `This is your team! You are currently ${favorite.gamesBack.toFixed(1)} GB in the division${wcText}. Root for a big win today to catch up!`;
+      }
       priority = 100;
     } else {
       // Simulate who to root for
@@ -270,20 +290,45 @@ export function analyzeMatchups(games, processedStandings, favoriteTeamId) {
 }
 
 function generateExplanation(threatTeam, targetOpponent, favorite, isAwayThreat) {
-  const relation = threatTeam.divisionId === favorite.divisionId ? "division" : "Wild Card";
-  const locationText = isAwayThreat ? "Away" : "Home";
-
-  if (threatTeam.divisionId === favorite.divisionId) {
-    if (favorite.divisionLeader) {
-      return `Root for ${targetOpponent.shortName}. A loss by division rival ${threatTeam.shortName} increases your lead in the ${relation} race.`;
-    } else if (threatTeam.divisionLeader) {
-      return `Root for ${targetOpponent.shortName}. A loss by division-leading ${threatTeam.shortName} helps you catch up in the division standings.`;
+  const isDivRival = threatTeam.divisionId === favorite.divisionId;
+  const isWcRival = threatTeam.leagueId === favorite.leagueId && !isDivRival;
+  
+  if (isDivRival) {
+    const currentGap = threatTeam.gamesBack - favorite.gamesBack;
+    const absGap = Math.abs(currentGap);
+    
+    if (currentGap > 0) {
+      // Favorite is ahead in division
+      return `You are currently ${currentGap.toFixed(1)} games ahead of ${threatTeam.shortName} in the division race. Root for ${targetOpponent.shortName} today: a loss by ${threatTeam.shortName} will extend your division lead to ${(currentGap + 0.5).toFixed(1)} games.`;
+    } else if (currentGap < 0) {
+      // Favorite is behind in division
+      return `You are currently ${absGap.toFixed(1)} games behind division leader ${threatTeam.shortName}. Root for ${targetOpponent.shortName} today: a loss by ${threatTeam.shortName} will cut your division deficit to ${(absGap - 0.5).toFixed(1)} games.`;
     } else {
-      return `Root for ${targetOpponent.shortName}. A loss by division rival ${threatTeam.shortName} helps you climb the division rankings.`;
+      // Tied
+      return `You are currently tied with division rival ${threatTeam.shortName}. Root for ${targetOpponent.shortName} today: a loss by ${threatTeam.shortName} will push you 0.5 games ahead of them in the division race.`;
     }
-  } else if (threatTeam.leagueId === favorite.leagueId) {
-    return `Root for ${targetOpponent.shortName}. A loss by ${threatTeam.shortName} helps you gain ground in the competitive ${relation} playoff race.`;
+  } else if (isWcRival) {
+    if (favorite.divisionLeader) {
+      const winsDiff = favorite.wins - threatTeam.wins;
+      return `You are leading your division, but ${threatTeam.shortName} is a threat in the league standings (currently ${winsDiff} wins behind you). Root for ${targetOpponent.shortName} to help secure your overall league seeding.`;
+    } else if (threatTeam.divisionLeader) {
+      return `Root for ${targetOpponent.shortName}. Division leader ${threatTeam.shortName} represents a potential threat in overall league playoff seeding.`;
+    } else {
+      const currentGap = threatTeam.wildCardGamesBack - favorite.wildCardGamesBack;
+      const absGap = Math.abs(currentGap);
+      
+      if (currentGap > 0) {
+        // Favorite is ahead in wildcard
+        return `You are currently ${currentGap.toFixed(1)} games ahead of ${threatTeam.shortName} in the Wild Card race. Root for ${targetOpponent.shortName} today: a loss by ${threatTeam.shortName} will widen your cushion to ${(currentGap + 0.5).toFixed(1)} games.`;
+      } else if (currentGap < 0) {
+        // Favorite is behind in wildcard
+        return `You are currently ${absGap.toFixed(1)} games behind ${threatTeam.shortName} in the Wild Card standings. Root for ${targetOpponent.shortName} today: a loss by ${threatTeam.shortName} will shrink the margin to ${(absGap - 0.5).toFixed(1)} games.`;
+      } else {
+        // Tied
+        return `You are currently tied with Wild Card rival ${threatTeam.shortName}. Root for ${targetOpponent.shortName} today: a loss by ${threatTeam.shortName} will put you 0.5 games ahead of them in the Wild Card standings.`;
+      }
+    }
   }
   
-  return `Root for ${targetOpponent.shortName}. A loss by ${threatTeam.shortName} is favorable for your team's playoff positioning.`;
+  return `Root for ${targetOpponent.shortName}. A loss by ${threatTeam.shortName} is favorable for your team's overall playoff positioning.`;
 }
