@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spray Chart Interactive Preview - BaseTab</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --bg-card: rgba(30, 41, 59, 0.7);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      
+      /* Play outcome colors */
+      --color-single: #3b82f6; /* Blue */
+      --color-double: #10b981; /* Green */
+      --color-triple: #f59e0b; /* Amber */
+      --color-hr: #ec4899;     /* Pink */
+      --color-out: #64748b;    /* Slate */
+      
+      /* Team Primary Colors */
+      --dodgers-blue: #005a9c;
+      --giants-orange: #f26722;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+      overflow-x: hidden;
+    }
+
+    header {
+      width: 100%;
+      max-width: 480px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .app-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #38bdf8;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Game Header Card */
+    .game-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 12px;
+    }
+
+    .team-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 1rem;
+    }
+
+    .team-color-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .team-color-dot.dodgers {
+      background-color: var(--dodgers-blue);
+      box-shadow: 0 0 8px var(--dodgers-blue);
+    }
+
+    .team-color-dot.giants {
+      background-color: var(--giants-orange);
+      box-shadow: 0 0 8px var(--giants-orange);
+    }
+
+    .vs {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+
+    .game-score {
+      font-size: 1rem;
+      font-weight: 700;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 4px 10px;
+      border-radius: 8px;
+    }
+
+    /* Filters */
+    .filter-tabs {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: none;
+    }
+
+    .filter-tabs::-webkit-scrollbar {
+      display: none;
+    }
+
+    .tab-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 100px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+    }
+
+    .tab-btn.active {
+      background: var(--text-main);
+      color: var(--bg-dark);
+      border-color: var(--text-main);
+    }
+
+    /* Baseball Field Wrapper */
+    .field-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      background: #022c22; /* Deep grass dark-green background */
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: inset 0 0 40px rgba(0,0,0,0.5);
+    }
+
+    svg.baseball-field {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* SVG Styling */
+    .field-grass {
+      fill: #064e3b;
+    }
+
+    .field-dirt {
+      fill: #b45309;
+      opacity: 0.25;
+    }
+
+    .field-lines {
+      stroke: rgba(255, 255, 255, 0.4);
+      stroke-width: 1;
+      stroke-dasharray: 2 2;
+    }
+
+    .foul-lines {
+      stroke: #ffffff;
+      stroke-width: 1.5;
+      opacity: 0.8;
+    }
+
+    .base {
+      fill: #ffffff;
+      stroke: #94a3b8;
+      stroke-width: 0.5;
+    }
+
+    /* Interactive Dot Styles */
+    .hit-dot {
+      cursor: pointer;
+      transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), r 0.2s;
+      transform-origin: center;
+    }
+
+    .hit-dot:hover {
+      transform: scale(2);
+      stroke: #ffffff !important;
+      stroke-width: 1.5px !important;
+      z-index: 10;
+    }
+
+    .hit-dot.active {
+      transform: scale(2.5);
+      stroke: #ffffff !important;
+      stroke-width: 2px !important;
+      filter: drop-shadow(0 0 6px var(--text-main));
+      animation: pulse 1.5s infinite alternate;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.8; }
+      100% { opacity: 1; filter: drop-shadow(0 0 10px white); }
+    }
+
+    /* Details Panel */
+    .details-panel {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 85px;
+      justify-content: center;
+      transition: all 0.3s ease;
+    }
+
+    .details-placeholder {
+      color: var(--text-muted);
+      text-align: center;
+      font-size: 0.85rem;
+      font-style: italic;
+    }
+
+    .details-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .batter-name {
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    .play-event {
+      font-size: 0.75rem;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 100px;
+      text-transform: uppercase;
+    }
+
+    .play-event.single { background-color: rgba(59, 130, 246, 0.2); color: var(--color-single); }
+    .play-event.double { background-color: rgba(16, 185, 129, 0.2); color: var(--color-double); }
+    .play-event.triple { background-color: rgba(245, 158, 11, 0.2); color: var(--color-triple); }
+    .play-event.hr { background-color: rgba(236, 72, 153, 0.2); color: var(--color-hr); }
+    .play-event.out { background-color: rgba(100, 116, 139, 0.2); color: var(--color-out); }
+
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .stat-box {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255,255,255,0.03);
+      padding: 6px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .stat-label {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    /* Legend */
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      font-size: 0.7rem;
+      margin-top: 4px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-muted);
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .dot-single { background-color: var(--color-single); }
+    .dot-double { background-color: var(--color-double); }
+    .dot-triple { background-color: var(--color-triple); }
+    .dot-hr { background-color: var(--color-hr); }
+    .dot-out { background-color: var(--color-out); }
+
+    /* Info Banner */
+    .ios-note {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 1.4;
+      margin-top: 12px;
+      max-width: 440px;
+    }
+
+    .highlight-text {
+      color: #38bdf8;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="app-title">BaseTab Labs</div>
+    <div class="subtitle">Interactive Vector Spray Chart Prototype</div>
+  </header>
+
+  <div class="container">
+    <!-- Matchup Title -->
+    <div class="game-header">
+      <div class="team-badge">
+        <div class="team-color-dot dodgers"></div>
+        <span>LAD</span>
+      </div>
+      <div class="vs">@</div>
+      <div class="team-badge">
+        <div class="team-color-dot giants"></div>
+        <span>SF</span>
+      </div>
+      <div class="game-score">6 - 4</div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-tabs">
+      <button class="tab-btn active" onclick="filterData('all')">All Plays</button>
+      <button class="tab-btn" onclick="filterData('LAD')">Dodgers (Away)</button>
+      <button class="tab-btn" onclick="filterData('SF')">Giants (Home)</button>
+      <button class="tab-btn" onclick="filterData('hits')">Hits Only</button>
+      <button class="tab-btn" onclick="filterData('hr')">Home Runs</button>
+    </div>
+
+    <!-- Interactive Field -->
+    <div class="field-wrapper">
+      <svg viewBox="0 0 250 250" class="baseball-field" id="fieldSvg">
+        <!-- Outfield Grass Arc (R=175 centered at home plate 125,205) -->
+        <path d="M 10,120 A 155,155 0 0,1 240,120 L 125,205 Z" class="field-grass" />
+        
+        <!-- Infield Dirt Arc (R=50 centered at pitcher's mound 125,180) -->
+        <path d="M 85,170 A 45,45 0 0,1 165,170 L 125,205 Z" class="field-dirt" />
+        
+        <!-- Infield Grass Diamond Outline -->
+        <path d="M 125,155 L 150,180 L 125,205 L 100,180 Z" stroke="rgba(255,255,255,0.2)" stroke-width="1" fill="none" />
+        
+        <!-- Warning Track Arc (Outfield Boundary) -->
+        <path d="M 10,120 A 155,155 0 0,1 240,120" stroke="rgba(255, 255, 255, 0.3)" stroke-width="3" fill="none" />
+        
+        <!-- Foul Lines -->
+        <line x1="125" y1="205" x2="10" y2="120" class="foul-lines" />
+        <line x1="125" y1="205" x2="240" y2="120" class="foul-lines" />
+        
+        <!-- Bases -->
+        <!-- Home Plate (Pentagon) -->
+        <polygon points="125,208 128,205 125,202 122,205" class="base" />
+        <!-- First Base (Diamond) -->
+        <polygon points="150,183 153,180 150,177 147,180" class="base" />
+        <!-- Second Base (Diamond) -->
+        <polygon points="125,158 128,155 125,152 122,155" class="base" />
+        <!-- Third Base (Diamond) -->
+        <polygon points="100,183 103,180 100,177 97,180" class="base" />
+        
+        <!-- Pitcher's Plate -->
+        <line x1="122" y1="180" x2="128" y2="180" stroke="#ffffff" stroke-width="1" />
+
+        <!-- Interactive play dots will be inserted here dynamically -->
+        <g id="playsGroup"></g>
+      </svg>
+    </div>
+
+    <!-- Play Details Drawer -->
+    <div class="details-panel" id="detailsPanel">
+      <div class="details-placeholder">Tap a hit dot on the field to see Statcast metrics</div>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot dot-single"></div>Single</div>
+      <div class="legend-item"><div class="legend-dot dot-double"></div>Double</div>
+      <div class="legend-item"><div class="legend-dot dot-triple"></div>Triple</div>
+      <div class="legend-item"><div class="legend-dot dot-hr"></div>Home Run</div>
+      <div class="legend-item"><div class="legend-dot dot-out"></div>Out</div>
+    </div>
+  </div>
+
+  <div class="ios-note">
+    💡 <strong>Note on Portable Design:</strong> This is drawn using responsive vector SVG. When porting to native, React Native utilizes <span class="highlight-text">react-native-svg</span> directly, and Flutter renders this identically using <span class="highlight-text">flutter_svg</span> or a canvas drawing method. No heavy image assets needed.
+  </div>
+
+  <script>
+    // Mock play dataset matching coordinates from MLB API live feed ( Dodgers vs Giants )
+    // Home Plate is around (125, 205)
+    // Deep center field is around (125, 40)
+    // Left field line is around (25, 100)
+    // Right field line is around (225, 100)
+    const playData = [
+      { id: 1, team: 'LAD', batter: 'Shohei Ohtani', event: 'hr', desc: 'Home Run', speed: 112.5, angle: 28, dist: 442, cx: 125, cy: 35 },
+      { id: 2, team: 'LAD', batter: 'Mookie Betts', event: 'double', desc: 'Double', speed: 98.4, angle: 18, dist: 310, cx: 70, cy: 110 },
+      { id: 3, team: 'SF', batter: 'Matt Chapman', event: 'single', desc: 'Single', speed: 89.2, angle: 12, dist: 235, cx: 155, cy: 150 },
+      { id: 4, team: 'LAD', batter: 'Freddie Freeman', event: 'single', desc: 'Single', speed: 92.1, angle: 14, dist: 250, cx: 110, cy: 135 },
+      { id: 5, team: 'SF', batter: 'Patrick Bailey', event: 'hr', desc: 'Home Run', speed: 104.8, angle: 25, dist: 395, cx: 195, cy: 65 },
+      { id: 6, team: 'LAD', batter: 'Will Smith', event: 'out', desc: 'Flyout', speed: 95.2, angle: 34, dist: 320, cx: 150, cy: 98 },
+      { id: 7, team: 'SF', batter: 'Mike Yastrzemski', event: 'triple', desc: 'Triple', speed: 101.3, angle: 21, dist: 360, cx: 210, cy: 80 },
+      { id: 8, team: 'LAD', batter: 'Teoscar Hernández', event: 'out', desc: 'Groundout', speed: 84.6, angle: -6, dist: 12, cx: 115, cy: 175 },
+      { id: 9, team: 'SF', batter: 'Heliot Ramos', event: 'out', desc: 'Lineout', speed: 106.1, angle: 10, dist: 285, cx: 80, cy: 125 },
+      { id: 10, team: 'LAD', batter: 'Max Muncy', event: 'hr', desc: 'Home Run', speed: 109.2, angle: 30, dist: 415, cx: 55, cy: 50 },
+      { id: 11, team: 'SF', batter: 'Jorge Soler', event: 'double', desc: 'Double', speed: 102.5, angle: 16, dist: 335, cx: 180, cy: 100 },
+      { id: 12, team: 'LAD', batter: 'Gavin Lux', event: 'out', desc: 'Pop Out', speed: 78.4, angle: 65, dist: 140, cx: 132, cy: 162 }
+    ];
+
+    const playsGroup = document.getElementById('playsGroup');
+    const detailsPanel = document.getElementById('detailsPanel');
+
+    function renderDots(data) {
+      playsGroup.innerHTML = '';
+      data.forEach(play => {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', play.cx);
+        circle.setAttribute('cy', play.cy);
+        circle.setAttribute('r', '6');
+        circle.setAttribute('class', 'hit-dot');
+        circle.setAttribute('id', `dot-${play.id}`);
+        
+        // Colors corresponding to outcome
+        let color;
+        if (play.event === 'single') color = 'var(--color-single)';
+        else if (play.event === 'double') color = 'var(--color-double)';
+        else if (play.event === 'triple') color = 'var(--color-triple)';
+        else if (play.event === 'hr') color = 'var(--color-hr)';
+        else color = 'var(--color-out)';
+        
+        circle.setAttribute('fill', color);
+        circle.setAttribute('stroke', 'rgba(0,0,0,0.5)');
+        circle.setAttribute('stroke-width', '1');
+
+        circle.addEventListener('click', () => selectPlay(play));
+        
+        playsGroup.appendChild(circle);
+      });
+    }
+
+    function selectPlay(play) {
+      // Clear active class from all dots
+      document.querySelectorAll('.hit-dot').forEach(el => el.classList.remove('active'));
+      
+      // Add active to selected dot
+      const selectedDot = document.getElementById(`dot-${play.id}`);
+      if (selectedDot) selectedDot.classList.add('active');
+
+      // Update Details Drawer
+      detailsPanel.innerHTML = `
+        <div class="details-header">
+          <span class="batter-name">${play.batter} (${play.team})</span>
+          <span class="play-event ${play.event}">${play.desc}</span>
+        </div>
+        <div class="stat-row">
+          <div class="stat-box">
+            <div class="stat-value">${play.speed} <span style="font-size:0.6rem">MPH</span></div>
+            <div class="stat-label">Exit Velocity</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value">${play.angle}°</div>
+            <div class="stat-label">Launch Angle</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value">${play.dist} <span style="font-size:0.6rem">FT</span></div>
+            <div class="stat-label">Distance</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function filterData(filterType) {
+      // Toggle tabs active class
+      const buttons = document.querySelectorAll('.tab-btn');
+      buttons.forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+
+      // Reset selection details
+      detailsPanel.innerHTML = `<div class="details-placeholder">Tap a hit dot on the field to see Statcast metrics</div>`;
+
+      let filtered = playData;
+      if (filterType === 'LAD') {
+        filtered = playData.filter(p => p.team === 'LAD');
+      } else if (filterType === 'SF') {
+        filtered = playData.filter(p => p.team === 'SF');
+      } else if (filterType === 'hits') {
+        filtered = playData.filter(p => p.event !== 'out');
+      } else if (filterType === 'hr') {
+        filtered = playData.filter(p => p.event === 'hr');
+      }
+
+      renderDots(filtered);
+    }
+
+    // Initial render
+    renderDots(playData);
+  </script>
+</body>
+</html>

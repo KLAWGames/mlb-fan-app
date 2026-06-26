@@ -619,7 +619,10 @@ function createDashboardView() {
   // Helper inside createDashboardView to render cards
   function createGameCard(item, isNeutral) {
     const card = document.createElement('div');
-    card.className = `glass-card game-card ${isNeutral ? 'neutral' : ''}`;
+    
+    // Check if favorite team is playing in this game
+    const isFavoriteMatchup = item.awayTeam.id === state.activeTeamId || item.homeTeam.id === state.activeTeamId;
+    card.className = `glass-card game-card ${isNeutral ? 'neutral' : ''} ${isFavoriteMatchup ? 'favorite-matchup' : ''}`;
     
     const isExpanded = state.expandedGamePks.includes(item.gamePk);
 
@@ -700,18 +703,29 @@ function createDashboardView() {
     awayBadge.innerText = item.awayTeam.abbreviation;
     awayBadge.style.background = item.awayTeam.primaryColor;
     awayBadge.style.color = item.awayTeam.textColor;
+    
     const awayName = document.createElement('span');
     awayName.className = `team-name ${item.awayTeam.id === state.activeTeamId ? 'favorite' : ''}`;
     awayName.innerText = item.awayTeam.name;
     
     awayInfo.appendChild(awayBadge);
-    awayInfo.appendChild(awayName);
+    
+    // If it's the favorite team, add a gold star badge
+    if (item.awayTeam.id === state.activeTeamId) {
+      awayInfo.appendChild(awayName);
+      const starBadge = document.createElement('span');
+      starBadge.className = 'fav-star-badge';
+      starBadge.innerText = '★ Fav';
+      awayInfo.appendChild(starBadge);
+    } else {
+      awayInfo.appendChild(awayName);
+    }
 
     // Thumbs-up root indicator
     if (item.rootFor === 'Away') {
       const rootIcon = document.createElement('span');
-      rootIcon.className = 'root-indicator';
-      rootIcon.innerHTML = '👍';
+      rootIcon.className = 'root-indicator-badge';
+      rootIcon.innerHTML = '👍 Root';
       awayInfo.appendChild(rootIcon);
     }
 
@@ -731,18 +745,29 @@ function createDashboardView() {
     homeBadge.innerText = item.homeTeam.abbreviation;
     homeBadge.style.background = item.homeTeam.primaryColor;
     homeBadge.style.color = item.homeTeam.textColor;
+    
     const homeName = document.createElement('span');
     homeName.className = `team-name ${item.homeTeam.id === state.activeTeamId ? 'favorite' : ''}`;
     homeName.innerText = item.homeTeam.name;
     
     homeInfo.appendChild(homeBadge);
-    homeInfo.appendChild(homeName);
+    
+    // If it's the favorite team, add a gold star badge
+    if (item.homeTeam.id === state.activeTeamId) {
+      homeInfo.appendChild(homeName);
+      const starBadge = document.createElement('span');
+      starBadge.className = 'fav-star-badge';
+      starBadge.innerText = '★ Fav';
+      homeInfo.appendChild(starBadge);
+    } else {
+      homeInfo.appendChild(homeName);
+    }
 
     // Thumbs-up root indicator
     if (item.rootFor === 'Home') {
       const rootIcon = document.createElement('span');
-      rootIcon.className = 'root-indicator';
-      rootIcon.innerHTML = '👍';
+      rootIcon.className = 'root-indicator-badge';
+      rootIcon.innerHTML = '👍 Root';
       homeInfo.appendChild(rootIcon);
     }
 

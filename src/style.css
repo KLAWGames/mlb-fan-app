@@ -350,36 +350,100 @@ header {
 .game-card {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.65) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  padding: 16px 18px;
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.2), 
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), 
+              border-color 0.2s, 
+              box-shadow 0.2s, 
+              background-color 0.2s;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle background accent glow for games containing the user's favorite team */
+.game-card.favorite-matchup {
+  border-left: 4px solid var(--team-primary);
+  background: linear-gradient(145deg, rgba(var(--team-primary-rgb), 0.08) 0%, rgba(15, 23, 42, 0.65) 100%);
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.2), 
+    0 0 15px rgba(var(--team-primary-rgb), 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.game-card:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    0 8px 24px rgba(0, 0, 0, 0.3), 
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.game-card:active {
+  transform: scale(0.97) translateY(0);
+  background: rgba(15, 23, 42, 0.85);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .game-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   padding-bottom: 8px;
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--text-secondary);
 }
 
 .game-status {
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 6px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 100px;
+  font-size: 10px;
   background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  letter-spacing: 0.02em;
 }
 
 .game-status.live {
-  background: rgba(239, 68, 68, 0.15);
-  color: var(--color-loss);
-  animation: pulse-border 2s infinite;
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.game-status.live::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background-color: #ef4444;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 6px #ef4444;
+  animation: pulse-live 1.5s infinite alternate;
+}
+
+@keyframes pulse-live {
+  0% { opacity: 0.3; }
+  100% { opacity: 1; }
 }
 
 .game-teams {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .game-team-row {
@@ -391,19 +455,21 @@ header {
 .team-info {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .team-badge-small {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  font-family: var(--font-title);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .team-name {
@@ -414,87 +480,103 @@ header {
 
 .team-name.favorite {
   font-weight: 700;
-  position: relative;
+  color: #ffffff;
 }
 
-.team-name.favorite::after {
-  content: '★';
-  margin-left: 4px;
+.fav-star-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.25);
   color: var(--color-gold);
+  font-size: 8px;
+  font-weight: 800;
+  padding: 1px 4.5px;
+  border-radius: 4px;
+  margin-left: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .team-score {
   font-family: var(--font-title);
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 20px;
+  font-weight: 800;
   color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
 .team-score.winner {
   color: #ffffff;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
 }
 
 .team-score.loser {
   color: var(--text-muted);
+  opacity: 0.55;
 }
 
 /* Rooting Advice UI */
 .rooting-banner {
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 12px;
-  padding: 10px 14px;
-  border-left: 4px solid var(--border-color, var(--color-neutral));
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+  padding: 12px 14px;
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
   margin-top: 4px;
 }
 
 .rooting-banner.root-away {
-  --border-color: var(--color-win);
+  border-left: 3px solid var(--color-win);
 }
 
 .rooting-banner.root-home {
-  --border-color: var(--color-win);
+  border-left: 3px solid var(--color-win);
 }
 
 .rooting-banner.neutral {
-  --border-color: var(--color-neutral);
+  border-left: 3px solid var(--color-neutral);
 }
 
 .rooting-target-badge {
   font-weight: 700;
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
-  padding: 2px 6px;
-  border-radius: 6px;
-  margin-top: 1px;
-  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 100px;
+  display: inline-flex;
   white-space: nowrap;
+  width: fit-content;
+  letter-spacing: 0.02em;
 }
 
 .rooting-target-badge.root {
   background: rgba(16, 185, 129, 0.15);
-  color: var(--color-win);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
 .rooting-target-badge.neutral {
-  background: rgba(107, 114, 128, 0.15);
-  color: var(--text-secondary);
-  border: 1px solid rgba(107, 114, 128, 0.25);
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+  border: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .rooting-explanation {
   font-size: 12px;
-  line-height: 1.4;
+  line-height: 1.45;
   color: var(--text-secondary);
   font-weight: 400;
 }
 
 .rooting-explanation strong {
   color: var(--text-primary);
+  font-weight: 600;
 }
+
 
 /* Bottom Navigation Bar */
 .bottom-nav {
@@ -999,19 +1081,17 @@ header {
 }
 
 /* Expandable Game Cards & Relevance Layouts */
-.game-card {
-  cursor: pointer;
-  user-select: none;
-}
-
 .game-card.neutral {
-  opacity: 0.65;
+  opacity: 0.55;
   box-shadow: none;
+  border-color: rgba(255, 255, 255, 0.03);
 }
 
 .game-card.neutral:hover {
   opacity: 0.85;
+  border-color: rgba(255, 255, 255, 0.1);
 }
+
 
 .relevance-divider {
   display: flex;
