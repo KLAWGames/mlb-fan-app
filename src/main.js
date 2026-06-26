@@ -1943,20 +1943,27 @@ function createDashboardView() {
     headerRight.style.alignItems = 'center';
     headerRight.style.gap = '8px';
 
+    const isLive = item.status.statusCode === 'I' || item.status.detailedState.toLowerCase().includes('progress');
+    const isFinal = item.status.statusCode === 'F' || item.status.detailedState === 'Final';
+    
+    const now = new Date();
+    const timeUntilStartMs = date.getTime() - now.getTime();
+    const isWithin30Mins = timeUntilStartMs <= 30 * 60 * 1000;
+    const shouldShowStatusBadge = isLive || isFinal || isWithin30Mins;
     const isScheduled = item.status.statusCode === 'S' || item.status.detailedState === 'Scheduled';
-    if (!isScheduled) {
+    
+    if (shouldShowStatusBadge && !isScheduled) {
       const statusNode = document.createElement('span');
       let stateText = item.status.detailedState;
-      if (item.status.statusCode === 'I' || item.status.detailedState.toLowerCase().includes('progress')) {
+      if (isLive) {
         stateText = 'Live';
       }
-      statusNode.className = `game-status ${item.status.statusCode === 'I' ? 'live' : ''}`;
+      statusNode.className = `game-status ${isLive ? 'live' : ''}`;
       statusNode.innerText = stateText;
       headerRight.appendChild(statusNode);
     }
 
     // Completed game outcome badge (Happy/Sad Emoji)
-    const isFinal = item.status.statusCode === 'F' || item.status.detailedState === 'Final';
     if (isFinal) {
       const outcomeBadge = document.createElement('span');
       
