@@ -802,17 +802,36 @@ function createDashboardView() {
         }
       }
       
-      // 3. Closure: Include all teams tied in games back with any team already selected
+      // 3. Closure: Include all teams tied in games back with any team already selected,
+      // and also include the first team immediately behind the entire tied group.
       let addedNew = true;
       while (addedNew) {
         addedNew = false;
         const currentIndices = Array.from(displayedIndices);
         for (const idx of currentIndices) {
           const team = wcPool[idx];
+          
+          // A. Find all teams in the same tied group
+          const tiedGroupIndices = [];
           for (let j = 0; j < wcPool.length; j++) {
-            if (displayedIndices.has(j)) continue;
             if (wcPool[j].wildCardGamesBack === team.wildCardGamesBack) {
+              tiedGroupIndices.push(j);
+            }
+          }
+          
+          // B. Add all tied group members to displayed indices
+          tiedGroupIndices.forEach(j => {
+            if (!displayedIndices.has(j)) {
               displayedIndices.add(j);
+              addedNew = true;
+            }
+          });
+          
+          // C. Find the maximum index in the tied group, and add the index immediately behind it (if any)
+          const maxGroupIdx = Math.max(...tiedGroupIndices);
+          if (maxGroupIdx + 1 < wcPool.length) {
+            if (!displayedIndices.has(maxGroupIdx + 1)) {
+              displayedIndices.add(maxGroupIdx + 1);
               addedNew = true;
             }
           }
