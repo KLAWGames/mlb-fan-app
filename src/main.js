@@ -72,6 +72,108 @@ async function init() {
 
   // Load Data
   await loadData();
+
+  // Set up touch gestures (Pull to Refresh)
+  setupPullToRefresh();
+}
+
+// Setup mobile-native Pull-to-Refresh gesture
+function setupPullToRefresh() {
+  const appContainer = document.querySelector('#app');
+  if (!appContainer) return;
+
+  // Create and inject PTR elements if they don't exist
+  let ptrContainer = document.querySelector('.ptr-container');
+  if (!ptrContainer) {
+    ptrContainer = document.createElement('div');
+    ptrContainer.className = 'ptr-container';
+    ptrContainer.innerHTML = `<div class="ptr-spinner"></div>`;
+    document.body.insertBefore(ptrContainer, document.body.firstChild);
+  }
+
+  const spinner = ptrContainer.querySelector('.ptr-spinner');
+  
+  let startY = 0;
+  let currentY = 0;
+  let isTracking = false;
+  let isRefreshing = false;
+  
+  const threshold = 65; // px to drag to trigger refresh
+  const resistance = 0.35; // drag resistance multiplier
+
+  document.addEventListener('touchstart', (e) => {
+    // Only track if we are scrolled to the very top of the window
+    if (window.scrollY === 0 && !isRefreshing) {
+      startY = e.touches[0].pageY;
+      currentY = startY; // reset
+      isTracking = true;
+      appContainer.classList.remove('ptr-animating');
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!isTracking) return;
+    
+    currentY = e.touches[0].pageY;
+    const diff = currentY - startY;
+
+    if (diff > 0) {
+      // Pulling down!
+      // Prevent default browser elastic overflow bounce on iOS
+      if (e.cancelable) e.preventDefault();
+      
+      const translateY = Math.min(diff * resistance, threshold);
+      appContainer.style.transform = `translateY(${translateY}px)`;
+      
+      // Pull loader down and rotate it
+      ptrContainer.style.top = `${Math.min(translateY - 50, 15)}px`;
+      ptrContainer.classList.add('active');
+      spinner.style.transform = `rotate(${diff * 2}deg)`;
+    } else {
+      // Swiping up, cancel tracking
+      isTracking = false;
+      resetPTR();
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchend', async () => {
+    if (!isTracking) return;
+    isTracking = false;
+
+    const diff = currentY - startY;
+    const translateY = diff * resistance;
+
+    if (translateY >= threshold - 5) {
+      // Trigger refresh!
+      isRefreshing = true;
+      appContainer.classList.add('ptr-animating');
+      appContainer.style.transform = `translateY(${threshold - 15}px)`;
+      ptrContainer.style.top = '15px';
+      
+      spinner.classList.add('spinning');
+
+      try {
+        console.log("PTR active - fetching standings & schedule...");
+        await loadData(); // Reload API schedule and standings dynamically!
+      } catch (err) {
+        console.error("PTR refresh failed:", err);
+      } finally {
+        isRefreshing = false;
+        spinner.classList.remove('spinning');
+        resetPTR();
+      }
+    } else {
+      resetPTR();
+    }
+  });
+
+  function resetPTR() {
+    appContainer.classList.add('ptr-animating');
+    appContainer.style.transform = 'translateY(0)';
+    ptrContainer.style.top = '-60px';
+    ptrContainer.classList.remove('active');
+    spinner.style.transform = 'rotate(0deg)';
+  }
 }
 
 // Sync active team default playoff tracker tab
