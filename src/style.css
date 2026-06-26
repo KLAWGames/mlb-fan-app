@@ -1834,9 +1834,37 @@ header {
   background: var(--bg-card-hover);
   color: var(--text-primary);
 }
-
 .drawer-menu-item:active {
   transform: scale(0.98);
+}
+@keyframes slide-in-forward {
+  from {
+    transform: translateX(80px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-backward {
+  from {
+    transform: translateX(-80px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.slide-in-forward {
+  animation: slide-in-forward 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.slide-in-backward {
+  animation: slide-in-backward 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 

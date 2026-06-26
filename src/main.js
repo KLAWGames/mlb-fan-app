@@ -28,7 +28,8 @@ let state = {
   rawScheduleYesterday: null, // Cache of yesterday's schedule
   recapOpened: false, // Tracks whether the recap modal is currently open
   highFivedTeams: [], // Track which team IDs have been high-fived
-  previousMainView: 'dashboard' // Tracks previous view ('dashboard' | 'standings')
+  previousMainView: 'dashboard', // Tracks previous view ('dashboard' | 'standings')
+  transitionDirection: null // 'forward' | 'backward' | null for page transition animations
 };
 
 // Helper: Safely parse ISO UTC date strings to work reliably on all browsers (including iOS Safari)
@@ -1385,6 +1386,48 @@ function startAutoRefresh() {
   }, 60000); // 60 seconds
 }
 
+// Switch view with directional transitions
+function transitionToView(targetView, targetTeamId = null) {
+  // Build a list of valid switcher view targets
+  const viewsList = [];
+  state.selectedTeamIds.forEach(id => {
+    viewsList.push({ view: 'dashboard', teamId: id });
+  });
+  viewsList.push({ view: 'standings' });
+
+  // Resolve current active view index
+  let currentIndex = -1;
+  if (state.activeView === 'standings') {
+    currentIndex = viewsList.length - 1;
+  } else if (state.activeView === 'dashboard') {
+    currentIndex = viewsList.findIndex(item => item.view === 'dashboard' && item.teamId === state.activeTeamId);
+  }
+
+  // Resolve target index
+  let targetIndex = -1;
+  if (targetView === 'standings') {
+    targetIndex = viewsList.length - 1;
+  } else if (targetView === 'dashboard') {
+    targetIndex = viewsList.findIndex(item => item.view === 'dashboard' && item.teamId === targetTeamId);
+  }
+
+  if (currentIndex !== -1 && targetIndex !== -1 && currentIndex !== targetIndex) {
+    if (targetIndex > currentIndex) {
+      state.transitionDirection = 'forward';
+    } else {
+      state.transitionDirection = 'backward';
+    }
+  }
+
+  state.activeView = targetView;
+  if (targetView === 'dashboard' && targetTeamId) {
+    state.activeTeamId = targetTeamId;
+    updateTeamTheme(targetTeamId);
+    syncDefaultTab();
+  }
+  render();
+}
+
 // Primary Render Engine
 function render() {
   const appContainer = document.querySelector('#app');
@@ -1398,6 +1441,11 @@ function render() {
   // 2. Render Main Body Content based on activeView
   const mainContent = document.createElement('main');
   mainContent.style.flex = '1';
+
+  if (state.transitionDirection) {
+    mainContent.classList.add(`slide-in-${state.transitionDirection}`);
+    state.transitionDirection = null; // Clear so subsequent silent updates do not animate
+  }
 
   if (state.loading) {
     mainContent.appendChild(createLoader());
@@ -1584,11 +1632,7 @@ function createHeader() {
       btn.appendChild(nameLabel);
 
       btn.addEventListener('click', () => {
-        state.activeView = 'dashboard';
-        state.activeTeamId = id;
-        updateTeamTheme(id);
-        syncDefaultTab();
-        render();
+        transitionToView('dashboard', id);
       });
 
       tabs.appendChild(btn);
@@ -1613,14 +1657,13 @@ function createHeader() {
     standingsBtn.appendChild(standingsLabel);
 
     standingsBtn.addEventListener('click', () => {
-      state.activeView = 'standings';
-      render();
+      transitionToView('standings');
     });
 
     tabs.appendChild(standingsBtn);
 
-    // Add team button if under limit of 3
-    if (state.selectedTeamIds.length < 3) {
+    // Add team button if under limit of 3 AND user has more than 1 team selected
+    if (state.selectedTeamIds.length > 1 && state.selectedTeamIds.length < 3) {
       const addBtn = document.createElement('button');
       addBtn.className = 'team-tab team-tab-add';
       addBtn.innerHTML = '＋';
@@ -3249,7 +3292,13 @@ function filterTeamsList() {
   grid.innerHTML = '';
   
   const query = state.searchQuery.toLowerCase();
-  const sortedTeams = Object.values(teamsData).sort((a, b) => a.name.localeCompare(b.name));
+  const sortedTeams = Object.values(teamsData).sort((a, b) => {
+    const aSelected = state.selectedTeamIds.includes(a.id);
+    const bSelected = state.selectedTeamIds.includes(b.id);
+    if (aSelected && !bSelected) return -1;
+    if (!aSelected && bSelected) return 1;
+    return a.name.localeCompare(b.name);
+  });
 
   sortedTeams.forEach(team => {
     if (query && !team.name.toLowerCase().includes(query)) return;
@@ -3376,15 +3425,7 @@ function navigateToTab(direction) {
 
   if (nextIndex !== currentIndex) {
     const target = viewsList[nextIndex];
-    if (target.view === 'dashboard') {
-      state.activeView = 'dashboard';
-      state.activeTeamId = target.teamId;
-      updateTeamTheme(target.teamId);
-      syncDefaultTab();
-    } else {
-      state.activeView = 'standings';
-    }
-    render();
+    transitionToView(target.view, target.teamId || null);
   }
 }
 
