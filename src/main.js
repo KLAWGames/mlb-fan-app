@@ -962,7 +962,9 @@ function createDashboardView() {
     gap.style.alignItems = 'center';
     
     const gapText = document.createElement('span');
-    if (tRecord.wildCardGamesBack < 0) {
+    if (isTied) {
+      gapText.innerText = tRecord.pct;
+    } else if (tRecord.wildCardGamesBack < 0) {
       gapText.innerText = `+${Math.abs(tRecord.wildCardGamesBack)}`;
     } else if (tRecord.wildCardGamesBack > 0) {
       gapText.innerText = `${tRecord.wildCardGamesBack} GB`;
