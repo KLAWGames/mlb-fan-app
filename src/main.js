@@ -262,8 +262,9 @@ async function loadData() {
   render();
 
   try {
-    // Compute yesterday's date string
-    const todayDate = new Date(state.selectedDate + 'T12:00:00'); // avoid timezone shifts
+    // Compute yesterday's date string safely to avoid iOS Safari date parsing issues
+    const parts = state.selectedDate.split('-');
+    const todayDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0);
     const yesterdayDate = new Date(todayDate);
     yesterdayDate.setDate(yesterdayDate.getDate() - 1);
     const yesterdayStr = formatLocalDate(yesterdayDate);
