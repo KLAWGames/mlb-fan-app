@@ -802,41 +802,50 @@ function createDashboardView() {
         }
       }
       
-      // 3. Closure: Include all teams tied in games back with any team already selected,
-      // and also include the first team immediately behind the entire tied group.
-      let addedNew = true;
-      while (addedNew) {
-        addedNew = false;
-        const currentIndices = Array.from(displayedIndices);
-        for (const idx of currentIndices) {
-          const team = wcPool[idx];
-          
-          // A. Find all teams in the same tied group
-          const tiedGroupIndices = [];
-          for (let j = 0; j < wcPool.length; j++) {
-            if (wcPool[j].wildCardGamesBack === team.wildCardGamesBack) {
-              tiedGroupIndices.push(j);
-            }
+      // 3. Resolve direct ties for any team in the base set
+      const baseIndices = Array.from(displayedIndices);
+      baseIndices.forEach(idx => {
+        const team = wcPool[idx];
+        for (let j = 0; j < wcPool.length; j++) {
+          if (wcPool[j].wildCardGamesBack === team.wildCardGamesBack) {
+            displayedIndices.add(j);
           }
+        }
+      });
+      
+      // 4. Find the team (or group of tied teams) immediately behind each tied group
+      // We do this in a single pass to prevent recursive chain reactions
+      const resolvedIndices = Array.from(displayedIndices);
+      const newAdditions = [];
+      
+      resolvedIndices.forEach(idx => {
+        const team = wcPool[idx];
+        
+        // Find all teams in the same tied group
+        const tiedGroup = [];
+        for (let j = 0; j < wcPool.length; j++) {
+          if (wcPool[j].wildCardGamesBack === team.wildCardGamesBack) {
+            tiedGroup.push(j);
+          }
+        }
+        
+        // Find the team immediately behind this tied group
+        const maxGroupIdx = Math.max(...tiedGroup);
+        const nextIdx = maxGroupIdx + 1;
+        if (nextIdx < wcPool.length) {
+          newAdditions.push(nextIdx);
           
-          // B. Add all tied group members to displayed indices
-          tiedGroupIndices.forEach(j => {
-            if (!displayedIndices.has(j)) {
-              displayedIndices.add(j);
-              addedNew = true;
-            }
-          });
-          
-          // C. Find the maximum index in the tied group, and add the index immediately behind it (if any)
-          const maxGroupIdx = Math.max(...tiedGroupIndices);
-          if (maxGroupIdx + 1 < wcPool.length) {
-            if (!displayedIndices.has(maxGroupIdx + 1)) {
-              displayedIndices.add(maxGroupIdx + 1);
-              addedNew = true;
+          // Also include any teams tied with this next team (to avoid half-hidden ties)
+          for (let j = 0; j < wcPool.length; j++) {
+            if (wcPool[j].wildCardGamesBack === wcPool[nextIdx].wildCardGamesBack) {
+              newAdditions.push(j);
             }
           }
         }
-      }
+      });
+      
+      // Add the final next-in-line additions to our display list
+      newAdditions.forEach(idx => displayedIndices.add(idx));
       
       // 4. Sort indices ascending to render in correct standing order
       const sortedIndices = Array.from(displayedIndices).sort((a, b) => a - b);
