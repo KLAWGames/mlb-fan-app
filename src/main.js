@@ -2030,7 +2030,7 @@ function createDashboardView() {
     if (item.rootFor === 'Away') {
       const rootIcon = document.createElement('span');
       rootIcon.className = 'root-indicator-badge';
-      rootIcon.innerHTML = '👍 Root';
+      rootIcon.innerText = 'ROOT';
       awayInfo.appendChild(rootIcon);
     }
 
@@ -2072,7 +2072,7 @@ function createDashboardView() {
     if (item.rootFor === 'Home') {
       const rootIcon = document.createElement('span');
       rootIcon.className = 'root-indicator-badge';
-      rootIcon.innerHTML = '👍 Root';
+      rootIcon.innerText = 'ROOT';
       homeInfo.appendChild(rootIcon);
     }
 
