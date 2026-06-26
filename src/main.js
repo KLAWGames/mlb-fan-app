@@ -1307,19 +1307,26 @@ function createDashboardView() {
     // Add interactive click and hover listeners to SVG elements
     const svgEl = chartContainer.querySelector('svg');
     
-    svgEl.addEventListener('click', (e) => {
-      const bar = e.target.closest('.run-diff-bar');
+    const handleBarSelect = (e) => {
+      const bar = e.target.classList && e.target.classList.contains('run-diff-bar') ? e.target : e.target.closest('.run-diff-bar');
       if (!bar) return;
       const idx = parseInt(bar.getAttribute('data-game-idx'));
-      state.selectedGameIdx = idx;
-      render();
-    });
+      if (!isNaN(idx)) {
+        state.selectedGameIdx = idx;
+        render();
+      }
+    };
+
+    svgEl.addEventListener('click', handleBarSelect);
+    svgEl.addEventListener('touchstart', handleBarSelect, { passive: true });
     
     svgEl.addEventListener('mouseover', (e) => {
-      const bar = e.target.closest('.run-diff-bar');
+      const bar = e.target.classList && e.target.classList.contains('run-diff-bar') ? e.target : e.target.closest('.run-diff-bar');
       if (!bar) return;
       const idx = parseInt(bar.getAttribute('data-game-idx'));
-      updateDetailStrip(seasonGames[idx]);
+      if (!isNaN(idx)) {
+        updateDetailStrip(seasonGames[idx]);
+      }
     });
     
     svgEl.addEventListener('mouseleave', () => {
