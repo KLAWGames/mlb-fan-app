@@ -21,8 +21,7 @@ let state = {
   expandedGamePks: [], // List of gamePk IDs that are expanded
   expandedTiebreakerTeamIds: [], // List of team IDs whose tiebreakers are expanded in the Wild Card view
   selectedGameIdx: null, // Index of the selected game in the active team's run differential chart
-  lastActiveTeamId: null, // Tracks the last team ID to reset selection index on switch
-  bannerScrollLeft: undefined // Tracks the horizontal scroll position of the banner chart wrapper
+  lastActiveTeamId: null // Tracks the last team ID to reset selection index on switch
 };
 
 // Helper: Convert Hex color to RGB string for custom CSS transparency gradients
@@ -942,7 +941,6 @@ function createDashboardView() {
   // If activeTeamId changed, reset selectedGameIdx to null
   if (state.lastActiveTeamId !== state.activeTeamId) {
     state.selectedGameIdx = null;
-    state.bannerScrollLeft = undefined;
     state.lastActiveTeamId = state.activeTeamId;
   }
 
@@ -1050,18 +1048,14 @@ function createDashboardView() {
       state.selectedGameIdx = seasonGames.length - 1;
     }
 
-    const scrollWrapper = document.createElement('div');
-    scrollWrapper.className = 'banner-chart-scroll-wrapper';
-    scrollWrapper.style.width = '100%';
-    scrollWrapper.style.overflowX = 'auto';
-    scrollWrapper.style.overflowY = 'hidden';
-    scrollWrapper.style.marginTop = '4px';
-    scrollWrapper.style.paddingBottom = '6px';
-    scrollWrapper.style.position = 'relative';
-    scrollWrapper.style.webkitOverflowScrolling = 'touch';
+    const chartContainer = document.createElement('div');
+    chartContainer.className = 'banner-chart-container';
+    chartContainer.style.width = '100%';
+    chartContainer.style.marginTop = '4px';
+    chartContainer.style.position = 'relative';
 
-    const svgWidth = 20 + seasonGames.length * 15; // 15px per game slot (10px bar + 5px gap) + 20px padding
-    const svgHeight = 80;
+    const svgWidth = 500;
+    const svgHeight = 90;
     const padL = 10;
     const padR = 10;
     const padT = 8;
@@ -1075,8 +1069,8 @@ function createDashboardView() {
     const halfH = plotH / 2;
 
     const G_count = seasonGames.length;
-    const slotW = 15;
-    const barWidth = 10;
+    const slotW = plotW / G_count;
+    const barWidth = Math.max(2.5, slotW - 1.5);
 
     let barsHtml = '';
     seasonGames.forEach((g, idx) => {
@@ -1112,7 +1106,7 @@ function createDashboardView() {
     });
 
     const svgHtml = `
-      <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="${svgWidth}" height="${svgHeight}" style="overflow: visible; background: none;">
+      <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%" height="auto" style="overflow: visible; background: none;">
         <!-- Zero baseline -->
         <line x1="${padL}" y1="${zeroY}" x2="${svgWidth - padR}" y2="${zeroY}" stroke="rgba(255, 255, 255, 0.25)" stroke-width="1" stroke-dasharray="2,2" />
         
@@ -1121,15 +1115,10 @@ function createDashboardView() {
       </svg>
     `;
 
-    scrollWrapper.innerHTML = svgHtml;
-
-    // Track scroll events to save scroll position
-    scrollWrapper.addEventListener('scroll', () => {
-      state.bannerScrollLeft = scrollWrapper.scrollLeft;
-    }, { passive: true });
+    chartContainer.innerHTML = svgHtml;
     
     // Add interactive click and hover listeners to SVG elements
-    const svgEl = scrollWrapper.querySelector('svg');
+    const svgEl = chartContainer.querySelector('svg');
     
     svgEl.addEventListener('click', (e) => {
       const bar = e.target.closest('.run-diff-bar');
@@ -1152,25 +1141,15 @@ function createDashboardView() {
       }
     });
 
-    banner.appendChild(scrollWrapper);
-
-    // Auto-scroll to the very end (right) to show the most recent games, or restore position
-    setTimeout(() => {
-      const wrapper = banner.querySelector('.banner-chart-scroll-wrapper');
-      if (wrapper) {
-        if (state.bannerScrollLeft !== undefined) {
-          wrapper.scrollLeft = state.bannerScrollLeft;
-        } else {
-          wrapper.scrollLeft = wrapper.scrollWidth;
-          state.bannerScrollLeft = wrapper.scrollLeft;
-        }
-      }
-    }, 40);
+    banner.appendChild(chartContainer);
 
     // --- Row 3: Selected Game Detail Strip ---
     const detailStrip = document.createElement('div');
     detailStrip.className = 'banner-detail-strip';
-    detailStrip.style.textAlign = 'center';
+    detailStrip.style.display = 'flex';
+    detailStrip.style.alignItems = 'center';
+    detailStrip.style.justifyContent = 'space-between';
+    detailStrip.style.gap = '12px';
     detailStrip.style.padding = '6px 8px';
     detailStrip.style.background = 'rgba(0, 0, 0, 0.18)';
     detailStrip.style.borderRadius = '4px';
@@ -1178,9 +1157,46 @@ function createDashboardView() {
     detailStrip.style.width = '100%';
 
     const textContainer = document.createElement('div');
+    textContainer.style.flex = '1';
+    textContainer.style.textAlign = 'left';
     textContainer.style.color = 'rgba(255, 255, 255, 0.95)';
     textContainer.style.fontWeight = '500';
     textContainer.style.letterSpacing = '0.02em';
+    
+    // Side-by-side buttons on the right
+    const btnGroup = document.createElement('div');
+    btnGroup.style.display = 'flex';
+    btnGroup.style.gap = '4px';
+    btnGroup.style.flexShrink = '0';
+
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'banner-nav-btn';
+    prevBtn.style.flexShrink = '0';
+    prevBtn.innerText = '◀';
+    prevBtn.disabled = state.selectedGameIdx <= 0;
+    prevBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (state.selectedGameIdx > 0) {
+        state.selectedGameIdx--;
+        render();
+      }
+    });
+
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'banner-nav-btn';
+    nextBtn.style.flexShrink = '0';
+    nextBtn.innerText = '▶';
+    nextBtn.disabled = state.selectedGameIdx >= seasonGames.length - 1;
+    nextBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (state.selectedGameIdx < seasonGames.length - 1) {
+        state.selectedGameIdx++;
+        render();
+      }
+    });
+
+    btnGroup.appendChild(prevBtn);
+    btnGroup.appendChild(nextBtn);
     
     function updateDetailStrip(g) {
       const resultText = g.isWin ? 'Win' : 'Loss';
@@ -1205,6 +1221,7 @@ function createDashboardView() {
     }
 
     detailStrip.appendChild(textContainer);
+    detailStrip.appendChild(btnGroup);
     banner.appendChild(detailStrip);
   }
 

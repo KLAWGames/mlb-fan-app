@@ -1358,18 +1358,33 @@ header {
   animation: selected-bar-pulse 1.4s infinite ease-in-out;
 }
 
-/* Scrollbar styling for the banner chart horizontal scroll wrapper */
-.banner-chart-scroll-wrapper::-webkit-scrollbar {
-  height: 5px;
+/* Nav arrow buttons inside banner detail strip */
+.banner-nav-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
-.banner-chart-scroll-wrapper::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 3px;
-}
-.banner-chart-scroll-wrapper::-webkit-scrollbar-thumb {
+
+.banner-nav-btn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.25);
-  border-radius: 3px;
+  border-color: rgba(255, 255, 255, 0.35);
 }
-.banner-chart-scroll-wrapper::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
+
+.banner-nav-btn:active:not(:disabled) {
+  transform: scale(0.92);
 }
+
+.banner-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
