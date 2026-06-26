@@ -2026,88 +2026,6 @@ function createDashboardView() {
     detailStrip.appendChild(btnGroup);
     banner.appendChild(detailStrip);
 
-    // Dynamic Player Hitting Streaks Section
-    const streaks = getPlayerHitStreaks(team.id, state.selectedDate);
-    const streaksContainer = document.createElement('div');
-    streaksContainer.className = 'banner-streaks-container';
-    streaksContainer.style.display = 'flex';
-    streaksContainer.style.flexDirection = 'column';
-    streaksContainer.style.gap = '6px';
-    streaksContainer.style.padding = '8px';
-    streaksContainer.style.background = 'rgba(0, 0, 0, 0.18)';
-    streaksContainer.style.borderRadius = '4px';
-    streaksContainer.style.border = '1px solid rgba(255, 255, 255, 0.08)';
-    streaksContainer.style.width = '100%';
-    streaksContainer.style.marginTop = '6px';
-
-    const streaksHeader = document.createElement('div');
-    streaksHeader.style.display = 'flex';
-    streaksHeader.style.justifyContent = 'space-between';
-    streaksHeader.style.alignItems = 'center';
-    
-    const streaksTitle = document.createElement('span');
-    streaksTitle.innerHTML = '⚡ <strong>Player Hitting Streaks</strong>';
-    streaksTitle.style.fontSize = '9px';
-    streaksTitle.style.color = 'rgba(255, 255, 255, 0.65)';
-    streaksTitle.style.textTransform = 'uppercase';
-    streaksTitle.style.letterSpacing = '0.05em';
-    streaksTitle.style.fontWeight = '700';
-    streaksHeader.appendChild(streaksTitle);
-    
-    streaksContainer.appendChild(streaksHeader);
-
-    const streaksList = document.createElement('div');
-    streaksList.style.display = 'flex';
-    streaksList.style.flexWrap = 'wrap';
-    streaksList.style.gap = '6px';
-    
-    if (streaks.length > 0) {
-      streaks.forEach(p => {
-        const playerBadge = document.createElement('div');
-        playerBadge.className = 'player-streak-badge';
-        
-        let color = '#ea580c';
-        let glow = '';
-        if (p.streak >= 20) {
-          color = '#f43f5e';
-          glow = 'box-shadow: 0 0 6px rgba(244, 63, 94, 0.4);';
-        } else if (p.streak >= 15) {
-          color = '#f97316';
-        } else {
-          color = '#f59e0b';
-        }
-        
-        playerBadge.style.cssText = `
-          background: rgba(255, 255, 255, 0.08);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-          padding: 3px 8px;
-          border-radius: 4px;
-          font-size: 11px;
-          font-weight: 500;
-          color: #ffffff;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          ${glow}
-        `;
-        
-        playerBadge.innerHTML = `
-          <span>${p.name}</span>
-          <span style="font-weight: 800; color: ${color}; font-family: var(--font-title);">${p.streak} Gms</span>
-        `;
-        streaksList.appendChild(playerBadge);
-      });
-    } else {
-      const emptyMsg = document.createElement('span');
-      emptyMsg.innerText = 'No active 10+ game hitting streaks.';
-      emptyMsg.style.fontSize = '11px';
-      emptyMsg.style.color = 'rgba(255, 255, 255, 0.5)';
-      emptyMsg.style.fontStyle = 'italic';
-      streaksList.appendChild(emptyMsg);
-    }
-    
-    streaksContainer.appendChild(streaksList);
-    banner.appendChild(streaksContainer);
   }
 
   container.appendChild(banner);
@@ -2666,17 +2584,15 @@ function createDashboardView() {
     
     const isExpanded = state.expandedGamePks.includes(item.gamePk);
 
-    // Click handler to toggle details (only relevant games can be expanded)
-    if (!isNeutral) {
-      card.addEventListener('click', () => {
-        if (isExpanded) {
-          state.expandedGamePks = state.expandedGamePks.filter(pk => pk !== item.gamePk);
-        } else {
-          state.expandedGamePks.push(item.gamePk);
-        }
-        render();
-      });
-    }
+    // Click handler to toggle details
+    card.addEventListener('click', () => {
+      if (isExpanded) {
+        state.expandedGamePks = state.expandedGamePks.filter(pk => pk !== item.gamePk);
+      } else {
+        state.expandedGamePks.push(item.gamePk);
+      }
+      render();
+    });
 
     // Game Header
     const gHeader = document.createElement('div');
@@ -2733,12 +2649,10 @@ function createDashboardView() {
       headerRight.appendChild(outcomeBadge);
     }
 
-    if (!isNeutral) {
-      const expandHint = document.createElement('span');
-      expandHint.className = 'card-expand-hint';
-      expandHint.innerText = isExpanded ? 'Collapse ▲' : 'Details ▼';
-      headerRight.appendChild(expandHint);
-    }
+    const expandHint = document.createElement('span');
+    expandHint.className = 'card-expand-hint';
+    expandHint.innerText = isExpanded ? 'Collapse ▲' : 'Details ▼';
+    headerRight.appendChild(expandHint);
 
     gHeader.appendChild(headerLeft);
     gHeader.appendChild(headerRight);
@@ -2854,26 +2768,104 @@ function createDashboardView() {
     gTeams.appendChild(homeRow);
     card.appendChild(gTeams);
 
-    // Rooting Advice Banner (Only visible on demand when expanded)
-    if (isExpanded && !isNeutral && (item.rootFor !== 'Neutral' || item.priority > 0)) {
-      const banner = document.createElement('div');
-      banner.className = `rooting-banner ${item.rootFor === 'Away' ? 'root-away' : item.rootFor === 'Home' ? 'root-home' : 'neutral'}`;
+    // Expanded Game Details Drawer
+    if (isExpanded) {
+      // 1. Rooting Advice Banner (if not neutral and has standing impact)
+      if (!isNeutral && (item.rootFor !== 'Neutral' || item.priority > 0)) {
+        const rootingBanner = document.createElement('div');
+        rootingBanner.className = `rooting-banner ${item.rootFor === 'Away' ? 'root-away' : item.rootFor === 'Home' ? 'root-home' : 'neutral'}`;
 
-      const badgeTarget = document.createElement('span');
-      badgeTarget.className = `rooting-target-badge ${item.rootFor !== 'Neutral' ? 'root' : 'neutral'}`;
-      
-      let targetName = 'Neutral';
-      if (item.rootFor === 'Away') targetName = item.awayTeam.shortName;
-      if (item.rootFor === 'Home') targetName = item.homeTeam.shortName;
-      badgeTarget.innerText = item.rootFor !== 'Neutral' ? `Root for: ${targetName}` : 'No Impact';
+        const badgeTarget = document.createElement('span');
+        badgeTarget.className = `rooting-target-badge ${item.rootFor !== 'Neutral' ? 'root' : 'neutral'}`;
+        
+        let targetName = 'Neutral';
+        if (item.rootFor === 'Away') targetName = item.awayTeam.shortName;
+        if (item.rootFor === 'Home') targetName = item.homeTeam.shortName;
+        badgeTarget.innerText = item.rootFor !== 'Neutral' ? `Root for: ${targetName}` : 'No Impact';
 
-      const expl = document.createElement('div');
-      expl.className = 'rooting-explanation';
-      expl.innerHTML = item.explanation;
+        const expl = document.createElement('div');
+        expl.className = 'rooting-explanation';
+        expl.innerHTML = item.explanation;
 
-      banner.appendChild(badgeTarget);
-      banner.appendChild(expl);
-      card.appendChild(banner);
+        rootingBanner.appendChild(badgeTarget);
+        rootingBanner.appendChild(expl);
+        card.appendChild(rootingBanner);
+      }
+
+      // 2. Active Player Hitting Streaks for Away & Home Teams
+      const streaksAway = getPlayerHitStreaks(item.awayTeam.id, state.selectedDate);
+      const streaksHome = getPlayerHitStreaks(item.homeTeam.id, state.selectedDate);
+
+      if (streaksAway.length > 0 || streaksHome.length > 0) {
+        const streaksSection = document.createElement('div');
+        streaksSection.className = 'game-streaks-section';
+        streaksSection.style.cssText = `
+          padding: 12px;
+          background: var(--bg-card-hover);
+          border-top: 1px dashed var(--border-glass-highlight);
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        `;
+
+        const title = document.createElement('div');
+        title.innerHTML = '⚡ <strong>Player Hitting Streaks (10+ Games)</strong>';
+        title.style.cssText = 'font-size: 10px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;';
+        streaksSection.appendChild(title);
+
+        const renderTeamStreaks = (teamObj, streaksList) => {
+          const row = document.createElement('div');
+          row.style.cssText = 'display: flex; flex-direction: column; gap: 4px;';
+          
+          const teamLabel = document.createElement('div');
+          teamLabel.style.cssText = 'font-size: 11px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px;';
+          teamLabel.innerHTML = `
+            <span class="team-badge-small" style="background:${teamObj.primaryColor}; color:${teamObj.textColor}; font-size:8px; padding:1px 4px; border-radius:3px;">${teamObj.abbreviation}</span>
+            <span>${teamObj.shortName}</span>
+          `;
+          row.appendChild(teamLabel);
+
+          const listContainer = document.createElement('div');
+          listContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 6px; margin-left: 20px;';
+
+          if (streaksList.length > 0) {
+            streaksList.forEach(p => {
+              const badge = document.createElement('span');
+              
+              let countColor = '#ea580c';
+              if (p.streak >= 20) countColor = '#f43f5e';
+              else if (p.streak >= 15) countColor = '#f97316';
+              else countColor = '#f59e0b';
+
+              badge.style.cssText = `
+                background: #ffffff;
+                border: 1px solid var(--border-glass);
+                padding: 3px 8px;
+                border-radius: 4px;
+                font-size: 11px;
+                color: var(--text-primary);
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+              `;
+              badge.innerHTML = `<span>${p.name}</span> <strong style="color:${countColor}; font-weight: 800; font-family: var(--font-title);">${p.streak} Gms</strong>`;
+              listContainer.appendChild(badge);
+            });
+          } else {
+            const noStreaks = document.createElement('span');
+            noStreaks.innerText = 'No active streaks';
+            noStreaks.style.cssText = 'font-size: 11px; color: var(--text-muted); font-style: italic;';
+            listContainer.appendChild(noStreaks);
+          }
+
+          row.appendChild(listContainer);
+          return row;
+        };
+
+        streaksSection.appendChild(renderTeamStreaks(item.awayTeam, streaksAway));
+        streaksSection.appendChild(renderTeamStreaks(item.homeTeam, streaksHome));
+        card.appendChild(streaksSection);
+      }
 
       const footerHint = document.createElement('div');
       footerHint.className = 'game-card-footer';
