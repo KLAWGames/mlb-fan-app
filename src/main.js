@@ -21,7 +21,8 @@ let state = {
   expandedGamePks: [], // List of gamePk IDs that are expanded
   expandedTiebreakerTeamIds: [], // List of team IDs whose tiebreakers are expanded in the Wild Card view
   selectedGameIdx: null, // Index of the selected game in the active team's run differential chart
-  lastActiveTeamId: null // Tracks the last team ID to reset selection index on switch
+  lastActiveTeamId: null, // Tracks the last team ID to reset selection index on switch
+  swipeHintShownForTeam: null // Tracks if the swipe hint has been displayed for the current team
 };
 
 // Helper: Convert Hex color to RGB string for custom CSS transparency gradients
@@ -1052,6 +1053,45 @@ function createDashboardView() {
     chartContainer.className = 'banner-chart-container';
     chartContainer.style.width = '100%';
     chartContainer.style.marginTop = '4px';
+    chartContainer.style.position = 'relative';
+
+    // Touch swipe gesture handlers
+    let touchStartX = 0;
+    let touchStartY = 0;
+    
+    chartContainer.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    
+    chartContainer.addEventListener('touchmove', (e) => {
+      const diffX = e.touches[0].clientX - touchStartX;
+      const diffY = e.touches[0].clientY - touchStartY;
+      if (Math.abs(diffX) > Math.abs(diffY)) {
+        if (e.cancelable) e.preventDefault();
+      }
+    }, { passive: false });
+    
+    chartContainer.addEventListener('touchend', (e) => {
+      const diffX = e.changedTouches[0].clientX - touchStartX;
+      const diffY = e.changedTouches[0].clientY - touchStartY;
+      
+      if (Math.abs(diffX) > 35 && Math.abs(diffX) > Math.abs(diffY)) {
+        if (diffX < 0) {
+          // Swipe Left -> Next game
+          if (state.selectedGameIdx < seasonGames.length - 1) {
+            state.selectedGameIdx++;
+            render();
+          }
+        } else {
+          // Swipe Right -> Prev game
+          if (state.selectedGameIdx > 0) {
+            state.selectedGameIdx--;
+            render();
+          }
+        }
+      }
+    });
 
     const svgWidth = 500;
     const svgHeight = 90;
@@ -1115,6 +1155,46 @@ function createDashboardView() {
     `;
 
     chartContainer.innerHTML = svgHtml;
+
+    // Temporary animated swipe hint overlay (fades out after 2.5s)
+    if (!state.swipeHintShownForTeam || state.swipeHintShownForTeam !== team.id) {
+      const hint = document.createElement('div');
+      hint.id = 'swipe-hint';
+      hint.style.position = 'absolute';
+      hint.style.top = '0';
+      hint.style.left = '0';
+      hint.style.width = '100%';
+      hint.style.height = '100%';
+      hint.style.background = 'rgba(0, 0, 0, 0.45)';
+      hint.style.backdropFilter = 'blur(1px)';
+      hint.style.display = 'flex';
+      hint.style.flexDirection = 'column';
+      hint.style.alignItems = 'center';
+      hint.style.justifyContent = 'center';
+      hint.style.color = '#ffffff';
+      hint.style.zIndex = '5';
+      hint.style.borderRadius = '4px';
+      hint.style.pointerEvents = 'none';
+      hint.style.transition = 'opacity 0.6s ease';
+      hint.style.opacity = '1';
+
+      hint.innerHTML = `
+        <div class="swipe-shake" style="font-size: 14px; font-weight: bold; margin-bottom: 2px;">◀ 👆 ▶</div>
+        <div style="font-size: 9px; font-weight: 700; color: rgba(255, 255, 255, 0.95); text-transform: uppercase; letter-spacing: 0.05em;">Swipe chart to browse games</div>
+      `;
+      chartContainer.appendChild(hint);
+
+      setTimeout(() => {
+        const hintEl = document.getElementById('swipe-hint');
+        if (hintEl) {
+          hintEl.style.opacity = '0';
+          setTimeout(() => hintEl.remove(), 600);
+        }
+      }, 2000);
+
+      state.swipeHintShownForTeam = team.id;
+    }
+
     banner.appendChild(chartContainer);
 
     // --- Row 3: Selected Game Detail Strip with Arrow Navigation ---
@@ -1124,7 +1204,7 @@ function createDashboardView() {
     detailStrip.style.alignItems = 'center';
     detailStrip.style.justifyContent = 'space-between';
     detailStrip.style.gap = '8px';
-    detailStrip.style.padding = '4px 8px';
+    detailStrip.style.padding = '6px 8px';
     detailStrip.style.background = 'rgba(0, 0, 0, 0.18)';
     detailStrip.style.borderRadius = '4px';
     detailStrip.style.border = '1px solid rgba(255, 255, 255, 0.08)';
@@ -1132,6 +1212,7 @@ function createDashboardView() {
 
     const prevBtn = document.createElement('button');
     prevBtn.className = 'banner-nav-btn';
+    prevBtn.style.flexShrink = '0';
     prevBtn.innerText = '◀';
     prevBtn.disabled = state.selectedGameIdx <= 0;
     prevBtn.addEventListener('click', (e) => {
@@ -1144,6 +1225,7 @@ function createDashboardView() {
 
     const nextBtn = document.createElement('button');
     nextBtn.className = 'banner-nav-btn';
+    nextBtn.style.flexShrink = '0';
     nextBtn.innerText = '▶';
     nextBtn.disabled = state.selectedGameIdx >= seasonGames.length - 1;
     nextBtn.addEventListener('click', (e) => {
@@ -1157,13 +1239,9 @@ function createDashboardView() {
     const textContainer = document.createElement('div');
     textContainer.style.flex = '1';
     textContainer.style.textAlign = 'center';
-    textContainer.style.fontSize = '11px';
     textContainer.style.color = 'rgba(255, 255, 255, 0.95)';
     textContainer.style.fontWeight = '500';
     textContainer.style.letterSpacing = '0.02em';
-    textContainer.style.whiteSpace = 'nowrap';
-    textContainer.style.overflow = 'hidden';
-    textContainer.style.textOverflow = 'ellipsis';
     
     function updateDetailStrip(g) {
       const resultText = g.isWin ? 'Win' : 'Loss';
@@ -1171,10 +1249,15 @@ function createDashboardView() {
       const diffText = g.runDiff > 0 ? `+${g.runDiff}` : `${g.runDiff}`;
       
       textContainer.innerHTML = `
-        <span style="color: rgba(255,255,255,0.6); font-weight:600;">Game ${g.gameNumber} (${g.dateStr}):</span> 
-        <span style="font-weight:700; color:${resultColor};">${resultText} ${g.teamScore}-${g.oppScore}</span> 
-        vs ${g.opponentAbbr} 
-        <span style="color: rgba(255,255,255,0.6); font-weight:600;">(Diff: ${diffText})</span>
+        <div style="font-size: 9px; color: rgba(255,255,255,0.65); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; margin-bottom: 2px;">
+          Game ${g.gameNumber} • ${g.dateStr}
+        </div>
+        <div style="font-size: 13px; font-weight: 800; color: #ffffff;">
+          <span style="color: ${resultColor};">${resultText} ${g.teamScore}-${g.oppScore}</span> vs ${g.opponent}
+        </div>
+        <div style="font-size: 9px; color: rgba(255,255,255,0.7); margin-top: 1px;">
+          Run Differential: <strong style="color: #ffffff;">${diffText}</strong>
+        </div>
       `;
     }
 

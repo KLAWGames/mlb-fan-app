@@ -1387,3 +1387,13 @@ header {
   opacity: 0.35;
   cursor: not-allowed;
 }
+
+/* Horizontal swipe shake animation */
+@keyframes horizontal-shake {
+  0%, 100% { transform: translateX(-4px); }
+  50% { transform: translateX(4px); }
+}
+.swipe-shake {
+  display: inline-block;
+  animation: horizontal-shake 1.0s infinite ease-in-out;
+}
