@@ -1190,4 +1190,31 @@ header {
   font-weight: 500;
 }
 
+/* Tiebreaker Accordion Visuals */
+.tiebreaker-detail {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px dashed rgba(245, 158, 11, 0.25);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  width: 100%;
+  animation: slide-down 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  box-sizing: border-box;
+}
+
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
 

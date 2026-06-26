@@ -152,11 +152,44 @@ const MOCK_GAMES = [
   }
 ];
 
-export async function fetchStandings() {
+function getMockYesterdayStandings() {
+  const yesterday = JSON.parse(JSON.stringify(MOCK_STANDINGS));
+  yesterday.records.forEach(division => {
+    division.teamRecords.forEach(teamRec => {
+      // Modify team records for yesterday to simulate historical standings
+      if (teamRec.team.id === 141) { // Blue Jays
+        teamRec.wins = 38; // 39 wins today
+        teamRec.gamesBack = "10.0";
+      } else if (teamRec.team.id === 147) { // Yankees
+        teamRec.wins = 47;
+        teamRec.losses = 31;
+        teamRec.gamesBack = "-";
+      } else if (teamRec.team.id === 117) { // Astros
+        teamRec.wins = 39;
+        teamRec.losses = 42; // wins: 39, losses: 43 today (meaning they lost today)
+        teamRec.gamesBack = "1.5";
+      } else if (teamRec.team.id === 136) { // Mariners
+        teamRec.wins = 40;
+        teamRec.gamesBack = "-";
+      } else if (teamRec.team.id === 119) { // Dodgers
+        teamRec.wins = 51;
+        teamRec.gamesBack = "-";
+      } else if (teamRec.team.id === 137) { // Giants
+        teamRec.wins = 33;
+        teamRec.losses = 45; // wins: 33, losses: 46 today
+        teamRec.gamesBack = "17.5";
+      }
+    });
+  });
+  return yesterday;
+}
+
+export async function fetchStandings(dateStr = null) {
   try {
     const leagues = [103, 104];
+    const dateParam = dateStr ? `&date=${dateStr}` : '';
     const promises = leagues.map(lid =>
-      fetch(`https://statsapi.mlb.com/api/v1/standings?leagueId=${lid}`)
+      fetch(`https://statsapi.mlb.com/api/v1/standings?leagueId=${lid}${dateParam}`)
         .then(res => {
           if (!res.ok) throw new Error('API request failed');
           return res.json();
@@ -170,12 +203,12 @@ export async function fetchStandings() {
 
     if (combinedRecords.length === 0) {
       console.warn("Standings empty from API, using high-fidelity fallback.");
-      return MOCK_STANDINGS;
+      return dateStr ? getMockYesterdayStandings() : MOCK_STANDINGS;
     }
     return { records: combinedRecords };
   } catch (err) {
     console.error("Failed to fetch standings from API, using fallback:", err.message);
-    return MOCK_STANDINGS;
+    return dateStr ? getMockYesterdayStandings() : MOCK_STANDINGS;
   }
 }
 

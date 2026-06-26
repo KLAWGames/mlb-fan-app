@@ -11,12 +11,15 @@ let state = {
   selectedDate: formatLocalDate(new Date()), // YYYY-MM-DD
   rawStandings: null,
   rawSchedule: null,
+  rawStandingsYesterday: null,
   processedStandings: null,
+  processedStandingsYesterday: null,
   loading: false,
   searchQuery: '',
   magicNumberExpanded: false,
   activeTrackerTab: 'division', // 'division' | 'wildcard'
-  expandedGamePks: [] // List of gamePk IDs that are expanded
+  expandedGamePks: [], // List of gamePk IDs that are expanded
+  expandedTiebreakerTeamIds: [] // List of team IDs whose tiebreakers are expanded in the Wild Card view
 };
 
 // Helper: Convert Hex color to RGB string for custom CSS transparency gradients
@@ -71,20 +74,113 @@ async function init() {
   await loadData();
 }
 
+// Sync active team default playoff tracker tab
+function syncDefaultTab() {
+  const team = state.processedStandings?.teamsMap?.[state.activeTeamId];
+  if (team) {
+    if (team.divisionLeader) {
+      state.activeTrackerTab = 'division';
+    } else {
+      state.activeTrackerTab = 'wildcard';
+    }
+  }
+}
+
+// Calculate division standings trend (gained/lost games) compared to yesterday
+function getDivisionTrend(teamId) {
+  const teamToday = state.processedStandings?.teamsMap?.[teamId];
+  const teamYesterday = state.processedStandingsYesterday?.teamsMap?.[teamId];
+  if (!teamToday || !teamYesterday) return null;
+  
+  if (teamToday.divisionLeader) {
+    // Compare division lead over the 2nd place team
+    const divId = teamToday.divisionId;
+    const divTeamsToday = state.processedStandings?.divisionTeams?.[divId] || [];
+    const divTeamsYesterday = state.processedStandingsYesterday?.divisionTeams?.[divId] || [];
+    
+    const secondToday = divTeamsToday[1];
+    const secondYesterday = divTeamsYesterday[1];
+    
+    if (secondToday && secondYesterday) {
+      const leadToday = ((teamToday.wins - secondToday.wins) + (secondToday.losses - teamToday.losses)) / 2;
+      const leadYesterday = ((teamYesterday.wins - secondYesterday.wins) + (secondYesterday.losses - teamYesterday.losses)) / 2;
+      return leadToday - leadYesterday;
+    }
+    return 0;
+  } else {
+    // Compare games back gap (yesterday - today, positive is good)
+    return teamYesterday.gamesBack - teamToday.gamesBack;
+  }
+}
+
+// Calculate Wild Card standings trend (gained/lost games) compared to yesterday
+function getWildCardTrend(teamId) {
+  const teamToday = state.processedStandings?.teamsMap?.[teamId];
+  const teamYesterday = state.processedStandingsYesterday?.teamsMap?.[teamId];
+  if (!teamToday || !teamYesterday) return null;
+  
+  return teamYesterday.wildCardGamesBack - teamToday.wildCardGamesBack;
+}
+
+// Render trend badge
+function renderTrendBadge(change) {
+  if (change === null || change === undefined || isNaN(change)) return document.createElement('span');
+  const span = document.createElement('span');
+  span.className = 'trend-badge';
+  span.style.fontSize = '9px';
+  span.style.marginLeft = '6px';
+  span.style.fontWeight = '800';
+  span.style.padding = '1px 5px';
+  span.style.borderRadius = '4px';
+  span.style.display = 'inline-flex';
+  span.style.alignItems = 'center';
+  
+  if (change > 0) {
+    span.innerText = `▲ ${Math.abs(change)}`;
+    span.style.color = '#34d399'; // Bright green
+    span.style.background = 'rgba(16, 185, 129, 0.12)';
+    span.style.border = '1px solid rgba(16, 185, 129, 0.2)';
+  } else if (change < 0) {
+    span.innerText = `▼ ${Math.abs(change)}`;
+    span.style.color = '#f87171'; // Bright red
+    span.style.background = 'rgba(239, 68, 68, 0.12)';
+    span.style.border = '1px solid rgba(239, 68, 68, 0.2)';
+  } else {
+    span.innerText = '—';
+    span.style.color = 'var(--text-muted)';
+    span.style.fontWeight = '500';
+  }
+  return span;
+}
+
+
 // Fetch schedule and standings
 async function loadData() {
   state.loading = true;
   render();
 
   try {
-    const [standings, schedule] = await Promise.all([
-      fetchStandings(),
-      fetchSchedule(state.selectedDate)
+    // Compute yesterday's date string
+    const todayDate = new Date(state.selectedDate + 'T12:00:00'); // avoid timezone shifts
+    const yesterdayDate = new Date(todayDate);
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayStr = formatLocalDate(yesterdayDate);
+
+    const [standings, schedule, standingsYesterday] = await Promise.all([
+      fetchStandings(state.selectedDate),
+      fetchSchedule(state.selectedDate),
+      fetchStandings(yesterdayStr)
     ]);
     
     state.rawStandings = standings;
     state.rawSchedule = schedule;
+    state.rawStandingsYesterday = standingsYesterday;
+    
     state.processedStandings = processStandings(standings);
+    state.processedStandingsYesterday = processStandings(standingsYesterday);
+    
+    // Automatically set default active tab (Division vs Wild Card)
+    syncDefaultTab();
   } catch (err) {
     console.error("Error loading MLB data:", err);
   } finally {
@@ -187,6 +283,7 @@ function createHeader() {
       btn.addEventListener('click', () => {
         state.activeTeamId = id;
         updateTeamTheme(id);
+        syncDefaultTab();
         render();
       });
 
@@ -358,6 +455,10 @@ function createDashboardView() {
           const gap = document.createElement('div');
           gap.className = 'timeline-gap-text';
           gap.innerText = `+${lead} GB`;
+          
+          const trend = getDivisionTrend(team.id);
+          gap.appendChild(renderTrendBadge(trend));
+          
           line.appendChild(gap);
         }
 
@@ -375,6 +476,10 @@ function createDashboardView() {
         const gap = document.createElement('div');
         gap.className = 'timeline-gap-text';
         gap.innerText = `${team.gamesBack} GB`;
+        
+        const trend = getDivisionTrend(team.id);
+        gap.appendChild(renderTrendBadge(trend));
+        
         line.appendChild(gap);
 
         const nodeActive = createTimelineNode(team, true);
@@ -466,10 +571,66 @@ function createDashboardView() {
     return node;
   }
 
+  // Generate tiebreaker details natural language explanation
+  function getTiebreakerExplanation(tRecord, wcPool) {
+    const tiedTeams = wcPool.filter(t => t.wildCardGamesBack === tRecord.wildCardGamesBack);
+    if (tiedTeams.length <= 1) return "";
+
+    let explanation = `<div style="font-weight:700; margin-bottom:4px; font-size:11px; text-transform:uppercase; color:#f59e0b; display:flex; align-items:center; gap:4px;">⚠️ Tiebreaker Breakdown</div>`;
+    explanation += `<p style="margin-bottom:6px; font-size:11px; color:var(--text-secondary);">These teams are tied in games back (${tRecord.wildCardGamesBack < 0 ? '+' : ''}${Math.abs(tRecord.wildCardGamesBack)} GB). Standing rank is determined by winning percentage:</p>`;
+    
+    explanation += `<ul style="list-style:none; padding-left:0; display:flex; flex-direction:column; gap:4px;">`;
+    tiedTeams.forEach(t => {
+      const isCurrentTeam = t.id === tRecord.id;
+      explanation += `
+        <li style="display:flex; justify-content:space-between; font-size:11px; padding:3px 6px; background:${isCurrentTeam ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.15)'}; border-radius:6px; border: 1px solid ${isCurrentTeam ? 'rgba(255,255,255,0.08)' : 'transparent'};">
+          <span style="font-weight:${isCurrentTeam ? '700' : '500'}">${t.name}</span>
+          <span style="font-family:monospace; font-weight:700;">${t.wins}-${t.losses} (${t.pct})</span>
+        </li>
+      `;
+    });
+    explanation += `</ul>`;
+
+    const bestTeam = tiedTeams[0];
+    explanation += `<p style="margin-top:8px; font-size:11px; border-top:1px solid rgba(255,255,255,0.05); padding-top:6px; color:var(--text-secondary);">
+      <strong>${bestTeam.shortName}</strong> currently holds the higher seed due to a superior winning percentage (<strong>${bestTeam.pct}</strong>).
+    </p>`;
+    
+    return explanation;
+  }
+
   // Helper: Create a row for wildcard visual ladder
   function createLadderRow(tRecord, inPlayoffs, isCurrent) {
+    const leagueId = tRecord.leagueId;
+    const allLeague = state.processedStandings?.leagueTeams?.[leagueId] || [];
+    const wcPool = allLeague.filter(t => !t.divisionLeader).sort((a, b) => a.wildCardRank - b.wildCardRank);
+    
+    // Check if other teams are tied with this team's games back
+    const tiedTeams = wcPool.filter(t => t.wildCardGamesBack === tRecord.wildCardGamesBack);
+    const isTied = tiedTeams.length > 1;
+    const isTiebreakerExpanded = state.expandedTiebreakerTeamIds.includes(tRecord.id);
+
+    const wrapper = document.createElement('div');
+    wrapper.style.display = 'flex';
+    wrapper.style.flexDirection = 'column';
+    wrapper.style.width = '100%';
+
     const row = document.createElement('div');
     row.className = `ladder-row ${inPlayoffs ? 'in-playoffs' : ''} ${isCurrent ? 'highlight' : ''}`;
+    
+    if (isTied) {
+      row.style.cursor = 'pointer';
+      row.title = 'Click to show tiebreaker details';
+      row.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (isTiebreakerExpanded) {
+          state.expandedTiebreakerTeamIds = state.expandedTiebreakerTeamIds.filter(id => id !== tRecord.id);
+        } else {
+          state.expandedTiebreakerTeamIds.push(tRecord.id);
+        }
+        render();
+      });
+    }
 
     const label = document.createElement('span');
     label.className = 'ladder-label';
@@ -489,21 +650,56 @@ function createDashboardView() {
     teamCol.appendChild(tBadge);
     teamCol.appendChild(tName);
 
+    // If tied, add an info icon indicator next to the team name
+    if (isTied) {
+      const tiedBadge = document.createElement('span');
+      tiedBadge.style.background = 'rgba(245, 158, 11, 0.1)';
+      tiedBadge.style.border = '1px solid rgba(245, 158, 11, 0.2)';
+      tiedBadge.style.color = '#f59e0b';
+      tiedBadge.style.fontSize = '8px';
+      tiedBadge.style.padding = '1px 4.5px';
+      tiedBadge.style.borderRadius = '4px';
+      tiedBadge.style.marginLeft = '6px';
+      tiedBadge.style.fontWeight = '800';
+      tiedBadge.style.textTransform = 'uppercase';
+      tiedBadge.style.letterSpacing = '0.02em';
+      tiedBadge.innerText = isTiebreakerExpanded ? 'Tied ▲' : 'Tied ℹ️';
+      teamCol.appendChild(tiedBadge);
+    }
+
     const gap = document.createElement('span');
     gap.className = `ladder-gap ${tRecord.wildCardGamesBack <= 0 ? 'ahead' : 'behind'}`;
+    gap.style.display = 'inline-flex';
+    gap.style.alignItems = 'center';
     
+    const gapText = document.createElement('span');
     if (tRecord.wildCardGamesBack < 0) {
-      gap.innerText = `+${Math.abs(tRecord.wildCardGamesBack)}`;
+      gapText.innerText = `+${Math.abs(tRecord.wildCardGamesBack)}`;
     } else if (tRecord.wildCardGamesBack > 0) {
-      gap.innerText = `${tRecord.wildCardGamesBack} GB`;
+      gapText.innerText = `${tRecord.wildCardGamesBack} GB`;
     } else {
-      gap.innerText = '0.0';
+      gapText.innerText = '0.0';
     }
+    gap.appendChild(gapText);
+
+    // Add trend badge
+    const trend = getWildCardTrend(tRecord.id);
+    gap.appendChild(renderTrendBadge(trend));
 
     row.appendChild(label);
     row.appendChild(teamCol);
     row.appendChild(gap);
-    return row;
+    wrapper.appendChild(row);
+
+    // Render tiebreaker details accordion dropdown
+    if (isTied && isTiebreakerExpanded) {
+      const detailContainer = document.createElement('div');
+      detailContainer.className = 'tiebreaker-detail';
+      detailContainer.innerHTML = getTiebreakerExplanation(tRecord, wcPool);
+      wrapper.appendChild(detailContainer);
+    }
+
+    return wrapper;
   }
 
   // 3. Collapsible Magic Numbers Accordion (🔒 Clinch Math)
