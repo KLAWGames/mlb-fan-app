@@ -187,9 +187,13 @@ function getMockYesterdayStandings() {
 export async function fetchStandings(dateStr = null) {
   try {
     const leagues = [103, 104];
-    const dateParam = dateStr ? `&date=${dateStr}` : '';
+    let queryParams = '';
+    if (dateStr) {
+      const year = dateStr.split('-')[0];
+      queryParams = `&season=${year}&date=${dateStr}`;
+    }
     const promises = leagues.map(lid =>
-      fetch(`https://statsapi.mlb.com/api/v1/standings?leagueId=${lid}${dateParam}`)
+      fetch(`https://statsapi.mlb.com/api/v1/standings?leagueId=${lid}${queryParams}`)
         .then(res => {
           if (!res.ok) throw new Error('API request failed');
           return res.json();

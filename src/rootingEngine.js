@@ -41,6 +41,8 @@ export function processStandings(rawStandings) {
         gamesBack: tr.gamesBack === "-" ? 0 : parseFloat(tr.gamesBack) || 0,
         divisionLeader: tr.divisionLeader || tr.divisionRank === "1",
         apiMagicNumber: tr.magicNumber || null,
+        apiLeagueRank: tr.leagueRank || null,
+        apiWildCardRank: tr.wildCardRank || null,
         // Placeholders to be computed
         wildCardRank: null,
         wildCardGamesBack: 0,
@@ -87,8 +89,24 @@ export function processStandings(rawStandings) {
     const allLeague = leagueTeams[leagueId];
     // Wild Card pool: teams that are NOT division leaders
     const wcPool = allLeague.filter(t => !t.divisionLeader);
-    // Sort pool by winning percentage (wins descending, losses ascending)
-    wcPool.sort((a, b) => b.wins - a.wins || a.losses - b.losses);
+    // Sort pool by winning percentage (descending), then by official API rankings
+    wcPool.sort((a, b) => {
+      const pctA = parseFloat(a.pct);
+      const pctB = parseFloat(b.pct);
+      if (Math.abs(pctA - pctB) > 0.0005) {
+        return pctB - pctA;
+      }
+      
+      // If win percentage is tied, check official leagueRank/wildCardRank from API
+      const rankA = parseInt(a.apiLeagueRank, 10);
+      const rankB = parseInt(b.apiLeagueRank, 10);
+      if (!isNaN(rankA) && !isNaN(rankB)) {
+        return rankA - rankB; // Lower rank (e.g. 4) is better than higher rank (e.g. 5)
+      }
+      
+      // Fallback
+      return b.wins - a.wins || a.losses - b.losses;
+    });
 
     // Cutoff team is the 3rd wildcard team (index 2 in sorted pool)
     const cutoffTeam = wcPool[2];
