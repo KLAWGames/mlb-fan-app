@@ -1026,15 +1026,19 @@ function createDashboardView() {
     gap.style.alignItems = 'center';
     
     const gapText = document.createElement('span');
-    if (isTied) {
-      gapText.innerText = tRecord.pct;
-    } else if (tRecord.wildCardGamesBack < 0) {
-      gapText.innerText = `+${Math.abs(tRecord.wildCardGamesBack)}`;
+    gapText.style.display = 'inline-flex';
+    gapText.style.alignItems = 'center';
+    
+    let gbStr = '';
+    if (tRecord.wildCardGamesBack < 0) {
+      gbStr = `+${Math.abs(tRecord.wildCardGamesBack)}`;
     } else if (tRecord.wildCardGamesBack > 0) {
-      gapText.innerText = `${tRecord.wildCardGamesBack} GB`;
+      gbStr = `${tRecord.wildCardGamesBack} GB`;
     } else {
-      gapText.innerText = '0.0';
+      gbStr = '0.0 GB';
     }
+    
+    gapText.innerHTML = `<span style="font-size: 11px; font-weight: 400; color: var(--text-muted); margin-right: 8px; font-family: var(--font-body);">${tRecord.pct}</span><span>${gbStr}</span>`;
     gap.appendChild(gapText);
 
     // Add trend badge
