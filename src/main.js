@@ -24,7 +24,10 @@ let state = {
   lastActiveTeamId: null, // Tracks the last team ID to reset selection index on switch
   teamGames: {}, // Cache of season games by team ID
   bannerZoomedIn: false, // Tracks whether the run differential chart is zoomed to the last 10 games
-  fetchingSchedules: {} // Track ongoing schedule fetches
+  fetchingSchedules: {}, // Track ongoing schedule fetches
+  rawScheduleYesterday: null, // Cache of yesterday's schedule
+  recapOpened: false, // Tracks whether the recap modal is currently open
+  highFivedTeams: [] // Track which team IDs have been high-fived
 };
 
 // Helper: Safely parse ISO UTC date strings to work reliably on all browsers (including iOS Safari)
@@ -839,6 +842,456 @@ function renderTrendBadge(change) {
 }
 
 
+// --- Yesterday's Standings Recap & Confetti Celebration Engine ---
+
+// Cache active team standing record to detect if game results finished since last load
+function checkStandingsMovements(activeTeamId, processedStandings) {
+  if (!activeTeamId || !processedStandings || !processedStandings.teamsMap) return;
+  const team = processedStandings.teamsMap[activeTeamId];
+  if (!team) return;
+
+  const key = `basetab_stats_${activeTeamId}`;
+  const storedStr = localStorage.getItem(key);
+
+  const currentStats = {
+    wins: team.wins,
+    losses: team.losses,
+    gamesBack: team.gamesBack,
+    wildCardGamesBack: team.wildCardGamesBack,
+    divisionRank: team.divisionRank,
+    wildCardRank: team.wildCardRank
+  };
+
+  if (storedStr) {
+    try {
+      const storedStats = JSON.parse(storedStr);
+      // Check if team played games (wins or losses increased) since last open
+      const playedNewGames = currentStats.wins > storedStats.wins || currentStats.losses > storedStats.losses;
+      
+      if (playedNewGames) {
+        // Automatically trigger the recap modal on startup
+        setTimeout(() => {
+          showRecapModal(true);
+        }, 800);
+      }
+    } catch (e) {
+      console.warn("Error parsing stored stats:", e);
+    }
+  }
+
+  // Update stored cache
+  localStorage.setItem(key, JSON.stringify(currentStats));
+}
+
+// Canvas Confetti variables
+let confettiActive = false;
+let confettiCanvas = null;
+let confettiCtx = null;
+let confettiParticles = [];
+const confettiColors = ['#34d399', '#f87171', '#60a5fa', '#fbbf24', '#c084fc', '#f472b6', '#ffffff'];
+
+function startConfetti() {
+  if (confettiActive) return;
+  
+  confettiCanvas = document.getElementById('confetti-canvas');
+  if (!confettiCanvas) {
+    confettiCanvas = document.createElement('canvas');
+    confettiCanvas.id = 'confetti-canvas';
+    confettiCanvas.style.position = 'fixed';
+    confettiCanvas.style.top = '0';
+    confettiCanvas.style.left = '0';
+    confettiCanvas.style.width = '100vw';
+    confettiCanvas.style.height = '100vh';
+    confettiCanvas.style.pointerEvents = 'none';
+    confettiCanvas.style.zIndex = '99999';
+    document.body.appendChild(confettiCanvas);
+  }
+
+  confettiActive = true;
+  resizeConfettiCanvas();
+  window.addEventListener('resize', resizeConfettiCanvas);
+
+  confettiParticles = [];
+  const activeTeam = state.processedStandings?.teamsMap?.[state.activeTeamId] || teamsData[state.activeTeamId];
+  const palettes = [...confettiColors];
+  if (activeTeam) {
+    palettes.push(activeTeam.primaryColor, activeTeam.secondaryColor || '#ffffff');
+  }
+
+  for (let i = 0; i < 150; i++) {
+    confettiParticles.push({
+      x: Math.random() * confettiCanvas.width,
+      y: Math.random() * -confettiCanvas.height - 20,
+      size: Math.random() * 6 + 4,
+      rotation: Math.random() * 360,
+      rotationSpeed: Math.random() * 4 - 2,
+      xSpeed: Math.random() * 4 - 2,
+      ySpeed: Math.random() * 3 + 2,
+      color: palettes[Math.floor(Math.random() * palettes.length)],
+      opacity: Math.random() * 0.4 + 0.6
+    });
+  }
+
+  confettiCtx = confettiCanvas.getContext('2d');
+  requestAnimationFrame(updateConfetti);
+}
+
+function resizeConfettiCanvas() {
+  if (confettiCanvas) {
+    confettiCanvas.width = window.innerWidth;
+    confettiCanvas.height = window.innerHeight;
+  }
+}
+
+function updateConfetti() {
+  if (!confettiActive || !confettiCtx || !confettiCanvas) return;
+
+  confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+
+  let activeCount = 0;
+  confettiParticles.forEach(p => {
+    p.y += p.ySpeed;
+    p.x += p.xSpeed;
+    p.rotation += p.rotationSpeed;
+    p.xSpeed += Math.sin(p.y / 30) * 0.05;
+
+    if (p.y <= confettiCanvas.height) {
+      activeCount++;
+    }
+
+    confettiCtx.save();
+    confettiCtx.translate(p.x, p.y);
+    confettiCtx.rotate((p.rotation * Math.PI) / 180);
+    confettiCtx.globalAlpha = p.opacity;
+    confettiCtx.fillStyle = p.color;
+    confettiCtx.fillRect(-p.size / 2, -p.size, p.size, p.size * 2);
+    confettiCtx.restore();
+  });
+
+  if (activeCount > 0 && confettiActive) {
+    requestAnimationFrame(updateConfetti);
+  } else {
+    stopConfetti();
+  }
+}
+
+function stopConfetti() {
+  confettiActive = false;
+  window.removeEventListener('resize', resizeConfettiCanvas);
+  if (confettiCanvas && confettiCanvas.parentNode) {
+    confettiCanvas.parentNode.removeChild(confettiCanvas);
+  }
+  confettiCanvas = null;
+  confettiCtx = null;
+}
+
+// Spawns a floating high-five hand emoji rising from the tapped coordinate
+function triggerHighFiveAnimation(e, teamName) {
+  const rect = e.target.getBoundingClientRect();
+  const startX = rect.left + rect.width / 2;
+  const startY = rect.top;
+
+  const floating = document.createElement('div');
+  floating.innerText = '🖐️';
+  floating.style.position = 'fixed';
+  floating.style.left = `${startX}px`;
+  floating.style.top = `${startY}px`;
+  floating.style.fontSize = '32px';
+  floating.style.pointerEvents = 'none';
+  floating.style.zIndex = '999999';
+  floating.style.transition = 'all 1.0s cubic-bezier(0.25, 1, 0.5, 1)';
+  floating.style.opacity = '1';
+  floating.style.transform = 'translate(-50%, -50%) scale(1)';
+
+  document.body.appendChild(floating);
+
+  // Force reflow
+  floating.offsetWidth;
+
+  floating.style.top = `${startY - 120}px`;
+  floating.style.transform = 'translate(-50%, -50%) scale(2.2) rotate(15deg)';
+  floating.style.opacity = '0';
+
+  startConfetti();
+
+  setTimeout(() => {
+    if (floating.parentNode) floating.parentNode.removeChild(floating);
+  }, 1000);
+}
+
+// Show recap details modal
+function showRecapModal(isAutoTrigger = false) {
+  const activeTeamId = state.activeTeamId;
+  const teamToday = state.processedStandings?.teamsMap?.[activeTeamId] || teamsData[activeTeamId];
+  const teamYesterday = state.processedStandingsYesterday?.teamsMap?.[activeTeamId];
+  
+  if (!teamToday || !teamYesterday) return;
+
+  // Safely compute formatted label for yesterday's date
+  const parts = state.selectedDate.split('-');
+  const todayDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0);
+  const yesterdayDate = new Date(todayDate);
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterdayLabel = yesterdayDate.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+
+  // Create backdrop
+  const backdrop = document.createElement('div');
+  backdrop.className = 'recap-backdrop';
+  
+  const content = document.createElement('div');
+  content.className = 'recap-content';
+
+  // Header
+  const header = document.createElement('div');
+  header.className = 'recap-header';
+  
+  const title = document.createElement('h2');
+  title.innerText = isAutoTrigger ? '🎉 Standings Update!' : '📅 Yesterday\'s Recap';
+  
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'recap-close-btn';
+  closeBtn.innerHTML = '×';
+  closeBtn.addEventListener('click', () => {
+    backdrop.classList.remove('show');
+    setTimeout(() => {
+      if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+      stopConfetti();
+    }, 300);
+  });
+  
+  header.appendChild(title);
+  header.appendChild(closeBtn);
+  content.appendChild(header);
+
+  // Body
+  const body = document.createElement('div');
+  body.className = 'recap-body';
+
+  // 1. Team Result Card
+  const resultCard = document.createElement('div');
+  resultCard.className = 'recap-card';
+  
+  const resultTitle = document.createElement('div');
+  resultTitle.className = 'recap-card-title';
+  resultTitle.innerText = `${teamToday.shortName} Game Status`;
+  resultCard.appendChild(resultTitle);
+
+  const yesterdayGames = state.rawScheduleYesterday || [];
+  const teamGame = yesterdayGames.find(g => g.teams.away.team.id === activeTeamId || g.teams.home.team.id === activeTeamId);
+
+  let teamResultHtml = '';
+  let didTeamWin = false;
+  if (teamGame) {
+    const isAway = teamGame.teams.away.team.id === activeTeamId;
+    const opponent = isAway ? teamGame.teams.home.team.name : teamGame.teams.away.team.name;
+    const teamScore = isAway ? teamGame.teams.away.score : teamGame.teams.home.score;
+    const oppScore = isAway ? teamGame.teams.home.score : teamGame.teams.away.score;
+    didTeamWin = teamScore > oppScore;
+    
+    const outcomeText = didTeamWin ? 'Won! 🎉' : 'Lost 😢';
+    const color = didTeamWin ? 'var(--color-win)' : 'var(--color-loss)';
+    
+    teamResultHtml = `
+      <div style="font-size: 15px; font-weight: 700; color: ${color}; margin-bottom: 4px;">
+        ${outcomeText} ${teamScore}-${oppScore} vs ${opponent}
+      </div>
+      <div style="font-size: 12px; color: var(--text-secondary);">
+        Yesterday's game was played on ${yesterdayLabel}.
+      </div>
+    `;
+    if (didTeamWin) {
+      startConfetti();
+    }
+  } else {
+    teamResultHtml = `
+      <div style="font-size: 14px; font-weight: 600; color: var(--text-secondary);">
+        Rest Day 💤
+      </div>
+      <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+        The ${teamToday.shortName} did not play yesterday.
+      </div>
+    `;
+  }
+  
+  const resultBody = document.createElement('div');
+  resultBody.innerHTML = teamResultHtml;
+  resultCard.appendChild(resultBody);
+  body.appendChild(resultCard);
+
+  // 2. Standings Movements Card
+  const standingsCard = document.createElement('div');
+  standingsCard.className = 'recap-card';
+
+  const standingsTitle = document.createElement('div');
+  standingsTitle.className = 'recap-card-title';
+  standingsTitle.innerText = 'Standings Movement';
+  standingsCard.appendChild(standingsTitle);
+
+  const standingsBody = document.createElement('div');
+  standingsBody.style.display = 'flex';
+  standingsBody.style.flexDirection = 'column';
+  standingsBody.style.gap = '10px';
+
+  let hasGainedGround = false;
+
+  // Division Race
+  const divTrend = getDivisionTrend(activeTeamId);
+  const divRow = document.createElement('div');
+  divRow.style.display = 'flex';
+  divRow.style.justifyContent = 'space-between';
+  divRow.style.alignItems = 'center';
+  divRow.style.fontSize = '13px';
+  
+  const divLabel = document.createElement('span');
+  divLabel.innerHTML = `<strong>Division Race:</strong> ${teamToday.divisionLeader ? 'Leading' : `${teamToday.gamesBack.toFixed(1)} GB`}`;
+  
+  const divBadge = document.createElement('span');
+  if (divTrend > 0) {
+    divBadge.className = 'recap-trend-badge gained';
+    divBadge.innerText = `▲ Gained ${divTrend.toFixed(1)} G`;
+    hasGainedGround = true;
+  } else if (divTrend < 0) {
+    divBadge.className = 'recap-trend-badge lost';
+    divBadge.innerText = `▼ Lost ${Math.abs(divTrend).toFixed(1)} G`;
+  } else {
+    divBadge.className = 'recap-trend-badge no-change';
+    divBadge.innerText = '— No Change';
+  }
+  divRow.appendChild(divLabel);
+  divRow.appendChild(divBadge);
+  standingsBody.appendChild(divRow);
+
+  // Wild Card Race
+  const wcTrend = getWildCardTrend(activeTeamId);
+  const wcRow = document.createElement('div');
+  wcRow.style.display = 'flex';
+  wcRow.style.justifyContent = 'space-between';
+  wcRow.style.alignItems = 'center';
+  wcRow.style.fontSize = '13px';
+  
+  let wcText = '';
+  if (teamToday.isWildCardSpot) {
+    wcText = `+${Math.abs(teamToday.wildCardGamesBack).toFixed(1)} WC`;
+  } else {
+    wcText = `${teamToday.wildCardGamesBack.toFixed(1)} GB`;
+  }
+  const wcLabel = document.createElement('span');
+  wcLabel.innerHTML = `<strong>Wild Card Race:</strong> ${wcText}`;
+
+  const wcBadge = document.createElement('span');
+  if (wcTrend > 0) {
+    wcBadge.className = 'recap-trend-badge gained';
+    wcBadge.innerText = `▲ Gained ${wcTrend.toFixed(1)} G`;
+    hasGainedGround = true;
+  } else if (wcTrend < 0) {
+    wcBadge.className = 'recap-trend-badge lost';
+    wcBadge.innerText = `▼ Lost ${Math.abs(wcTrend).toFixed(1)} G`;
+  } else {
+    wcBadge.className = 'recap-trend-badge no-change';
+    wcBadge.innerText = '— No Change';
+  }
+  wcRow.appendChild(wcLabel);
+  wcRow.appendChild(wcBadge);
+  standingsBody.appendChild(wcRow);
+
+  standingsCard.appendChild(standingsBody);
+  body.appendChild(standingsCard);
+
+  if (hasGainedGround) {
+    startConfetti();
+  }
+
+  // 3. Rooting Advice Results Card
+  const rootingCard = document.createElement('div');
+  rootingCard.className = 'recap-card';
+
+  const rootingTitle = document.createElement('div');
+  rootingTitle.className = 'recap-card-title';
+  rootingTitle.innerText = 'Rivalry Outcomes Yesterday';
+  rootingCard.appendChild(rootingTitle);
+
+  const rootingBody = document.createElement('div');
+  rootingBody.style.display = 'flex';
+  rootingBody.style.flexDirection = 'column';
+  rootingBody.style.gap = '12px';
+
+  // Analyze yesterday's games
+  const rootingGamesAnalysis = analyzeMatchups(yesterdayGames, state.processedStandingsYesterday, activeTeamId);
+  // Exclude our own game and priority 0 games
+  const targetRivalGames = rootingGamesAnalysis.filter(g => g.priority > 0 && g.awayTeam.id !== activeTeamId && g.homeTeam.id !== activeTeamId);
+
+  if (targetRivalGames.length > 0) {
+    targetRivalGames.forEach(g => {
+      const isAwayWinner = g.awayScore > g.homeScore;
+      const winnerSide = isAwayWinner ? 'Away' : 'Home';
+      const winnerTeam = isAwayWinner ? g.awayTeam : g.homeTeam;
+      const loserTeam = isAwayWinner ? g.homeTeam : g.awayTeam;
+      
+      const didRootSucceed = g.rootFor === winnerSide;
+      const rootTeamName = g.rootFor === 'Away' ? g.awayTeam.shortName : g.homeTeam.shortName;
+      
+      const gameRow = document.createElement('div');
+      gameRow.style.fontSize = '12px';
+      gameRow.style.borderBottom = '1px solid rgba(0, 0, 0, 0.04)';
+      gameRow.style.paddingBottom = '8px';
+      
+      const outcomeBadgeHtml = didRootSucceed 
+        ? '<span style="color:var(--color-win); font-weight:700;">Nice 😊</span>' 
+        : '<span style="color:var(--color-loss); font-weight:700;">Tough 😢</span>';
+      
+      gameRow.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <strong>${g.awayTeam.abbreviation} ${g.awayScore} @ ${g.homeTeam.abbreviation} ${g.homeScore}</strong>
+          ${outcomeBadgeHtml}
+        </div>
+        <div style="color: var(--text-secondary); font-size:11px; margin-bottom:4px;">
+          Rooted for: <strong>${rootTeamName}</strong>. 
+          ${winnerTeam.shortName} beat ${loserTeam.shortName}.
+        </div>
+      `;
+
+      // If rooting choice won, allow user to "High Five" the winning team!
+      if (didRootSucceed) {
+        const hfBtn = document.createElement('button');
+        hfBtn.className = 'high-five-btn';
+        
+        const isFived = state.highFivedTeams.includes(g.gamePk);
+        hfBtn.disabled = isFived;
+        hfBtn.innerHTML = isFived ? 'High Fived! 🖐️' : `🖐️ High Five the ${winnerTeam.shortName}`;
+        
+        hfBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          triggerHighFiveAnimation(e, winnerTeam.shortName);
+          state.highFivedTeams.push(g.gamePk);
+          hfBtn.disabled = true;
+          hfBtn.innerHTML = 'High Fived! 🖐️';
+        });
+        gameRow.appendChild(hfBtn);
+      }
+
+      rootingBody.appendChild(gameRow);
+    });
+  } else {
+    const emptyRow = document.createElement('div');
+    emptyRow.style.fontSize = '12px';
+    emptyRow.style.color = 'var(--text-muted)';
+    emptyRow.innerText = 'No key rival matchups were played yesterday.';
+    rootingBody.appendChild(emptyRow);
+  }
+
+  rootingCard.appendChild(rootingBody);
+  body.appendChild(rootingCard);
+
+  content.appendChild(body);
+  backdrop.appendChild(content);
+  document.body.appendChild(backdrop);
+
+  // Animate slide up
+  backdrop.offsetWidth; // force reflow
+  backdrop.classList.add('show');
+}
+
+
 // Fetch schedule and standings
 async function loadData() {
   state.loading = true;
@@ -852,18 +1305,25 @@ async function loadData() {
     yesterdayDate.setDate(yesterdayDate.getDate() - 1);
     const yesterdayStr = formatLocalDate(yesterdayDate);
 
-    const [standings, schedule, standingsYesterday] = await Promise.all([
+    const [standings, schedule, standingsYesterday, scheduleYesterday] = await Promise.all([
       fetchStandings(state.selectedDate),
       fetchSchedule(state.selectedDate),
-      fetchStandings(yesterdayStr)
+      fetchStandings(yesterdayStr),
+      fetchSchedule(yesterdayStr)
     ]);
     
     state.rawStandings = standings;
     state.rawSchedule = schedule;
     state.rawStandingsYesterday = standingsYesterday;
+    state.rawScheduleYesterday = scheduleYesterday;
     
     state.processedStandings = processStandings(standings);
     state.processedStandingsYesterday = processStandings(standingsYesterday);
+    
+    // Check for standing movements since last open
+    if (state.processedStandings && state.processedStandingsYesterday) {
+      checkStandingsMovements(state.activeTeamId, state.processedStandings);
+    }
     
     // Automatically set default active tab (Division vs Wild Card)
     syncDefaultTab();
@@ -884,15 +1344,17 @@ async function silentRefreshData() {
     yesterdayDate.setDate(yesterdayDate.getDate() - 1);
     const yesterdayStr = formatLocalDate(yesterdayDate);
 
-    const [standings, schedule, standingsYesterday] = await Promise.all([
+    const [standings, schedule, standingsYesterday, scheduleYesterday] = await Promise.all([
       fetchStandings(state.selectedDate),
       fetchSchedule(state.selectedDate),
-      fetchStandings(yesterdayStr)
+      fetchStandings(yesterdayStr),
+      fetchSchedule(yesterdayStr)
     ]);
     
     state.rawStandings = standings;
     state.rawSchedule = schedule;
     state.rawStandingsYesterday = standingsYesterday;
+    state.rawScheduleYesterday = scheduleYesterday;
     
     state.processedStandings = processStandings(standings);
     state.processedStandingsYesterday = processStandings(standingsYesterday);
@@ -1420,6 +1882,19 @@ function createDashboardView() {
   }
 
   container.appendChild(banner);
+
+  // Yesterday's Standings Recap Trigger Button
+  const recapBtn = document.createElement('button');
+  recapBtn.className = 'recap-trigger-btn';
+  recapBtn.innerHTML = `
+    <span class="icon">📅</span>
+    <span>What Happened Yesterday</span>
+  `;
+  recapBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showRecapModal(false);
+  });
+  container.appendChild(recapBtn);
 
   // 2. Playoff Position Visual Tracker Card
   const trackerCard = document.createElement('div');
