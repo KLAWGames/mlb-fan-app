@@ -75,6 +75,9 @@ async function init() {
 
   // Set up touch gestures (Pull to Refresh)
   setupPullToRefresh();
+
+  // Set up scroll-to-hide navigation bar
+  setupScrollToHide();
 }
 
 // Setup mobile-native Pull-to-Refresh gesture
@@ -174,6 +177,29 @@ function setupPullToRefresh() {
     ptrContainer.classList.remove('active');
     spinner.style.transform = 'rotate(0deg)';
   }
+}
+
+// Setup scroll-to-hide behavior for bottom navigation
+function setupScrollToHide() {
+  let lastScrollY = window.scrollY;
+  
+  window.addEventListener('scroll', () => {
+    const nav = document.querySelector('.bottom-nav');
+    if (!nav) return;
+    
+    const currentScrollY = window.scrollY;
+    
+    // Determine scroll direction
+    if (currentScrollY > lastScrollY && currentScrollY > 60) {
+      // Scrolling down - hide navigation
+      nav.classList.add('hidden');
+    } else {
+      // Scrolling up or at the very top - show navigation
+      nav.classList.remove('hidden');
+    }
+    
+    lastScrollY = currentScrollY;
+  }, { passive: true });
 }
 
 // Sync active team default playoff tracker tab
@@ -346,6 +372,11 @@ function createHeader() {
     render();
   });
 
+  const rightControls = document.createElement('div');
+  rightControls.style.display = 'flex';
+  rightControls.style.alignItems = 'center';
+  rightControls.style.gap = '8px';
+
   const dateInput = document.createElement('input');
   dateInput.type = 'date';
   dateInput.className = 'date-selector';
@@ -355,8 +386,20 @@ function createHeader() {
     await loadData();
   });
 
+  const settingsBtn = document.createElement('button');
+  settingsBtn.className = 'settings-btn';
+  settingsBtn.innerHTML = '⚙️';
+  settingsBtn.title = 'App Settings';
+  settingsBtn.addEventListener('click', () => {
+    state.activeView = 'settings';
+    render();
+  });
+
+  rightControls.appendChild(dateInput);
+  rightControls.appendChild(settingsBtn);
+
   topRow.appendChild(logo);
-  topRow.appendChild(dateInput);
+  topRow.appendChild(rightControls);
   header.appendChild(topRow);
 
   // Team Switcher Tabs (Only visible on dashboard and standings views)
@@ -1240,14 +1283,28 @@ function createSettingsView() {
 
   const title = document.createElement('h2');
   title.className = 'setup-title';
-  title.innerText = 'Track Your Teams';
+  title.innerText = 'App Settings';
 
   const desc = document.createElement('p');
   desc.className = 'setup-desc';
-  desc.innerText = 'Choose up to 3 teams to track. You can easily switch between them on the dashboard to see daily standings math.';
+  desc.innerText = 'Configure your favorite teams and manage application preferences.';
+  desc.style.marginBottom = '20px';
+
+  container.appendChild(title);
+  container.appendChild(desc);
+
+  // Section 1: Tracked Teams
+  const teamsSection = document.createElement('div');
+  teamsSection.className = 'settings-section';
+
+  const teamsTitle = document.createElement('h3');
+  teamsTitle.className = 'settings-section-title';
+  teamsTitle.innerText = 'Tracked Teams (Max 3)';
+  teamsSection.appendChild(teamsTitle);
 
   const searchBox = document.createElement('div');
   searchBox.className = 'search-container';
+  searchBox.style.marginBottom = '12px';
   const searchInput = document.createElement('input');
   searchInput.className = 'search-input';
   searchInput.placeholder = 'Search team name...';
@@ -1257,15 +1314,54 @@ function createSettingsView() {
     filterTeamsList();
   });
   searchBox.appendChild(searchInput);
+  teamsSection.appendChild(searchBox);
 
   const listGrid = document.createElement('div');
   listGrid.className = 'team-list-grid';
   listGrid.id = 'team-select-list';
+  teamsSection.appendChild(listGrid);
 
-  container.appendChild(title);
-  container.appendChild(desc);
-  container.appendChild(searchBox);
-  container.appendChild(listGrid);
+  container.appendChild(teamsSection);
+
+  // Section 2: Diagnostics
+  const diagSection = document.createElement('div');
+  diagSection.className = 'settings-section';
+
+  const diagTitle = document.createElement('h3');
+  diagTitle.className = 'settings-section-title';
+  diagTitle.innerText = 'Diagnostics';
+  diagSection.appendChild(diagTitle);
+
+  const diagDesc = document.createElement('p');
+  diagDesc.style.fontSize = '12px';
+  diagDesc.style.color = 'var(--text-secondary)';
+  diagDesc.style.lineHeight = '1.5';
+  diagDesc.innerText = 'Perform a hard reload if the home screen web app caching prevents it from pulling the latest codebase updates.';
+  diagSection.appendChild(diagDesc);
+
+  const reloadBtn = document.createElement('button');
+  reloadBtn.className = 'force-reload-btn';
+  reloadBtn.innerHTML = '🔄 Force Reload App';
+  reloadBtn.addEventListener('click', () => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        for (let registration of registrations) {
+          registration.unregister();
+        }
+      });
+    }
+    // Perform hard reload
+    window.location.reload(true);
+  });
+  diagSection.appendChild(reloadBtn);
+
+  container.appendChild(diagSection);
+
+  // Section 3: Metadata Footer
+  const metadata = document.createElement('div');
+  metadata.className = 'settings-metadata';
+  metadata.innerHTML = `BaseTab Web App • <span class="settings-version">v1.2.0</span> • Production Build`;
+  container.appendChild(metadata);
 
   // Helper to populate grid
   setTimeout(() => filterTeamsList(), 0);
@@ -1379,8 +1475,7 @@ function createNavigation() {
 
   const items = [
     { view: 'dashboard', label: 'Games', icon: '📅' },
-    { view: 'standings', label: 'Standings', icon: '🏆' },
-    { view: 'settings', label: 'Teams', icon: '⚙️' }
+    { view: 'standings', label: 'Standings', icon: '🏆' }
   ];
 
   items.forEach(item => {
