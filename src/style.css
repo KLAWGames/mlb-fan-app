@@ -1358,42 +1358,18 @@ header {
   animation: selected-bar-pulse 1.4s infinite ease-in-out;
 }
 
-/* Nav arrow buttons inside banner detail strip */
-.banner-nav-btn {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #ffffff;
-  border-radius: 4px;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  cursor: pointer;
-  transition: all 0.2s ease;
+/* Scrollbar styling for the banner chart horizontal scroll wrapper */
+.banner-chart-scroll-wrapper::-webkit-scrollbar {
+  height: 5px;
 }
-
-.banner-nav-btn:hover:not(:disabled) {
+.banner-chart-scroll-wrapper::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+.banner-chart-scroll-wrapper::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.25);
-  border-color: rgba(255, 255, 255, 0.35);
+  border-radius: 3px;
 }
-
-.banner-nav-btn:active:not(:disabled) {
-  transform: scale(0.92);
-}
-
-.banner-nav-btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-/* Horizontal swipe shake animation */
-@keyframes horizontal-shake {
-  0%, 100% { transform: translateX(-4px); }
-  50% { transform: translateX(4px); }
-}
-.swipe-shake {
-  display: inline-block;
-  animation: horizontal-shake 1.0s infinite ease-in-out;
+.banner-chart-scroll-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
 }

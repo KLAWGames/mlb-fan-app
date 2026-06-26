@@ -22,7 +22,7 @@ let state = {
   expandedTiebreakerTeamIds: [], // List of team IDs whose tiebreakers are expanded in the Wild Card view
   selectedGameIdx: null, // Index of the selected game in the active team's run differential chart
   lastActiveTeamId: null, // Tracks the last team ID to reset selection index on switch
-  swipeHintShownForTeam: null // Tracks if the swipe hint has been displayed for the current team
+  bannerScrollLeft: undefined // Tracks the horizontal scroll position of the banner chart wrapper
 };
 
 // Helper: Convert Hex color to RGB string for custom CSS transparency gradients
@@ -942,6 +942,7 @@ function createDashboardView() {
   // If activeTeamId changed, reset selectedGameIdx to null
   if (state.lastActiveTeamId !== state.activeTeamId) {
     state.selectedGameIdx = null;
+    state.bannerScrollLeft = undefined;
     state.lastActiveTeamId = state.activeTeamId;
   }
 
@@ -1049,52 +1050,18 @@ function createDashboardView() {
       state.selectedGameIdx = seasonGames.length - 1;
     }
 
-    const chartContainer = document.createElement('div');
-    chartContainer.className = 'banner-chart-container';
-    chartContainer.style.width = '100%';
-    chartContainer.style.marginTop = '4px';
-    chartContainer.style.position = 'relative';
+    const scrollWrapper = document.createElement('div');
+    scrollWrapper.className = 'banner-chart-scroll-wrapper';
+    scrollWrapper.style.width = '100%';
+    scrollWrapper.style.overflowX = 'auto';
+    scrollWrapper.style.overflowY = 'hidden';
+    scrollWrapper.style.marginTop = '4px';
+    scrollWrapper.style.paddingBottom = '6px';
+    scrollWrapper.style.position = 'relative';
+    scrollWrapper.style.webkitOverflowScrolling = 'touch';
 
-    // Touch swipe gesture handlers
-    let touchStartX = 0;
-    let touchStartY = 0;
-    
-    chartContainer.addEventListener('touchstart', (e) => {
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-    }, { passive: true });
-    
-    chartContainer.addEventListener('touchmove', (e) => {
-      const diffX = e.touches[0].clientX - touchStartX;
-      const diffY = e.touches[0].clientY - touchStartY;
-      if (Math.abs(diffX) > Math.abs(diffY)) {
-        if (e.cancelable) e.preventDefault();
-      }
-    }, { passive: false });
-    
-    chartContainer.addEventListener('touchend', (e) => {
-      const diffX = e.changedTouches[0].clientX - touchStartX;
-      const diffY = e.changedTouches[0].clientY - touchStartY;
-      
-      if (Math.abs(diffX) > 35 && Math.abs(diffX) > Math.abs(diffY)) {
-        if (diffX < 0) {
-          // Swipe Left -> Next game
-          if (state.selectedGameIdx < seasonGames.length - 1) {
-            state.selectedGameIdx++;
-            render();
-          }
-        } else {
-          // Swipe Right -> Prev game
-          if (state.selectedGameIdx > 0) {
-            state.selectedGameIdx--;
-            render();
-          }
-        }
-      }
-    });
-
-    const svgWidth = 500;
-    const svgHeight = 90;
+    const svgWidth = 20 + seasonGames.length * 15; // 15px per game slot (10px bar + 5px gap) + 20px padding
+    const svgHeight = 80;
     const padL = 10;
     const padR = 10;
     const padT = 8;
@@ -1108,8 +1075,8 @@ function createDashboardView() {
     const halfH = plotH / 2;
 
     const G_count = seasonGames.length;
-    const slotW = plotW / G_count;
-    const barWidth = Math.max(2.5, slotW - 1.5);
+    const slotW = 15;
+    const barWidth = 10;
 
     let barsHtml = '';
     seasonGames.forEach((g, idx) => {
@@ -1140,12 +1107,12 @@ function createDashboardView() {
               fill="${fill}" 
               ${strokeHtml}
               rx="1.5"
-              style="pointer-events: none; opacity: ${isSelected ? '1' : '0.65'};" />
+              style="cursor: pointer; ${isSelected ? '' : 'opacity: 0.65;'} transition: opacity 0.15s, fill 0.15s;" />
       `;
     });
 
     const svgHtml = `
-      <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%" height="auto" style="overflow: visible; background: none; pointer-events: none;">
+      <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="${svgWidth}" height="${svgHeight}" style="overflow: visible; background: none;">
         <!-- Zero baseline -->
         <line x1="${padL}" y1="${zeroY}" x2="${svgWidth - padR}" y2="${zeroY}" stroke="rgba(255, 255, 255, 0.25)" stroke-width="1" stroke-dasharray="2,2" />
         
@@ -1154,91 +1121,63 @@ function createDashboardView() {
       </svg>
     `;
 
-    chartContainer.innerHTML = svgHtml;
+    scrollWrapper.innerHTML = svgHtml;
 
-    // Temporary animated swipe hint overlay (fades out after 2.5s)
-    if (!state.swipeHintShownForTeam || state.swipeHintShownForTeam !== team.id) {
-      const hint = document.createElement('div');
-      hint.id = 'swipe-hint';
-      hint.style.position = 'absolute';
-      hint.style.top = '0';
-      hint.style.left = '0';
-      hint.style.width = '100%';
-      hint.style.height = '100%';
-      hint.style.background = 'rgba(0, 0, 0, 0.45)';
-      hint.style.backdropFilter = 'blur(1px)';
-      hint.style.display = 'flex';
-      hint.style.flexDirection = 'column';
-      hint.style.alignItems = 'center';
-      hint.style.justifyContent = 'center';
-      hint.style.color = '#ffffff';
-      hint.style.zIndex = '5';
-      hint.style.borderRadius = '4px';
-      hint.style.pointerEvents = 'none';
-      hint.style.transition = 'opacity 0.6s ease';
-      hint.style.opacity = '1';
+    // Track scroll events to save scroll position
+    scrollWrapper.addEventListener('scroll', () => {
+      state.bannerScrollLeft = scrollWrapper.scrollLeft;
+    }, { passive: true });
+    
+    // Add interactive click and hover listeners to SVG elements
+    const svgEl = scrollWrapper.querySelector('svg');
+    
+    svgEl.addEventListener('click', (e) => {
+      const bar = e.target.closest('.run-diff-bar');
+      if (!bar) return;
+      const idx = parseInt(bar.getAttribute('data-game-idx'));
+      state.selectedGameIdx = idx;
+      render();
+    });
+    
+    svgEl.addEventListener('mouseover', (e) => {
+      const bar = e.target.closest('.run-diff-bar');
+      if (!bar) return;
+      const idx = parseInt(bar.getAttribute('data-game-idx'));
+      updateDetailStrip(seasonGames[idx]);
+    });
+    
+    svgEl.addEventListener('mouseleave', () => {
+      if (state.selectedGameIdx !== null && seasonGames[state.selectedGameIdx]) {
+        updateDetailStrip(seasonGames[state.selectedGameIdx]);
+      }
+    });
 
-      hint.innerHTML = `
-        <div class="swipe-shake" style="font-size: 14px; font-weight: bold; margin-bottom: 2px;">◀ 👆 ▶</div>
-        <div style="font-size: 9px; font-weight: 700; color: rgba(255, 255, 255, 0.95); text-transform: uppercase; letter-spacing: 0.05em;">Swipe chart to browse games</div>
-      `;
-      chartContainer.appendChild(hint);
+    banner.appendChild(scrollWrapper);
 
-      setTimeout(() => {
-        const hintEl = document.getElementById('swipe-hint');
-        if (hintEl) {
-          hintEl.style.opacity = '0';
-          setTimeout(() => hintEl.remove(), 600);
+    // Auto-scroll to the very end (right) to show the most recent games, or restore position
+    setTimeout(() => {
+      const wrapper = banner.querySelector('.banner-chart-scroll-wrapper');
+      if (wrapper) {
+        if (state.bannerScrollLeft !== undefined) {
+          wrapper.scrollLeft = state.bannerScrollLeft;
+        } else {
+          wrapper.scrollLeft = wrapper.scrollWidth;
+          state.bannerScrollLeft = wrapper.scrollLeft;
         }
-      }, 2000);
+      }
+    }, 40);
 
-      state.swipeHintShownForTeam = team.id;
-    }
-
-    banner.appendChild(chartContainer);
-
-    // --- Row 3: Selected Game Detail Strip with Arrow Navigation ---
+    // --- Row 3: Selected Game Detail Strip ---
     const detailStrip = document.createElement('div');
     detailStrip.className = 'banner-detail-strip';
-    detailStrip.style.display = 'flex';
-    detailStrip.style.alignItems = 'center';
-    detailStrip.style.justifyContent = 'space-between';
-    detailStrip.style.gap = '8px';
+    detailStrip.style.textAlign = 'center';
     detailStrip.style.padding = '6px 8px';
     detailStrip.style.background = 'rgba(0, 0, 0, 0.18)';
     detailStrip.style.borderRadius = '4px';
     detailStrip.style.border = '1px solid rgba(255, 255, 255, 0.08)';
     detailStrip.style.width = '100%';
 
-    const prevBtn = document.createElement('button');
-    prevBtn.className = 'banner-nav-btn';
-    prevBtn.style.flexShrink = '0';
-    prevBtn.innerText = '◀';
-    prevBtn.disabled = state.selectedGameIdx <= 0;
-    prevBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (state.selectedGameIdx > 0) {
-        state.selectedGameIdx--;
-        render();
-      }
-    });
-
-    const nextBtn = document.createElement('button');
-    nextBtn.className = 'banner-nav-btn';
-    nextBtn.style.flexShrink = '0';
-    nextBtn.innerText = '▶';
-    nextBtn.disabled = state.selectedGameIdx >= seasonGames.length - 1;
-    nextBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (state.selectedGameIdx < seasonGames.length - 1) {
-        state.selectedGameIdx++;
-        render();
-      }
-    });
-
     const textContainer = document.createElement('div');
-    textContainer.style.flex = '1';
-    textContainer.style.textAlign = 'center';
     textContainer.style.color = 'rgba(255, 255, 255, 0.95)';
     textContainer.style.fontWeight = '500';
     textContainer.style.letterSpacing = '0.02em';
@@ -1265,9 +1204,7 @@ function createDashboardView() {
       updateDetailStrip(seasonGames[state.selectedGameIdx]);
     }
 
-    detailStrip.appendChild(prevBtn);
     detailStrip.appendChild(textContainer);
-    detailStrip.appendChild(nextBtn);
     banner.appendChild(detailStrip);
   }
 
