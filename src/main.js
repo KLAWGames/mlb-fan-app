@@ -2766,6 +2766,62 @@ function createDashboardView() {
 
     gTeams.appendChild(awayRow);
     gTeams.appendChild(homeRow);
+
+    // Dynamic Player Hitting Streaks (Always visible on the card)
+    const streaksAway = getPlayerHitStreaks(item.awayTeam.id, state.selectedDate);
+    const streaksHome = getPlayerHitStreaks(item.homeTeam.id, state.selectedDate);
+    
+    const hotPlayers = [];
+    streaksAway.forEach(p => hotPlayers.push({ ...p, teamAbbr: item.awayTeam.abbreviation }));
+    streaksHome.forEach(p => hotPlayers.push({ ...p, teamAbbr: item.homeTeam.abbreviation }));
+    
+    hotPlayers.sort((a, b) => b.streak - a.streak);
+
+    if (hotPlayers.length > 0) {
+      const hotBatsRow = document.createElement('div');
+      hotBatsRow.className = 'game-hot-bats-row';
+      hotBatsRow.style.cssText = `
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 8px;
+        padding-top: 6px;
+        border-top: 1px dashed var(--border-glass);
+        font-size: 10.5px;
+        color: var(--text-secondary);
+        flex-wrap: wrap;
+      `;
+      
+      const icon = document.createElement('span');
+      icon.innerText = '⚡';
+      icon.style.cssText = 'color: #f59e0b; margin-right: 2px;';
+      hotBatsRow.appendChild(icon);
+      
+      const label = document.createElement('span');
+      label.style.fontWeight = '700';
+      label.innerText = 'Hot Bats: ';
+      hotBatsRow.appendChild(label);
+      
+      const playersListSpan = document.createElement('span');
+      playersListSpan.style.display = 'inline-flex';
+      playersListSpan.style.flexWrap = 'wrap';
+      playersListSpan.style.gap = '6px';
+      
+      hotPlayers.forEach((p, idx) => {
+        const pSpan = document.createElement('span');
+        
+        let streakColor = '#f59e0b';
+        if (p.streak >= 20) streakColor = '#f43f5e';
+        else if (p.streak >= 15) streakColor = '#f97316';
+        
+        pSpan.innerHTML = `${p.name} (<strong style="color: ${streakColor}; font-weight: 800; font-family: var(--font-title);">${p.streak}G</strong>, ${p.teamAbbr})${idx < hotPlayers.length - 1 ? ',' : ''}`;
+        playersListSpan.appendChild(pSpan);
+      });
+      
+      hotBatsRow.appendChild(playersListSpan);
+      gTeams.appendChild(hotBatsRow);
+    }
+
     card.appendChild(gTeams);
 
     // Expanded Game Details Drawer
@@ -2790,81 +2846,6 @@ function createDashboardView() {
         rootingBanner.appendChild(badgeTarget);
         rootingBanner.appendChild(expl);
         card.appendChild(rootingBanner);
-      }
-
-      // 2. Active Player Hitting Streaks for Away & Home Teams
-      const streaksAway = getPlayerHitStreaks(item.awayTeam.id, state.selectedDate);
-      const streaksHome = getPlayerHitStreaks(item.homeTeam.id, state.selectedDate);
-
-      if (streaksAway.length > 0 || streaksHome.length > 0) {
-        const streaksSection = document.createElement('div');
-        streaksSection.className = 'game-streaks-section';
-        streaksSection.style.cssText = `
-          padding: 12px;
-          background: var(--bg-card-hover);
-          border-top: 1px dashed var(--border-glass-highlight);
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        `;
-
-        const title = document.createElement('div');
-        title.innerHTML = '⚡ <strong>Player Hitting Streaks (10+ Games)</strong>';
-        title.style.cssText = 'font-size: 10px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;';
-        streaksSection.appendChild(title);
-
-        const renderTeamStreaks = (teamObj, streaksList) => {
-          const row = document.createElement('div');
-          row.style.cssText = 'display: flex; flex-direction: column; gap: 4px;';
-          
-          const teamLabel = document.createElement('div');
-          teamLabel.style.cssText = 'font-size: 11px; font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 6px;';
-          teamLabel.innerHTML = `
-            <span class="team-badge-small" style="background:${teamObj.primaryColor}; color:${teamObj.textColor}; font-size:8px; padding:1px 4px; border-radius:3px;">${teamObj.abbreviation}</span>
-            <span>${teamObj.shortName}</span>
-          `;
-          row.appendChild(teamLabel);
-
-          const listContainer = document.createElement('div');
-          listContainer.style.cssText = 'display: flex; flex-wrap: wrap; gap: 6px; margin-left: 20px;';
-
-          if (streaksList.length > 0) {
-            streaksList.forEach(p => {
-              const badge = document.createElement('span');
-              
-              let countColor = '#ea580c';
-              if (p.streak >= 20) countColor = '#f43f5e';
-              else if (p.streak >= 15) countColor = '#f97316';
-              else countColor = '#f59e0b';
-
-              badge.style.cssText = `
-                background: #ffffff;
-                border: 1px solid var(--border-glass);
-                padding: 3px 8px;
-                border-radius: 4px;
-                font-size: 11px;
-                color: var(--text-primary);
-                display: inline-flex;
-                align-items: center;
-                gap: 4px;
-              `;
-              badge.innerHTML = `<span>${p.name}</span> <strong style="color:${countColor}; font-weight: 800; font-family: var(--font-title);">${p.streak} Gms</strong>`;
-              listContainer.appendChild(badge);
-            });
-          } else {
-            const noStreaks = document.createElement('span');
-            noStreaks.innerText = 'No active streaks';
-            noStreaks.style.cssText = 'font-size: 11px; color: var(--text-muted); font-style: italic;';
-            listContainer.appendChild(noStreaks);
-          }
-
-          row.appendChild(listContainer);
-          return row;
-        };
-
-        streaksSection.appendChild(renderTeamStreaks(item.awayTeam, streaksAway));
-        streaksSection.appendChild(renderTeamStreaks(item.homeTeam, streaksHome));
-        card.appendChild(streaksSection);
       }
 
       const footerHint = document.createElement('div');
