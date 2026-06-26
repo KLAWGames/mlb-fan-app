@@ -21,7 +21,9 @@ let state = {
   expandedGamePks: [], // List of gamePk IDs that are expanded
   expandedTiebreakerTeamIds: [], // List of team IDs whose tiebreakers are expanded in the Wild Card view
   selectedGameIdx: null, // Index of the selected game in the active team's run differential chart
-  lastActiveTeamId: null // Tracks the last team ID to reset selection index on switch
+  lastActiveTeamId: null, // Tracks the last team ID to reset selection index on switch
+  teamGames: {}, // Cache of season games by team ID
+  fetchingSchedules: {} // Track ongoing schedule fetches
 };
 
 // Helper: Convert Hex color to RGB string for custom CSS transparency gradients
@@ -241,8 +243,89 @@ function createDivisionRaceChart(teamA, teamB) {
   return div;
 }
 
+// Silent fetch of season schedule for a team
+async function fetchTeamSeasonSchedule(teamId) {
+  if (state.teamGames && state.teamGames[teamId]) return;
+  if (!state.fetchingSchedules) state.fetchingSchedules = {};
+  if (state.fetchingSchedules[teamId]) return; // already fetching!
+  
+  state.fetchingSchedules[teamId] = true;
+  try {
+    const res = await fetch(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&season=2026&teamId=${teamId}&gameType=R`);
+    if (!res.ok) throw new Error('API error');
+    const data = await res.json();
+    const games = [];
+    if (data.dates) {
+      data.dates.forEach(d => {
+        if (d.games) {
+          d.games.forEach(g => {
+            games.push(g);
+          });
+        }
+      });
+    }
+    if (!state.teamGames) state.teamGames = {};
+    state.teamGames[teamId] = games;
+    render();
+  } catch (err) {
+    console.warn(`Failed to silently fetch schedule for team ${teamId}:`, err.message);
+  } finally {
+    state.fetchingSchedules[teamId] = false;
+  }
+}
+
 // Generate deterministic game-by-game results for a team
 function generateSeasonGames(teamId, wins, losses) {
+  // Trigger silent fetch for this team's schedule if not already loaded
+  fetchTeamSeasonSchedule(teamId);
+
+  // If real API games are cached for this team, parse and use them!
+  if (state.teamGames && state.teamGames[teamId]) {
+    const apiGames = state.teamGames[teamId];
+    // Filter to regular season games that are completed (StatusCode 'F' or 'O')
+    // AND where officialDate <= state.selectedDate
+    const playedGames = apiGames.filter(g => {
+      const isCompleted = g.status.statusCode === 'F' || g.status.statusCode === 'O';
+      return isCompleted && g.officialDate <= state.selectedDate;
+    });
+
+    // Sort chronologically
+    playedGames.sort((a, b) => a.officialDate.localeCompare(b.officialDate));
+
+    if (playedGames.length > 0) {
+      return playedGames.map((g, idx) => {
+        const isHome = g.teams.home.team.id === teamId;
+        const teamScore = isHome ? g.teams.home.score : g.teams.away.score;
+        const oppScore = isHome ? g.teams.away.score : g.teams.home.score;
+        const opponentObj = isHome ? g.teams.away.team : g.teams.home.team;
+        
+        const opponentData = teamsData[opponentObj.id] || { 
+          name: opponentObj.name, 
+          abbreviation: opponentObj.name.substring(0, 3).toUpperCase() 
+        };
+        
+        const isWin = isHome ? g.teams.home.isWinner : g.teams.away.isWinner;
+        const runDiff = teamScore - oppScore;
+
+        // Parse date (splitting by '-' to avoid Safari issues)
+        const parts = g.officialDate.split('-');
+        const gameDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        const dateStr = gameDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+        return {
+          gameNumber: idx + 1,
+          dateStr,
+          opponent: opponentData.name,
+          opponentAbbr: opponentData.abbreviation,
+          isWin,
+          teamScore,
+          oppScore,
+          runDiff
+        };
+      });
+    }
+  }
+
   const G = wins + losses;
   if (G === 0) return [];
   
