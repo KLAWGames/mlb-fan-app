@@ -1622,37 +1622,41 @@ header {
 }
 
 .high-five-btn {
-  background: rgba(5, 150, 105, 0.08);
-  color: var(--color-win);
-  border: 1px solid rgba(5, 150, 105, 0.15);
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 10px;
+  background: var(--color-win);
+  color: #ffffff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 11px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: var(--transition-smooth);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   margin-top: 8px;
   outline: none;
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.2);
 }
 
 .high-five-btn:hover:not(:disabled) {
-  background: rgba(5, 150, 105, 0.16);
-  transform: translateY(-0.5px);
+  background: #047857; /* Slightly darker emerald */
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 10px rgba(5, 150, 105, 0.3);
 }
 
 .high-five-btn:active:not(:disabled) {
-  transform: translateY(0.5px);
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.2);
 }
 
 .high-five-btn:disabled {
-  background: #f1f5f9;
+  background: #e2e8f0;
   color: var(--text-muted);
-  border-color: var(--border-glass);
+  border: 1px solid var(--border-glass-highlight);
   cursor: not-allowed;
   transform: none;
+  box-shadow: none;
 }
 
 /* High-five animation */
