@@ -1945,6 +1945,7 @@ function createDashboardView() {
 
     const isLive = item.status.statusCode === 'I' || item.status.detailedState.toLowerCase().includes('progress');
     const isFinal = item.status.statusCode === 'F' || item.status.detailedState === 'Final';
+    const hasStarted = isLive || isFinal || ['I', 'F', 'O', 'D', 'U'].includes(item.status.statusCode) || item.status.detailedState.toLowerCase().includes('suspended');
     
     const now = new Date();
     const timeUntilStartMs = date.getTime() - now.getTime();
@@ -2036,7 +2037,7 @@ function createDashboardView() {
 
     const awayScore = document.createElement('span');
     awayScore.className = `team-score ${isFinal ? (item.awayScore > item.homeScore ? 'winner' : 'loser') : ''}`;
-    awayScore.innerText = item.awayScore !== null && item.awayScore !== undefined ? item.awayScore : '';
+    awayScore.innerText = hasStarted && item.awayScore !== null && item.awayScore !== undefined ? item.awayScore : '';
     awayRow.appendChild(awayInfo);
     awayRow.appendChild(awayScore);
 
@@ -2078,7 +2079,7 @@ function createDashboardView() {
 
     const homeScore = document.createElement('span');
     homeScore.className = `team-score ${isFinal ? (item.homeScore > item.awayScore ? 'winner' : 'loser') : ''}`;
-    homeScore.innerText = item.homeScore !== null && item.homeScore !== undefined ? item.homeScore : '';
+    homeScore.innerText = hasStarted && item.homeScore !== null && item.homeScore !== undefined ? item.homeScore : '';
     homeRow.appendChild(homeInfo);
     homeRow.appendChild(homeScore);
 
