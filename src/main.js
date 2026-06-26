@@ -26,6 +26,22 @@ let state = {
   fetchingSchedules: {} // Track ongoing schedule fetches
 };
 
+// Helper: Safely parse ISO UTC date strings to work reliably on all browsers (including iOS Safari)
+function safeParseUTCDate(dateStr) {
+  if (!dateStr) return new Date();
+  if (dateStr instanceof Date) return dateStr;
+  
+  let d = new Date(dateStr);
+  if (!isNaN(d.getTime())) return d;
+  
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?Z?$/);
+  if (match) {
+    const [_, yyyy, mm, dd, hh, min, ss] = match.map(Number);
+    return new Date(Date.UTC(yyyy, mm - 1, dd, hh, min, ss));
+  }
+  return d;
+}
+
 // Helper: Convert Hex color to RGB string for custom CSS transparency gradients
 function hexToRgbString(hex) {
   let shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
@@ -615,6 +631,9 @@ async function init() {
 
   // Set up scroll-to-hide navigation bar
   setupScrollToHide();
+
+  // Start auto-refresh interval for live scores
+  startAutoRefresh();
 }
 
 // Setup mobile-native Pull-to-Refresh gesture
@@ -853,6 +872,53 @@ async function loadData() {
     state.loading = false;
     render();
   }
+}
+
+// Silent refresh of schedule and standings without showing full-screen loader
+async function silentRefreshData() {
+  try {
+    const parts = state.selectedDate.split('-');
+    const todayDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0);
+    const yesterdayDate = new Date(todayDate);
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayStr = formatLocalDate(yesterdayDate);
+
+    const [standings, schedule, standingsYesterday] = await Promise.all([
+      fetchStandings(state.selectedDate),
+      fetchSchedule(state.selectedDate),
+      fetchStandings(yesterdayStr)
+    ]);
+    
+    state.rawStandings = standings;
+    state.rawSchedule = schedule;
+    state.rawStandingsYesterday = standingsYesterday;
+    
+    state.processedStandings = processStandings(standings);
+    state.processedStandingsYesterday = processStandings(standingsYesterday);
+    
+    render();
+  } catch (err) {
+    console.warn("Silent auto-refresh failed:", err);
+  }
+}
+
+// Global auto-refresh interval reference
+let autoRefreshInterval = null;
+
+function startAutoRefresh() {
+  if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+  
+  autoRefreshInterval = setInterval(async () => {
+    if (document.hidden) return;
+    
+    if (state.activeView === 'dashboard' && !state.loading) {
+      const hasLiveGames = state.rawSchedule && state.rawSchedule.some(g => g.status.statusCode === 'I');
+      if (hasLiveGames) {
+        console.log('Live games active, performing silent auto-refresh...');
+        await silentRefreshData();
+      }
+    }
+  }, 60000); // 60 seconds
 }
 
 // Primary Render Engine
@@ -1773,10 +1839,38 @@ function createDashboardView() {
   container.appendChild(magicAccordion);
 
   // 3. Matchup / Rooting Guide Section
+  const headerContainer = document.createElement('div');
+  headerContainer.style.display = 'flex';
+  headerContainer.style.justifyContent = 'space-between';
+  headerContainer.style.alignItems = 'center';
+  headerContainer.style.marginBottom = '12px';
+
   const gamesTitle = document.createElement('h3');
   gamesTitle.className = 'section-title';
   gamesTitle.innerText = 'Games That Matter Today';
-  container.appendChild(gamesTitle);
+  gamesTitle.style.marginBottom = '0';
+
+  headerContainer.appendChild(gamesTitle);
+
+  const hasLiveGames = state.rawSchedule && state.rawSchedule.some(g => g.status.statusCode === 'I');
+  if (hasLiveGames) {
+    const refreshBtn = document.createElement('button');
+    refreshBtn.className = 'manual-refresh-btn';
+    refreshBtn.innerHTML = '↻ Refresh Scores';
+    refreshBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      refreshBtn.disabled = true;
+      refreshBtn.innerHTML = '⚡ Refreshing...';
+      refreshBtn.style.opacity = '0.7';
+      await silentRefreshData();
+      refreshBtn.disabled = false;
+      refreshBtn.innerHTML = '↻ Refresh Scores';
+      refreshBtn.style.opacity = '1';
+    });
+    headerContainer.appendChild(refreshBtn);
+  }
+
+  container.appendChild(headerContainer);
 
   const games = state.rawSchedule || [];
   if (games.length === 0) {
@@ -1838,7 +1932,7 @@ function createDashboardView() {
     // Game Header
     const gHeader = document.createElement('div');
     gHeader.className = 'game-header';
-    const date = new Date(item.gameDate);
+    const date = safeParseUTCDate(item.gameDate);
     const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     
     const headerLeft = document.createElement('span');
@@ -1849,10 +1943,17 @@ function createDashboardView() {
     headerRight.style.alignItems = 'center';
     headerRight.style.gap = '8px';
 
-    const statusNode = document.createElement('span');
-    statusNode.className = `game-status ${item.status.statusCode === 'I' ? 'live' : ''}`;
-    statusNode.innerText = item.status.detailedState;
-    headerRight.appendChild(statusNode);
+    const isScheduled = item.status.statusCode === 'S' || item.status.detailedState === 'Scheduled';
+    if (!isScheduled) {
+      const statusNode = document.createElement('span');
+      let stateText = item.status.detailedState;
+      if (item.status.statusCode === 'I' || item.status.detailedState.toLowerCase().includes('progress')) {
+        stateText = 'Live';
+      }
+      statusNode.className = `game-status ${item.status.statusCode === 'I' ? 'live' : ''}`;
+      statusNode.innerText = stateText;
+      headerRight.appendChild(statusNode);
+    }
 
     // Completed game outcome badge (Happy/Sad Emoji)
     const isFinal = item.status.statusCode === 'F' || item.status.detailedState === 'Final';

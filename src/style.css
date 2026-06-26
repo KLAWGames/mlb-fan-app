@@ -1388,3 +1388,37 @@ header {
   cursor: not-allowed;
 }
 
+/* Dashboard Game Score Manual Refresh Button */
+.manual-refresh-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-title);
+  padding: 4px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+
+.manual-refresh-btn:hover:not(:disabled) {
+  background: var(--bg-card-hover);
+  border-color: var(--border-glass-highlight);
+  transform: translateY(-0.5px);
+}
+
+.manual-refresh-btn:active:not(:disabled) {
+  transform: translateY(0.5px);
+}
+
+.manual-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+
