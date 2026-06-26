@@ -1274,7 +1274,6 @@ function createDashboardView() {
       let strokeHtml = '';
       let classList = 'run-diff-bar';
       if (isSelected) {
-        fill = '#ffffff'; // White fill for selected game
         strokeHtml = `stroke="#ffffff" stroke-width="1.5"`;
         classList += ' selected-bar-active';
       }
