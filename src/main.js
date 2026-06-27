@@ -3,12 +3,21 @@ import { teamsData } from './teamsData.js';
 import { fetchStandings, fetchSchedule, formatLocalDate } from './mlbApi.js';
 import { processStandings, analyzeMatchups } from './rootingEngine.js';
 
+// Helper to get local date adjusted for the 2:00 AM baseball day rollover
+function getBaseballDate(offsetDays = 0) {
+  const shiftedDate = new Date(Date.now() - 2 * 60 * 60 * 1000);
+  if (offsetDays !== 0) {
+    shiftedDate.setDate(shiftedDate.getDate() + offsetDays);
+  }
+  return formatLocalDate(shiftedDate);
+}
+
 // Application State
 let state = {
   selectedTeamIds: [], // Tracked favorite team IDs (max 3)
   activeTeamId: null,  // Currently active team ID in view
   activeView: 'dashboard', // 'dashboard' | 'standings' | 'settings'
-  selectedDate: formatLocalDate(new Date()), // YYYY-MM-DD
+  selectedDate: getBaseballDate(0), // YYYY-MM-DD
   rawStandings: null,
   rawSchedule: null,
   rawStandingsYesterday: null,
@@ -1664,8 +1673,8 @@ function updateHeaderContent(header) {
   const dateToggle = document.createElement('div');
   dateToggle.className = 'date-toggle-group';
 
-  const todayStr = formatLocalDate(new Date());
-  const yesterdayStr = formatLocalDate(new Date(Date.now() - 86400000));
+  const todayStr = getBaseballDate(0);
+  const yesterdayStr = getBaseballDate(-1);
 
   const yesterdayBtn = document.createElement('button');
   yesterdayBtn.className = `date-toggle-btn ${state.selectedDate === yesterdayStr ? 'active' : ''}`;
@@ -1876,7 +1885,7 @@ function getRaceStatusNote(targetTeamIds) {
   });
 
   if (relevantGames.length === 0) {
-    return "No games scheduled today.";
+    return ""; // Hide the note if no games at all are scheduled today
   }
 
   let completedCount = 0;
@@ -1896,12 +1905,17 @@ function getRaceStatusNote(targetTeamIds) {
     }
   });
 
-  if (completedCount === 0 && liveCount === 0) {
-    return "No games have been played today.";
-  } else if (liveCount > 0 || scheduledCount > 0) {
-    return "Active games are remaining today that will impact standings.";
+  if (completedCount === relevantGames.length) {
+    return "All Games Complete";
+  }
+
+  const total = relevantGames.length;
+  const remaining = total - completedCount;
+
+  if (completedCount > 0) {
+    return `${total} Games That Matter Today (${remaining} Remaining)`;
   } else {
-    return "All games are complete for today.";
+    return `${total} Games That Matter Today`;
   }
 }
 
@@ -2281,7 +2295,7 @@ function createDashboardView() {
   container.appendChild(banner);
 
   // Yesterday's Standings Recap Trigger Button (only visible when looking at today's data)
-  const todayStr = formatLocalDate(new Date());
+  const todayStr = getBaseballDate(0);
   if (state.selectedDate === todayStr) {
     const recapBtn = document.createElement('button');
     recapBtn.className = 'recap-trigger-btn';
@@ -2402,10 +2416,13 @@ function createDashboardView() {
       }
     }
     const divTeamIds = new Set(divTeams.map(t => t.id));
-    const divisionNote = document.createElement('div');
-    divisionNote.className = 'race-status-note';
-    divisionNote.innerHTML = `ℹ️ ${getRaceStatusNote(divTeamIds)}`;
-    timeline.appendChild(divisionNote);
+    const divNoteText = getRaceStatusNote(divTeamIds);
+    if (divNoteText) {
+      const divisionNote = document.createElement('div');
+      divisionNote.className = 'race-status-note';
+      divisionNote.innerHTML = `ℹ️ ${divNoteText}`;
+      timeline.appendChild(divisionNote);
+    }
 
     trackerCard.appendChild(timeline);
   } else {
@@ -2520,10 +2537,13 @@ function createDashboardView() {
       });
     }
     const leagueTeamIds = new Set(allLeague.map(t => t.id));
-    const wcNote = document.createElement('div');
-    wcNote.className = 'race-status-note';
-    wcNote.innerHTML = `ℹ️ ${getRaceStatusNote(leagueTeamIds)}`;
-    ladder.appendChild(wcNote);
+    const wcNoteText = getRaceStatusNote(leagueTeamIds);
+    if (wcNoteText) {
+      const wcNote = document.createElement('div');
+      wcNote.className = 'race-status-note';
+      wcNote.innerHTML = `ℹ️ ${wcNoteText}`;
+      ladder.appendChild(wcNote);
+    }
 
     trackerCard.appendChild(ladder);
   }
