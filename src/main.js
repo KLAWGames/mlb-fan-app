@@ -69,8 +69,40 @@ function hexToRgbString(hex) {
     : "19, 74, 142";
 }
 
-// Generate season standings history (wins - losses) deterministically using LCG
+// Generate season standings history (wins - losses) deterministically using LCG or real API schedule
 function generateSeasonHistory(teamId, wins, losses) {
+  // 1. Silent schedule fetch for this team to get real games
+  if (typeof fetchTeamSeasonSchedule === 'function') {
+    fetchTeamSeasonSchedule(teamId);
+  }
+
+  // 2. If real API games are cached for this team, parse and use them!
+  if (state.teamGames && state.teamGames[teamId]) {
+    const apiGames = state.teamGames[teamId];
+    // Filter to regular season games that are completed (StatusCode 'F' or 'O')
+    // AND where officialDate <= state.selectedDate
+    const playedGames = apiGames.filter(g => {
+      const isCompleted = g.status.statusCode === 'F' || g.status.statusCode === 'O';
+      return isCompleted && g.officialDate <= state.selectedDate;
+    });
+
+    // Sort chronologically
+    playedGames.sort((a, b) => a.officialDate.localeCompare(b.officialDate));
+
+    if (playedGames.length > 0) {
+      const history = [0];
+      let diff = 0;
+      playedGames.forEach(g => {
+        const isHome = g.teams.home.team.id === teamId;
+        const isWin = isHome ? g.teams.home.isWinner : g.teams.away.isWinner;
+        diff += isWin ? 1 : -1;
+        history.push(diff);
+      });
+      return history;
+    }
+  }
+
+  // 3. Fallback to stable deterministic LCG propensity generator (prevents reshuffling past history)
   const G = wins + losses;
   if (G === 0) return [0];
   
@@ -83,23 +115,24 @@ function generateSeasonHistory(teamId, wins, losses) {
     return seed / 0x7fffffff;
   }
   
-  // Distribute wins (+1) and losses (-1)
-  const games = [];
-  for (let i = 0; i < wins; i++) games.push(1);
-  for (let i = 0; i < losses; i++) games.push(-1);
-  
-  // Deterministic shuffle using LCG
-  for (let i = G - 1; i > 0; i--) {
-    const j = Math.floor(lcg() * (i + 1));
-    const temp = games[i];
-    games[i] = games[j];
-    games[j] = temp;
+  // Pre-generate propensities for 162 games
+  const propensities = [];
+  for (let i = 0; i < 162; i++) {
+    propensities.push({ gameIndex: i, value: lcg() });
   }
   
-  // Build cumulative wins - losses history
+  // Filter to games played so far (G)
+  const playedPropensities = propensities.slice(0, G);
+  
+  // Sort by propensity value to select wins
+  playedPropensities.sort((a, b) => b.value - a.value);
+  
+  // Mark top 'wins' count games as wins
+  const winsSet = new Set(playedPropensities.slice(0, wins).map(p => p.gameIndex));
+  
   let diff = 0;
   for (let i = 0; i < G; i++) {
-    diff += games[i];
+    diff += winsSet.has(i) ? 1 : -1;
     history.push(diff);
   }
   
@@ -398,8 +431,7 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
     areaGradientsHtml += `<path d="${area}" fill="url(#grad-${t.id})" />`;
 
     const strokeWidth = isActive ? 3.5 : 1.8;
-    const strokeDash = isActive ? '' : '1,1';
-    linesHtml += `<path d="${path}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" ${strokeDash ? `stroke-dasharray="${strokeDash}"` : ''} />`;
+    linesHtml += `<path d="${path}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" />`;
 
     const lastG = history.length - 1;
     const lastVal = history[lastG];
@@ -1458,7 +1490,7 @@ function showRecapModal(isAutoTrigger = false) {
             <span style="color:var(--text-primary); font-weight:700;">${teamToday.shortName}</span>
           </div>
           <div style="display:flex; align-items:center; gap:6px;">
-            <span style="display:inline-block; width:12px; height:1px; border-bottom: 2px dotted #888;"></span>
+            <span style="display:inline-block; width:12px; height:1.5px; background:#888; opacity:0.6; border-radius:0.5px;"></span>
             <span style="color:var(--text-secondary); font-weight:600; font-size:10px;">Division Rivals</span>
           </div>
         </div>
@@ -1498,7 +1530,7 @@ function showRecapModal(isAutoTrigger = false) {
             <span style="color:var(--text-primary); font-weight:700;">${teamToday.shortName}</span>
           </div>
           <div style="display:flex; align-items:center; gap:6px;">
-            <span style="display:inline-block; width:12px; height:1px; border-bottom: 2px dotted #888;"></span>
+            <span style="display:inline-block; width:12px; height:1.5px; background:#888; opacity:0.6; border-radius:0.5px;"></span>
             <span style="color:var(--text-secondary); font-weight:600; font-size:10px;">Wild Card Competitors</span>
           </div>
         </div>
@@ -2705,7 +2737,7 @@ function createDashboardView() {
             <span style="color:var(--text-primary); font-weight:700;">${team.shortName} (Active)</span>
           </div>
           <div style="display:flex; align-items:center; gap:6px;">
-            <span style="display:inline-block; width:12px; height:1px; border-bottom: 2px dotted #888;"></span>
+            <span style="display:inline-block; width:12px; height:1.5px; background:#888; opacity:0.6; border-radius:0.5px;"></span>
             <span style="color:var(--text-secondary); font-weight:600; font-size:10px;">Division Rivals</span>
           </div>
         `;
