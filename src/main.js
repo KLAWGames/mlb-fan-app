@@ -21,8 +21,10 @@ let state = {
   rawStandings: null,
   rawSchedule: null,
   rawStandingsYesterday: null,
+  rawStandingsDayBeforeYesterday: null,
   processedStandings: null,
   processedStandingsYesterday: null,
+  processedStandingsDayBeforeYesterday: null,
   loading: false,
   searchQuery: '',
   magicNumberExpanded: false,
@@ -823,6 +825,40 @@ function getWildCardTrend(teamId) {
   return teamYesterday.wildCardGamesBack - teamToday.wildCardGamesBack;
 }
 
+// Calculate recap division standings trend (gained/lost games) comparing yesterday to day-before-yesterday
+function getRecapDivisionTrend(teamId) {
+  const teamToday = state.processedStandingsYesterday?.teamsMap?.[teamId];
+  const teamYesterday = state.processedStandingsDayBeforeYesterday?.teamsMap?.[teamId];
+  if (!teamToday || !teamYesterday) return null;
+  
+  if (teamToday.divisionLeader) {
+    const divId = teamToday.divisionId;
+    const divTeamsToday = state.processedStandingsYesterday?.divisionTeams?.[divId] || [];
+    const divTeamsYesterday = state.processedStandingsDayBeforeYesterday?.divisionTeams?.[divId] || [];
+    
+    const secondToday = divTeamsToday[1];
+    const secondYesterday = divTeamsYesterday[1];
+    
+    if (secondToday && secondYesterday) {
+      const leadToday = ((teamToday.wins - secondToday.wins) + (secondToday.losses - teamToday.losses)) / 2;
+      const leadYesterday = ((teamYesterday.wins - secondYesterday.wins) + (secondYesterday.losses - teamYesterday.losses)) / 2;
+      return leadToday - leadYesterday;
+    }
+    return 0;
+  } else {
+    return teamYesterday.gamesBack - teamToday.gamesBack;
+  }
+}
+
+// Calculate recap Wild Card standings trend (gained/lost games) comparing yesterday to day-before-yesterday
+function getRecapWildCardTrend(teamId) {
+  const teamToday = state.processedStandingsYesterday?.teamsMap?.[teamId];
+  const teamYesterday = state.processedStandingsDayBeforeYesterday?.teamsMap?.[teamId];
+  if (!teamToday || !teamYesterday) return null;
+  
+  return teamYesterday.wildCardGamesBack - teamToday.wildCardGamesBack;
+}
+
 // Render trend badge
 function renderTrendBadge(change) {
   if (change === null || change === undefined || isNaN(change)) return document.createElement('span');
@@ -1035,8 +1071,8 @@ function triggerHighFiveAnimation(e, teamName) {
 // Show recap details modal
 function showRecapModal(isAutoTrigger = false) {
   const activeTeamId = state.activeTeamId;
-  const teamToday = state.processedStandings?.teamsMap?.[activeTeamId] || teamsData[activeTeamId];
-  const teamYesterday = state.processedStandingsYesterday?.teamsMap?.[activeTeamId];
+  const teamToday = state.processedStandingsYesterday?.teamsMap?.[activeTeamId] || teamsData[activeTeamId];
+  const teamYesterday = state.processedStandingsDayBeforeYesterday?.teamsMap?.[activeTeamId];
   
   if (!teamToday || !teamYesterday) return;
 
@@ -1159,7 +1195,7 @@ function showRecapModal(isAutoTrigger = false) {
   let hasGainedGround = false;
 
   // Division Race
-  const divTrend = getDivisionTrend(activeTeamId);
+  const divTrend = getRecapDivisionTrend(activeTeamId);
   const divRow = document.createElement('div');
   divRow.style.display = 'flex';
   divRow.style.justifyContent = 'space-between';
@@ -1186,7 +1222,7 @@ function showRecapModal(isAutoTrigger = false) {
   standingsBody.appendChild(divRow);
 
   // Wild Card Race
-  const wcTrend = getWildCardTrend(activeTeamId);
+  const wcTrend = getRecapWildCardTrend(activeTeamId);
   const wcRow = document.createElement('div');
   wcRow.style.display = 'flex';
   wcRow.style.justifyContent = 'space-between';
@@ -1305,27 +1341,35 @@ async function loadData() {
   render();
 
   try {
-    // Compute yesterday's date string safely to avoid iOS Safari date parsing issues
+    // Compute yesterday and day-before-yesterday dates safely to avoid iOS Safari date parsing issues
     const parts = state.selectedDate.split('-');
     const todayDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0);
+    
     const yesterdayDate = new Date(todayDate);
     yesterdayDate.setDate(yesterdayDate.getDate() - 1);
     const yesterdayStr = formatLocalDate(yesterdayDate);
 
-    const [standings, schedule, standingsYesterday, scheduleYesterday] = await Promise.all([
+    const dayBeforeYesterdayDate = new Date(todayDate);
+    dayBeforeYesterdayDate.setDate(dayBeforeYesterdayDate.getDate() - 2);
+    const dayBeforeYesterdayStr = formatLocalDate(dayBeforeYesterdayDate);
+
+    const [standings, schedule, standingsYesterday, scheduleYesterday, standingsDayBeforeYesterday] = await Promise.all([
       fetchStandings(state.selectedDate),
       fetchSchedule(state.selectedDate),
       fetchStandings(yesterdayStr),
-      fetchSchedule(yesterdayStr)
+      fetchSchedule(yesterdayStr),
+      fetchStandings(dayBeforeYesterdayStr)
     ]);
     
     state.rawStandings = standings;
     state.rawSchedule = schedule;
     state.rawStandingsYesterday = standingsYesterday;
     state.rawScheduleYesterday = scheduleYesterday;
+    state.rawStandingsDayBeforeYesterday = standingsDayBeforeYesterday;
     
     state.processedStandings = processStandings(standings);
     state.processedStandingsYesterday = processStandings(standingsYesterday);
+    state.processedStandingsDayBeforeYesterday = processStandings(standingsDayBeforeYesterday);
     
     // Check for standing movements since last open
     if (state.processedStandings && state.processedStandingsYesterday) {
@@ -1347,24 +1391,32 @@ async function silentRefreshData() {
   try {
     const parts = state.selectedDate.split('-');
     const todayDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0);
+    
     const yesterdayDate = new Date(todayDate);
     yesterdayDate.setDate(yesterdayDate.getDate() - 1);
     const yesterdayStr = formatLocalDate(yesterdayDate);
 
-    const [standings, schedule, standingsYesterday, scheduleYesterday] = await Promise.all([
+    const dayBeforeYesterdayDate = new Date(todayDate);
+    dayBeforeYesterdayDate.setDate(dayBeforeYesterdayDate.getDate() - 2);
+    const dayBeforeYesterdayStr = formatLocalDate(dayBeforeYesterdayDate);
+
+    const [standings, schedule, standingsYesterday, scheduleYesterday, standingsDayBeforeYesterday] = await Promise.all([
       fetchStandings(state.selectedDate),
       fetchSchedule(state.selectedDate),
       fetchStandings(yesterdayStr),
-      fetchSchedule(yesterdayStr)
+      fetchSchedule(yesterdayStr),
+      fetchStandings(dayBeforeYesterdayStr)
     ]);
     
     state.rawStandings = standings;
     state.rawSchedule = schedule;
     state.rawStandingsYesterday = standingsYesterday;
     state.rawScheduleYesterday = scheduleYesterday;
+    state.rawStandingsDayBeforeYesterday = standingsDayBeforeYesterday;
     
     state.processedStandings = processStandings(standings);
     state.processedStandingsYesterday = processStandings(standingsYesterday);
+    state.processedStandingsDayBeforeYesterday = processStandings(standingsDayBeforeYesterday);
     
     render();
   } catch (err) {
