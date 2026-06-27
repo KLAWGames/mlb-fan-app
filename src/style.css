@@ -150,12 +150,11 @@ header {
 }
 
 .team-tab {
-  flex: 1;
+  flex: 0 0 38px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 8px 12px;
+  padding: 8px 0;
   border-radius: 5px; /* Halved from 9px */
   border: none;
   background: transparent;
@@ -165,6 +164,12 @@ header {
   font-size: 13px;
   cursor: pointer;
   transition: var(--transition-smooth);
+}
+
+.team-tab.standings-tab-item {
+  flex: 1;
+  padding: 8px 12px;
+  gap: 6px;
 }
 
 .team-tab:hover {
@@ -1839,7 +1844,7 @@ header {
 }
 @keyframes slide-in-forward {
   from {
-    transform: translateX(80px);
+    transform: translateX(30px);
     opacity: 0;
   }
   to {
@@ -1850,7 +1855,7 @@ header {
 
 @keyframes slide-in-backward {
   from {
-    transform: translateX(-80px);
+    transform: translateX(-30px);
     opacity: 0;
   }
   to {
@@ -1860,11 +1865,13 @@ header {
 }
 
 .slide-in-forward {
-  animation: slide-in-forward 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slide-in-forward 0.16s cubic-bezier(0.215, 0.61, 0.355, 1) forwards;
+  will-change: transform, opacity;
 }
 
 .slide-in-backward {
-  animation: slide-in-backward 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slide-in-backward 0.16s cubic-bezier(0.215, 0.61, 0.355, 1) forwards;
+  will-change: transform, opacity;
 }
 
 

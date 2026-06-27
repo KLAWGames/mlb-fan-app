@@ -1618,6 +1618,7 @@ function createHeader() {
       const btn = document.createElement('button');
       const isTeamActive = state.activeView === 'dashboard' && state.activeTeamId === id;
       btn.className = `team-tab ${isTeamActive ? 'active' : ''}`;
+      btn.title = team.name;
       
       const badge = document.createElement('div');
       badge.className = 'team-tab-badge';
@@ -1625,11 +1626,7 @@ function createHeader() {
       badge.style.background = team.primaryColor;
       badge.style.border = `1px solid ${team.secondaryColor}`;
 
-      const nameLabel = document.createElement('span');
-      nameLabel.innerText = team.shortName;
-
       btn.appendChild(badge);
-      btn.appendChild(nameLabel);
 
       btn.addEventListener('click', () => {
         transitionToView('dashboard', id);
@@ -1661,24 +1658,6 @@ function createHeader() {
     });
 
     tabs.appendChild(standingsBtn);
-
-    // Add team button if under limit of 3 AND user has more than 1 team selected
-    if (state.selectedTeamIds.length > 1 && state.selectedTeamIds.length < 3) {
-      const addBtn = document.createElement('button');
-      addBtn.className = 'team-tab team-tab-add';
-      addBtn.innerHTML = '＋';
-      addBtn.title = 'Add Team to Track';
-      addBtn.style.flex = '0 0 auto';
-      addBtn.addEventListener('click', () => {
-        if (state.activeView === 'dashboard' || state.activeView === 'standings') {
-          state.previousMainView = state.activeView;
-        }
-        state.activeView = 'team-select';
-        state.searchQuery = '';
-        render();
-      });
-      tabs.appendChild(addBtn);
-    }
 
     // Wrap in sticky wrapper to fix to top on scroll
     const stickyWrapper = document.createElement('div');
@@ -1795,7 +1774,7 @@ function createStreakBadge(streak) {
 
 // Star players by team ID for realism
 const STAR_PLAYERS = {
-  141: ["Vladimir Guerrero Jr.", "Bo Bichette", "George Springer", "Daulton Varsho"], // Blue Jays
+  141: ["Vladimir Guerrero Jr.", "Alejandro Kirk", "George Springer", "Daulton Varsho"], // Blue Jays
   147: ["Aaron Judge", "Juan Soto", "Giancarlo Stanton", "Gleyber Torres"], // Yankees
   119: ["Shohei Ohtani", "Mookie Betts", "Freddie Freeman", "Teoscar Hernández"], // Dodgers
   144: ["Ronald Acuña Jr.", "Matt Olson", "Austin Riley", "Marcell Ozuna"], // Braves
@@ -1804,12 +1783,12 @@ const STAR_PLAYERS = {
   136: ["Julio Rodríguez", "Cal Raleigh", "J.P. Crawford", "Mitch Haniger"], // Mariners
   117: ["Jose Altuve", "Yordan Alvarez", "Alex Bregman", "Kyle Tucker"], // Astros
   135: ["Manny Machado", "Fernando Tatis Jr.", "Xander Bogaerts", "Jake Cronenworth"], // Padres
-  139: ["Randy Arozarena", "Yandy Díaz", "Isaac Paredes", "Brandon Lowe"], // Rays
+  139: ["Christopher Morel", "Yandy Díaz", "Isaac Paredes", "Brandon Lowe"], // Rays
   111: ["Rafael Devers", "Triston Casas", "Jarren Duran", "Masataka Yoshida"], // Red Sox
   112: ["Cody Bellinger", "Dansby Swanson", "Nico Hoerner", "Seiya Suzuki"], // Cubs
   138: ["Paul Goldschmidt", "Nolan Arenado", "Willson Contreras", "Masyn Winn"], // Cardinals
   158: ["Christian Yelich", "William Contreras", "Willy Adames", "Rhys Hoskins"], // Brewers
-  137: ["Matt Chapman", "Logan Webb", "Jung Hoo Lee", "Jorge Soler"] // Giants
+  137: ["Matt Chapman", "Logan Webb", "Jung Hoo Lee", "Bo Bichette"] // Giants
 };
 
 const GENERIC_FIRST_NAMES = ["Mike", "John", "David", "James", "Brandon", "Tyler", "Chris", "Alex", "Bobby", "Austin", "Jose", "Carlos", "Luis", "Rafael", "Justin", "Marcus", "Zack", "Kyle"];
