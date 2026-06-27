@@ -871,19 +871,21 @@ function setupPullToRefresh() {
     currentY = e.touches[0].pageY;
     const diff = currentY - startY;
 
-    if (diff > 0) {
+    // A positive drift of <= 5px is treated as a tap/click, not a drag.
+    // This prevents preventDefault() from canceling native click/tap events.
+    if (diff > 5) {
       // Pulling down!
       // Prevent default browser elastic overflow bounce on iOS
       if (e.cancelable) e.preventDefault();
       
-      const translateY = Math.min(diff * resistance, threshold);
+      const translateY = Math.min((diff - 5) * resistance, threshold);
       appContainer.style.transform = `translateY(${translateY}px)`;
       
       // Pull loader down and rotate it
       ptrContainer.style.top = `${Math.min(translateY - 50, 15)}px`;
       ptrContainer.classList.add('active');
       spinner.style.transform = `rotate(${diff * 2}deg)`;
-    } else {
+    } else if (diff < -5) {
       // Swiping up, cancel tracking
       isTracking = false;
       resetPTR();

@@ -795,9 +795,9 @@ header {
   background: transparent;
   color: var(--text-secondary);
   font-family: var(--font-title);
-  font-weight: 600;
-  font-size: 12px;
-  padding: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 12px;
   cursor: pointer;
   border-radius: 4px; /* Halved from 7px */
   transition: var(--transition-smooth);
@@ -1622,14 +1622,14 @@ header {
   justify-content: center;
   gap: 10px;
   width: 100%;
-  margin: 0 0 16px 0;
-  padding: 14px 20px;
+  margin: 0 0 18px 0;
+  padding: 16px 24px;
   background: linear-gradient(135deg, rgba(var(--team-primary-rgb, 19, 74, 142), 0.08), rgba(var(--team-secondary-rgb, 29, 45, 92), 0.12));
   border: 1px dashed rgba(var(--team-primary-rgb, 19, 74, 142), 0.25);
   border-radius: 8px;
   color: var(--text-primary);
   font-family: var(--font-title);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   cursor: pointer;
   transition: var(--transition-smooth);
@@ -1705,15 +1705,15 @@ header {
 /* Floating Corner Hamburger Action Button (FAB) */
 .floating-menu-trigger {
   position: fixed;
-  right: 24px;
-  bottom: 24px;
-  width: 56px;
-  height: 56px;
+  right: 28px;
+  bottom: 28px;
+  width: 64px;
+  height: 64px;
   background: linear-gradient(135deg, var(--team-primary) 0%, var(--team-secondary) 100%);
   border: 1px solid var(--border-glass);
   border-radius: 50%;
   color: #ffffff;
-  font-size: 24px;
+  font-size: 26px;
   cursor: pointer;
   z-index: 1500;
   display: flex;
@@ -1920,11 +1920,11 @@ header {
 .date-toggle-btn {
   background: transparent;
   border: none;
-  padding: 6px 12px;
+  padding: 10px 16px;
   border-radius: 4px;
   font-family: var(--font-title);
   font-weight: 700;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--text-secondary);
   cursor: pointer;
   transition: var(--transition-smooth);
