@@ -401,8 +401,6 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
   // Render active team last so it sits on top of others
   teamHistories.sort((a, b) => (a.team.id === activeTeam.id ? 1 : b.team.id === activeTeam.id ? -1 : 0));
 
-  const labelYMap = [];
-
   teamHistories.forEach(th => {
     const t = th.team;
     const history = th.history;
@@ -440,7 +438,41 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
     const r = isActive ? 5 : 3;
     const strokeW = isActive ? 2.5 : 1.5;
     dotsHtml += `<circle cx="${pt.x}" cy="${pt.y}" r="${r}" fill="#ffffff" stroke="${color}" stroke-width="${strokeW}" />`;
+  });
 
+  // Group team labels by their final standing values to handle ties (e.g., TOR/HOU/etc)
+  const finalValGroups = new Map();
+  teamHistories.forEach(th => {
+    const lastVal = th.history[th.history.length - 1];
+    if (!finalValGroups.has(lastVal)) {
+      finalValGroups.set(lastVal, []);
+    }
+    finalValGroups.get(lastVal).push(th);
+  });
+
+  const sortedGroupKeys = Array.from(finalValGroups.keys()).sort((a, b) => b - a);
+  const labelYMap = [];
+
+  sortedGroupKeys.forEach(val => {
+    const groupItems = finalValGroups.get(val);
+    const lastG = groupItems[0].history.length - 1;
+    const pt = getCoords(lastG, val);
+
+    // Sort items so active team is listed first in slashes (e.g. TOR/HOU)
+    groupItems.sort((a, b) => {
+      const isActA = a.team.id === activeTeam.id;
+      const isActB = b.team.id === activeTeam.id;
+      return isActA ? -1 : isActB ? 1 : 0;
+    });
+
+    const abbrevs = groupItems.map(item => item.team.abbreviation).join('/');
+    const hasActiveTeam = groupItems.some(item => item.team.id === activeTeam.id);
+    
+    const color = hasActiveTeam 
+      ? (activeTeam.primaryColor || '#134a8e') 
+      : (groupItems[0].team.primaryColor || '#888');
+
+    // Run overlap resolver to avoid overlap between different groups
     let targetY = pt.y;
     let overlap = true;
     let attempts = 0;
@@ -457,9 +489,9 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
     }
     labelYMap.push(targetY);
 
-    const labelWeight = isActive ? '700' : '500';
-    const labelOpacity = isActive ? '1' : '0.75';
-    labelsHtml += `<text x="${pt.x + 8}" y="${targetY}" font-size="8.5px" font-weight="${labelWeight}" opacity="${labelOpacity}" font-family="var(--font-title)" fill="${color}" alignment-baseline="middle">${t.abbreviation}</text>`;
+    const labelWeight = hasActiveTeam ? '700' : '500';
+    const labelOpacity = hasActiveTeam ? '1' : '0.75';
+    labelsHtml += `<text x="${pt.x + 8}" y="${targetY}" font-size="8.5px" font-weight="${labelWeight}" opacity="${labelOpacity}" font-family="var(--font-title)" fill="${color}" alignment-baseline="middle">${abbrevs}</text>`;
   });
 
   const div = document.createElement('div');
