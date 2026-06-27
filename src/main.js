@@ -738,6 +738,13 @@ function setupPullToRefresh() {
     ptrContainer.style.top = '-60px';
     ptrContainer.classList.remove('active');
     spinner.style.transform = 'rotate(0deg)';
+
+    const onTransitionEnd = () => {
+      appContainer.style.transform = '';
+      appContainer.classList.remove('ptr-animating');
+      appContainer.removeEventListener('transitionend', onTransitionEnd);
+    };
+    appContainer.addEventListener('transitionend', onTransitionEnd);
   }
 }
 
@@ -1565,15 +1572,6 @@ function createHeader() {
   const topRow = document.createElement('div');
   topRow.className = 'header-top';
 
-  const logo = document.createElement('div');
-  logo.className = 'app-logo';
-  logo.innerText = 'BaseTab';
-  logo.style.cursor = 'pointer';
-  logo.addEventListener('click', () => {
-    state.activeView = 'dashboard';
-    render();
-  });
-
   const rightControls = document.createElement('div');
   rightControls.style.display = 'flex';
   rightControls.style.alignItems = 'center';
@@ -1613,7 +1611,6 @@ function createHeader() {
   dateToggle.appendChild(todayBtn);
   rightControls.appendChild(dateToggle);
 
-  topRow.appendChild(logo);
   topRow.appendChild(rightControls);
   header.appendChild(topRow);
 
@@ -2201,18 +2198,21 @@ function createDashboardView() {
 
   container.appendChild(banner);
 
-  // Yesterday's Standings Recap Trigger Button
-  const recapBtn = document.createElement('button');
-  recapBtn.className = 'recap-trigger-btn';
-  recapBtn.innerHTML = `
-    <span class="icon">📅</span>
-    <span>What Happened Yesterday</span>
-  `;
-  recapBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    showRecapModal(false);
-  });
-  container.appendChild(recapBtn);
+  // Yesterday's Standings Recap Trigger Button (only visible when looking at today's data)
+  const todayStr = formatLocalDate(new Date());
+  if (state.selectedDate === todayStr) {
+    const recapBtn = document.createElement('button');
+    recapBtn.className = 'recap-trigger-btn';
+    recapBtn.innerHTML = `
+      <span class="icon">📅</span>
+      <span>What Happened Yesterday</span>
+    `;
+    recapBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showRecapModal(false);
+    });
+    container.appendChild(recapBtn);
+  }
 
   // 2. Playoff Position Visual Tracker Card
   const trackerCard = document.createElement('div');
