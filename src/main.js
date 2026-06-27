@@ -1259,24 +1259,7 @@ function showRecapModal(isAutoTrigger = false) {
         </div>
       `;
 
-      // If rooting choice won, allow user to "High Five" the winning team!
-      if (didRootSucceed) {
-        const hfBtn = document.createElement('button');
-        hfBtn.className = 'high-five-btn';
-        
-        const isFived = state.highFivedTeams.includes(g.gamePk);
-        hfBtn.disabled = isFived;
-        hfBtn.innerHTML = isFived ? 'High Fived! 🖐️' : `🖐️ High Five the ${winnerTeam.shortName}`;
-        
-        hfBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          triggerHighFiveAnimation(e, winnerTeam.shortName);
-          state.highFivedTeams.push(g.gamePk);
-          hfBtn.disabled = true;
-          hfBtn.innerHTML = 'High Fived! 🖐️';
-        });
-        gameRow.appendChild(hfBtn);
-      }
+
 
       rootingBody.appendChild(gameRow);
     });
