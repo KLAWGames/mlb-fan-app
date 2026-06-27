@@ -216,6 +216,17 @@ export function drawSankeySVG(stats, team) {
     { id: 'hr', label: 'Home Run', value: HomeRun, color: 'rgba(16, 185, 129, 0.85)' }
   ].filter(n => n.value > 0);
 
+  const subOuts = [
+    { id: 'ground', label: 'Ground Out', value: GroundOut },
+    { id: 'lineout', label: 'Lineout', value: Lineout },
+    { id: 'flyout', label: 'Flyout', value: Flyout },
+    { id: 'sac', label: 'Sac Fly', value: SacFly },
+    { id: 'pop', label: 'Pop Out', value: PopOut },
+    { id: 'strikeout', label: 'Strikeout', value: Strikeout },
+    { id: 'thrown', label: 'Thrown Out', value: ThrownOut },
+    { id: 'unplayed', label: 'Unplayed', value: Unplayed }
+  ].filter(n => n.value > 0);
+
   const activeCol3NodesCount = subHits.length + subOuts.length + (Walks > 0 ? 1 : 0) + (HBP > 0 ? 1 : 0);
   const totalGapsCol3 = (activeCol3NodesCount - 1) * gapY;
   const totalHCol3 = AtBats * scaleY;
