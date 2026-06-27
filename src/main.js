@@ -402,6 +402,7 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
   teamHistories.sort((a, b) => (a.team.id === activeTeam.id ? 1 : b.team.id === activeTeam.id ? -1 : 0));
 
   const labelYMap = [];
+  const footnotes = [];
 
   teamHistories.forEach(th => {
     const t = th.team;
@@ -440,8 +441,50 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
     const r = isActive ? 5 : 3;
     const strokeW = isActive ? 2.5 : 1.5;
     dotsHtml += `<circle cx="${pt.x}" cy="${pt.y}" r="${r}" fill="#ffffff" stroke="${color}" stroke-width="${strokeW}" />`;
+  });
 
-    // Position label, shifting to stack tied or close teams vertically
+  // Group team labels by their final standing values to handle ties cleanly (e.g., TOR (+2) and footnote below)
+  const finalValGroups = new Map();
+  teamHistories.forEach(th => {
+    const lastVal = th.history[th.history.length - 1];
+    if (!finalValGroups.has(lastVal)) {
+      finalValGroups.set(lastVal, []);
+    }
+    finalValGroups.get(lastVal).push(th);
+  });
+
+  const sortedGroupKeys = Array.from(finalValGroups.keys()).sort((a, b) => b - a);
+
+  sortedGroupKeys.forEach(val => {
+    const groupItems = finalValGroups.get(val);
+    const lastG = groupItems[0].history.length - 1;
+    const pt = getCoords(lastG, val);
+
+    // Sort items so active team is listed first
+    groupItems.sort((a, b) => {
+      const isActA = a.team.id === activeTeam.id;
+      const isActB = b.team.id === activeTeam.id;
+      return isActA ? -1 : isActB ? 1 : 0;
+    });
+
+    const primaryTeam = groupItems[0].team;
+    const hasActiveTeam = groupItems.some(item => item.team.id === activeTeam.id);
+    
+    let labelText = primaryTeam.abbreviation;
+    if (groupItems.length > 1) {
+      const otherTeams = groupItems.slice(1).map(item => item.team);
+      labelText += ` (+${otherTeams.length})`;
+      
+      // Format footnote: e.g., "+2 = HOU, TEX"
+      const footnoteText = `+${otherTeams.length} = ${otherTeams.map(t => t.abbreviation).join(', ')}`;
+      footnotes.push(footnoteText);
+    }
+
+    const color = hasActiveTeam 
+      ? (activeTeam.primaryColor || '#134a8e') 
+      : (primaryTeam.primaryColor || '#888');
+
+    // Run overlap resolver to avoid overlap between different groups
     let targetY = pt.y;
     let overlap = true;
     let attempts = 0;
@@ -458,14 +501,23 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
     }
     labelYMap.push(targetY);
 
-    const labelWeight = isActive ? '700' : '500';
-    const labelOpacity = isActive ? '1' : '0.75';
-    labelsHtml += `<text x="${pt.x + 8}" y="${targetY}" font-size="8.5px" font-weight="${labelWeight}" opacity="${labelOpacity}" font-family="var(--font-title)" fill="${color}" alignment-baseline="middle">${t.abbreviation}</text>`;
+    const labelWeight = hasActiveTeam ? '700' : '500';
+    const labelOpacity = hasActiveTeam ? '1' : '0.75';
+    labelsHtml += `<text x="${pt.x + 8}" y="${targetY}" font-size="8.5px" font-weight="${labelWeight}" opacity="${labelOpacity}" font-family="var(--font-title)" fill="${color}" alignment-baseline="middle">${labelText}</text>`;
   });
 
   const div = document.createElement('div');
   div.className = 'division-chart-container';
   div.style.width = '100%';
+
+  let footnoteHtml = '';
+  if (footnotes.length > 0) {
+    footnoteHtml = `
+      <div class="chart-footnotes" style="text-align: center; font-size: 11px; color: var(--text-secondary); margin-top: 8px; font-weight: 500; display: flex; flex-direction: column; gap: 2px;">
+        ${footnotes.map(f => `<div>ℹ️ ${f}</div>`).join('')}
+      </div>
+    `;
+  }
 
   div.innerHTML = `
     <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%" height="auto" style="overflow: visible; background: none; border-radius: 4px;">
@@ -477,6 +529,7 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
       ${dotsHtml}
       ${labelsHtml}
     </svg>
+    ${footnoteHtml}
   `;
 
   return div;
