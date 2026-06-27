@@ -1036,6 +1036,9 @@ function showRecapModal(isAutoTrigger = false) {
   
   if (!teamToday || !teamYesterday) return;
 
+  // Lock body scroll when overlay is open
+  document.body.style.overflow = 'hidden';
+
   // Safely compute formatted label for yesterday's date
   const parts = state.selectedDate.split('-');
   const todayDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0);
@@ -1046,6 +1049,18 @@ function showRecapModal(isAutoTrigger = false) {
   // Create backdrop
   const backdrop = document.createElement('div');
   backdrop.className = 'recap-backdrop';
+  
+  // Close recap modal when clicking outside content (on backdrop)
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) {
+      backdrop.classList.remove('show');
+      document.body.style.overflow = '';
+      setTimeout(() => {
+        if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+        stopConfetti();
+      }, 300);
+    }
+  });
   
   const content = document.createElement('div');
   content.className = 'recap-content';
@@ -1062,6 +1077,7 @@ function showRecapModal(isAutoTrigger = false) {
   closeBtn.innerHTML = '×';
   closeBtn.addEventListener('click', () => {
     backdrop.classList.remove('show');
+    document.body.style.overflow = '';
     setTimeout(() => {
       if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
       stopConfetti();
@@ -1543,8 +1559,10 @@ function toggleHamburgerMenu(open) {
   
   if (open) {
     drawer.classList.add('show');
+    document.body.style.overflow = 'hidden';
   } else {
     drawer.classList.remove('show');
+    document.body.style.overflow = '';
   }
 }
 
