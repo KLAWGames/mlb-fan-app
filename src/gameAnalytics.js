@@ -1,5 +1,40 @@
 import { teamsData } from './teamsData.js';
 
+export function normalizeGame(game) {
+  if (game.awayTeam && game.homeTeam) return game;
+  
+  const awayTeamRaw = game.teams?.away?.team || {};
+  const homeTeamRaw = game.teams?.home?.team || {};
+  const awayId = parseInt(awayTeamRaw.id || game.awayTeamId, 10);
+  const homeId = parseInt(homeTeamRaw.id || game.homeTeamId, 10);
+  
+  const awayTeam = {
+    id: awayId,
+    name: awayTeamRaw.name || teamsData[awayId]?.name || 'Away Team',
+    shortName: awayTeamRaw.name || teamsData[awayId]?.shortName || 'Away',
+    abbreviation: teamsData[awayId]?.abbreviation || awayTeamRaw.name?.slice(0, 3).toUpperCase() || 'AWY',
+    primaryColor: teamsData[awayId]?.primaryColor || '#888888',
+    textColor: teamsData[awayId]?.textColor || '#ffffff'
+  };
+  
+  const homeTeam = {
+    id: homeId,
+    name: homeTeamRaw.name || teamsData[homeId]?.name || 'Home Team',
+    shortName: homeTeamRaw.name || teamsData[homeId]?.shortName || 'Home',
+    abbreviation: teamsData[homeId]?.abbreviation || homeTeamRaw.name?.slice(0, 3).toUpperCase() || 'HOM',
+    primaryColor: teamsData[homeId]?.primaryColor || '#888888',
+    textColor: teamsData[homeId]?.textColor || '#ffffff'
+  };
+
+  return {
+    ...game,
+    awayTeam,
+    homeTeam,
+    awayScore: game.teams?.away?.score !== undefined ? game.teams.away.score : (game.awayScore || 0),
+    homeScore: game.teams?.home?.score !== undefined ? game.teams.home.score : (game.homeScore || 0)
+  };
+}
+
 export function reconstructGameFromSeasonGame(g, activeTeam, state) {
   if (g.awayTeam && g.homeTeam) return g;
 
@@ -56,17 +91,18 @@ export function getTeamRoster(teamId) {
 }
 
 export function getDeterministicSankeyStats(game, teamId) {
-  const seed = (game.gamePk || 1000) + teamId;
+  const normGame = normalizeGame(game);
+  const seed = (normGame.gamePk || 1000) + teamId;
   let s = seed;
   function lcgRandom() {
     s = (1103515245 * s + 12345) % 2147483648;
     return s / 2147483648;
   }
 
-  const isFinal = game.status.statusCode === 'F' || game.status.detailedState === 'Final';
-  const isAway = parseInt(teamId, 10) === parseInt(game.awayTeam.id, 10);
-  const teamScore = (isAway ? game.awayScore : game.homeScore) || 0;
-  const oppScore = (isAway ? game.homeScore : game.awayScore) || 0;
+  const isFinal = normGame.status?.statusCode === 'F' || normGame.status?.detailedState === 'Final';
+  const isAway = parseInt(teamId, 10) === parseInt(normGame.awayTeam.id, 10);
+  const teamScore = (isAway ? normGame.awayScore : normGame.homeScore) || 0;
+  const oppScore = (isAway ? normGame.homeScore : normGame.awayScore) || 0;
   const isWinner = isFinal && (teamScore > oppScore);
   const isHomeWinner = isWinner && !isAway;
 
@@ -78,7 +114,7 @@ export function getDeterministicSankeyStats(game, teamId) {
   if (isFinal) {
     Outs = isHomeWinner ? 24 : 27;
   } else {
-    const linescore = game.linescore || {};
+    const linescore = normGame.linescore || {};
     const inning = linescore.currentInning || 5;
     const isTop = linescore.isTopInning !== false;
     let halfInningsCompleted = isAway ? (inning * 2 - 2) : (inning * 2 - 1);
@@ -293,10 +329,11 @@ export function drawSankeySVG(stats, team) {
 }
 
 export function getDeterministicSprayPlays(game, teamId) {
-  const stats = getDeterministicSankeyStats(game, teamId);
+  const normGame = normalizeGame(game);
+  const stats = getDeterministicSankeyStats(normGame, teamId);
   const roster = getTeamRoster(teamId);
 
-  const seed = (game.gamePk || 1000) + teamId + 99;
+  const seed = (normGame.gamePk || 1000) + teamId + 99;
   let s = seed;
   function lcgRandom() {
     s = (1103515245 * s + 12345) % 2147483648;
@@ -467,6 +504,7 @@ export function drawSprayFieldSVG(plays, activePlayId, clickCallback) {
 }
 
 export function openGameAnalyticsCenter(game, state, render) {
+  const normGame = normalizeGame(game);
   const existing = document.querySelector('.analytics-center-backdrop');
   if (existing) existing.remove();
 
@@ -518,26 +556,26 @@ export function openGameAnalyticsCenter(game, state, render) {
   const titleContainer = document.createElement('div');
   titleContainer.style.textAlign = 'left';
   
-  const isLive = game.status.statusCode === 'I' || game.status.detailedState.toLowerCase().includes('progress');
-  const isFinal = game.status.statusCode === 'F' || game.status.detailedState === 'Final';
+  const isLive = normGame.status?.statusCode === 'I' || normGame.status?.detailedState?.toLowerCase().includes('progress');
+  const isFinal = normGame.status?.statusCode === 'F' || normGame.status?.detailedState === 'Final';
   
-  let statusText = game.status.detailedState;
+  let statusText = normGame.status?.detailedState || 'Scheduled';
   if (isLive) {
-    const inning = game.linescore?.currentInning || 5;
-    const isTop = game.linescore?.isTopInning !== false;
+    const inning = normGame.linescore?.currentInning || 5;
+    const isTop = normGame.linescore?.isTopInning !== false;
     statusText = `Live • ${isTop ? 'Top' : 'Bot'} of ${inning}`;
   }
   
-  const scoreText = (isLive || isFinal) ? `${game.awayScore} - ${game.homeScore}` : 'vs';
+  const scoreText = (isLive || isFinal) ? `${normGame.awayScore} - ${normGame.homeScore}` : 'vs';
   
   titleContainer.innerHTML = `
     <div style="font-size: 10px; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">
       ${statusText}
     </div>
     <div style="font-size: 14px; font-weight: 800; font-family: var(--font-title); color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-      <span>${game.awayTeam.abbreviation}</span>
+      <span>${normGame.awayTeam.abbreviation}</span>
       <span style="color: var(--color-gold); font-size: 13px;">${scoreText}</span>
-      <span>${game.homeTeam.abbreviation}</span>
+      <span>${normGame.homeTeam.abbreviation}</span>
     </div>
   `;
   
@@ -564,7 +602,7 @@ export function openGameAnalyticsCenter(game, state, render) {
   `;
   modal.appendChild(body);
 
-  let selectedTeamId = game.awayTeam.id;
+  let selectedTeamId = normGame.awayTeam.id;
   let selectedVis = 'sankey';
   let selectedBatter = 'all';
   let activePlayId = null;
@@ -574,7 +612,7 @@ export function openGameAnalyticsCenter(game, state, render) {
   
   const renderTeamToggles = () => {
     teamToggleRow.innerHTML = '';
-    [game.awayTeam, game.homeTeam].forEach(t => {
+    [normGame.awayTeam, normGame.homeTeam].forEach(t => {
       const btn = document.createElement('button');
       const isActive = parseInt(selectedTeamId, 10) === parseInt(t.id, 10);
       btn.style.cssText = `
@@ -653,10 +691,10 @@ export function openGameAnalyticsCenter(game, state, render) {
 
   const updateVisContent = () => {
     visContainer.innerHTML = '';
-    const teamObj = selectedTeamId === game.awayTeam.id ? game.awayTeam : game.homeTeam;
+    const teamObj = parseInt(selectedTeamId, 10) === parseInt(normGame.awayTeam.id, 10) ? normGame.awayTeam : normGame.homeTeam;
 
     if (selectedVis === 'sankey') {
-      const stats = getDeterministicSankeyStats(game, selectedTeamId);
+      const stats = getDeterministicSankeyStats(normGame, selectedTeamId);
       
       const scrollWrapper = document.createElement('div');
       scrollWrapper.style.cssText = 'width: 100%; max-height: 440px; overflow: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border-glass); border-radius: 12px; background: #f8fafc; padding: 12px; position: relative;';
@@ -707,7 +745,7 @@ export function openGameAnalyticsCenter(game, state, render) {
       visContainer.appendChild(helper);
 
     } else if (selectedVis === 'spray') {
-      const { plays, batterStats } = getDeterministicSprayPlays(game, selectedTeamId);
+      const { plays, batterStats } = getDeterministicSprayPlays(normGame, selectedTeamId);
       const uniqueBatters = Array.from(new Set(plays.map(p => p.batter))).sort();
       
       const batterSelectContainer = document.createElement('div');
