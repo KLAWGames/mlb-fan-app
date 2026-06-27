@@ -635,9 +635,6 @@ async function init() {
   // Set up touch gestures (Pull to Refresh)
   setupPullToRefresh();
 
-  // Set up scroll-to-hide navigation bar
-  setupScrollToHide();
-
   // Start auto-refresh interval for live scores
   startAutoRefresh();
 }
@@ -667,6 +664,14 @@ function setupPullToRefresh() {
   const resistance = 0.35; // drag resistance multiplier
 
   document.addEventListener('touchstart', (e) => {
+    // Ignore PTR touches on UI controls like bottom navigation, header buttons, or overlay popups
+    if (e.target.closest('.sticky-nav-wrapper') || 
+        e.target.closest('.header-top') ||
+        e.target.closest('.recap-backdrop') || 
+        e.target.closest('.recap-content') ||
+        e.target.closest('.hamburger-drawer')) {
+      return;
+    }
     // Only track if we are scrolled to the very top of the window
     if (window.scrollY === 0 && !isRefreshing) {
       startY = e.touches[0].pageY;
@@ -708,6 +713,15 @@ function setupPullToRefresh() {
     const diff = currentY - startY;
     const translateY = diff * resistance;
 
+    // If the user barely dragged or did not drag down, just clear styles immediately without adding transition listeners
+    if (diff <= 5) {
+      appContainer.style.transform = '';
+      appContainer.classList.remove('ptr-animating');
+      ptrContainer.classList.remove('active');
+      ptrContainer.style.top = '-60px';
+      return;
+    }
+
     if (translateY >= threshold - 5) {
       // Trigger refresh!
       isRefreshing = true;
@@ -739,7 +753,9 @@ function setupPullToRefresh() {
     ptrContainer.classList.remove('active');
     spinner.style.transform = 'rotate(0deg)';
 
-    const onTransitionEnd = () => {
+    const onTransitionEnd = (e) => {
+      // Only handle transition ending on the appContainer itself to prevent bubbling events
+      if (e.target !== appContainer) return;
       appContainer.style.transform = '';
       appContainer.classList.remove('ptr-animating');
       appContainer.removeEventListener('transitionend', onTransitionEnd);
@@ -748,28 +764,7 @@ function setupPullToRefresh() {
   }
 }
 
-// Setup scroll-to-hide behavior for bottom navigation
-function setupScrollToHide() {
-  let lastScrollY = window.scrollY;
-  
-  window.addEventListener('scroll', () => {
-    const nav = document.querySelector('.bottom-nav');
-    if (!nav) return;
-    
-    const currentScrollY = window.scrollY;
-    
-    // Determine scroll direction
-    if (currentScrollY > lastScrollY && currentScrollY > 60) {
-      // Scrolling down - hide navigation
-      nav.classList.add('hidden');
-    } else {
-      // Scrolling up or at the very top - show navigation
-      nav.classList.remove('hidden');
-    }
-    
-    lastScrollY = currentScrollY;
-  }, { passive: true });
-}
+// Scroll-to-hide functionality removed for persistent navigation layout
 
 // Sync active team default playoff tracker tab
 function syncDefaultTab() {
@@ -1434,44 +1429,66 @@ function render() {
   const appContainer = document.querySelector('#app');
   if (!appContainer) return;
 
-  appContainer.innerHTML = '';
+  // Ensure persistent shell containers exist
+  let header = appContainer.querySelector('.app-header');
+  let main = appContainer.querySelector('.app-main');
+  let footer = appContainer.querySelector('.sticky-nav-wrapper');
 
-  // 1. Render Header (Tabs & Date selector)
-  appContainer.appendChild(createHeader());
+  if (!header || !main || !footer) {
+    appContainer.innerHTML = ''; // bootstrap once
+    
+    header = document.createElement('header');
+    header.className = 'app-header';
+    header.style.display = 'contents';
+    
+    main = document.createElement('main');
+    main.className = 'app-main';
+    main.style.flex = '1';
+    
+    footer = document.createElement('div');
+    footer.className = 'sticky-nav-wrapper';
+    
+    appContainer.appendChild(header);
+    appContainer.appendChild(main);
+    appContainer.appendChild(footer);
+  }
 
-  // 2. Render Main Body Content based on activeView
-  const mainContent = document.createElement('main');
-  mainContent.style.flex = '1';
+  // 1. Update Header content (Date toggle control)
+  updateHeaderContent(header);
 
+  // 2. Update Footer content (Tracked teams & Standings tabs)
+  updateFooterContent(footer);
+
+  // 3. Update Main view content
+  main.innerHTML = '';
+  
   if (state.transitionDirection) {
-    mainContent.classList.add(`slide-in-${state.transitionDirection}`);
-    state.transitionDirection = null; // Clear so subsequent silent updates do not animate
+    main.className = `app-main slide-in-${state.transitionDirection}`;
+    state.transitionDirection = null;
+  } else {
+    main.className = 'app-main';
   }
 
   if (state.loading) {
-    mainContent.appendChild(createLoader());
+    main.appendChild(createLoader());
   } else {
     switch (state.activeView) {
       case 'dashboard':
-        mainContent.appendChild(createDashboardView());
+        main.appendChild(createDashboardView());
         break;
       case 'standings':
-        mainContent.appendChild(createStandingsView());
+        main.appendChild(createStandingsView());
         break;
       case 'team-select':
-        mainContent.appendChild(createTeamSelectView());
+        main.appendChild(createTeamSelectView());
         break;
       case 'credits-version':
-        mainContent.appendChild(createCreditsVersionView());
+        main.appendChild(createCreditsVersionView());
         break;
       default:
-        mainContent.appendChild(createDashboardView());
+        main.appendChild(createDashboardView());
     }
   }
-
-  appContainer.appendChild(mainContent);
-
-  // 3. Bottom Nav removed as tabs moved to header sticky navigation
 }
 
 // Global Hamburger Menu Controller
@@ -1560,8 +1577,9 @@ function toggleHamburgerMenu(open) {
 }
 
 // Header Component
-function createHeader() {
-  const header = document.createElement('header');
+// Update persistent Header content
+function updateHeaderContent(header) {
+  header.innerHTML = '';
 
   const topRow = document.createElement('div');
   topRow.className = 'header-top';
@@ -1604,84 +1622,79 @@ function createHeader() {
   dateToggle.appendChild(yesterdayBtn);
   dateToggle.appendChild(todayBtn);
   rightControls.appendChild(dateToggle);
-
   topRow.appendChild(rightControls);
   header.appendChild(topRow);
+}
 
-  // Team Switcher & Standings Tabs (Only visible on dashboard and standings views)
-  if (state.activeView === 'dashboard' || state.activeView === 'standings') {
-    const tabs = document.createElement('div');
-    tabs.className = 'team-tabs';
+// Update persistent Footer content (ALWAYS visible navigation tabs)
+function updateFooterContent(footer) {
+  footer.innerHTML = '';
 
-    state.selectedTeamIds.forEach(id => {
-      const team = teamsData[id];
-      if (!team) return;
+  const tabs = document.createElement('div');
+  tabs.className = 'team-tabs';
 
-      const btn = document.createElement('button');
-      const isTeamActive = state.activeView === 'dashboard' && state.activeTeamId === id;
-      btn.className = `team-tab ${isTeamActive ? 'active' : ''}`;
-      btn.title = team.name;
-      
-      const badge = document.createElement('div');
-      badge.className = 'team-tab-badge';
-      badge.innerText = team.abbreviation;
-      badge.style.background = team.primaryColor;
-      badge.style.border = `1px solid ${team.secondaryColor}`;
+  state.selectedTeamIds.forEach(id => {
+    const team = teamsData[id];
+    if (!team) return;
 
-      btn.appendChild(badge);
+    const btn = document.createElement('button');
+    const isTeamActive = state.activeView === 'dashboard' && state.activeTeamId === id;
+    btn.className = `team-tab ${isTeamActive ? 'active' : ''}`;
+    btn.title = team.name;
+    
+    const badge = document.createElement('div');
+    badge.className = 'team-tab-badge';
+    badge.innerText = team.abbreviation;
+    badge.style.background = team.primaryColor;
+    badge.style.border = `1px solid ${team.secondaryColor}`;
 
-      btn.addEventListener('click', () => {
-        transitionToView('dashboard', id);
-      });
+    btn.appendChild(badge);
 
-      tabs.appendChild(btn);
+    btn.addEventListener('click', () => {
+      transitionToView('dashboard', id);
     });
 
-    // Standings Switcher Tab (🏆) next to teams
-    const standingsBtn = document.createElement('button');
-    const isStandingsActive = state.activeView === 'standings';
-    standingsBtn.className = `team-tab standings-tab-item ${isStandingsActive ? 'active' : ''}`;
+    tabs.appendChild(btn);
+  });
 
-    const standingsBadge = document.createElement('div');
-    standingsBadge.className = 'team-tab-badge';
-    standingsBadge.innerText = '🏆';
-    standingsBadge.style.background = '#64748b';
-    standingsBadge.style.border = '1px solid #475569';
-    standingsBadge.style.color = '#ffffff';
+  // Standings Switcher Tab (🏆) next to teams
+  const standingsBtn = document.createElement('button');
+  const isStandingsActive = state.activeView === 'standings';
+  standingsBtn.className = `team-tab standings-tab-item ${isStandingsActive ? 'active' : ''}`;
 
-    const standingsLabel = document.createElement('span');
-    standingsLabel.innerText = 'Standings';
+  const standingsBadge = document.createElement('div');
+  standingsBadge.className = 'team-tab-badge';
+  standingsBadge.innerText = '🏆';
+  standingsBadge.style.background = '#64748b';
+  standingsBadge.style.border = '1px solid #475569';
+  standingsBadge.style.color = '#ffffff';
 
-    standingsBtn.appendChild(standingsBadge);
-    standingsBtn.appendChild(standingsLabel);
+  const standingsLabel = document.createElement('span');
+  standingsLabel.innerText = 'Standings';
 
-    standingsBtn.addEventListener('click', () => {
-      transitionToView('standings');
-    });
+  standingsBtn.appendChild(standingsBadge);
+  standingsBtn.appendChild(standingsLabel);
 
-    tabs.appendChild(standingsBtn);
+  standingsBtn.addEventListener('click', () => {
+    transitionToView('standings');
+  });
 
-    // Hamburger menu button to the right of standings
-    const menuBtn = document.createElement('button');
-    menuBtn.className = 'team-tab team-tab-menu-trigger';
-    menuBtn.innerHTML = '☰';
-    menuBtn.title = 'App Menu';
-    menuBtn.addEventListener('click', () => {
-      if (state.activeView === 'dashboard' || state.activeView === 'standings') {
-        state.previousMainView = state.activeView;
-      }
-      toggleHamburgerMenu(true);
-    });
-    tabs.appendChild(menuBtn);
+  tabs.appendChild(standingsBtn);
 
-    // Wrap in sticky wrapper to fix to top on scroll
-    const stickyWrapper = document.createElement('div');
-    stickyWrapper.className = 'sticky-nav-wrapper';
-    stickyWrapper.appendChild(tabs);
-    header.appendChild(stickyWrapper);
-  }
+  // Hamburger menu button to the right of standings
+  const menuBtn = document.createElement('button');
+  menuBtn.className = 'team-tab team-tab-menu-trigger';
+  menuBtn.innerHTML = '☰';
+  menuBtn.title = 'App Menu';
+  menuBtn.addEventListener('click', () => {
+    if (state.activeView === 'dashboard' || state.activeView === 'standings') {
+      state.previousMainView = state.activeView;
+    }
+    toggleHamburgerMenu(true);
+  });
+  tabs.appendChild(menuBtn);
 
-  return header;
+  footer.appendChild(tabs);
 }
 
 // Loader Component
