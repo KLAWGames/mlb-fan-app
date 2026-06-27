@@ -1579,28 +1579,39 @@ function createHeader() {
   rightControls.style.alignItems = 'center';
   rightControls.style.gap = '8px';
 
-  const dateInput = document.createElement('input');
-  dateInput.type = 'date';
-  dateInput.className = 'date-selector';
-  dateInput.value = state.selectedDate;
-  dateInput.addEventListener('change', async (e) => {
-    state.selectedDate = e.target.value;
-    await loadData();
-  });
+  const dateToggle = document.createElement('div');
+  dateToggle.className = 'date-toggle-group';
 
-  const menuBtn = document.createElement('button');
-  menuBtn.className = 'menu-hamburger-btn';
-  menuBtn.innerHTML = '☰';
-  menuBtn.title = 'App Menu';
-  menuBtn.addEventListener('click', () => {
-    if (state.activeView === 'dashboard' || state.activeView === 'standings') {
-      state.previousMainView = state.activeView;
+  const todayStr = formatLocalDate(new Date());
+  const yesterdayStr = formatLocalDate(new Date(Date.now() - 86400000));
+
+  const yesterdayBtn = document.createElement('button');
+  yesterdayBtn.className = `date-toggle-btn ${state.selectedDate === yesterdayStr ? 'active' : ''}`;
+  yesterdayBtn.innerText = 'Yesterday';
+  yesterdayBtn.addEventListener('click', async () => {
+    if (state.selectedDate !== yesterdayStr) {
+      state.selectedDate = yesterdayStr;
+      state.loading = true;
+      render();
+      await loadData();
     }
-    toggleHamburgerMenu(true);
   });
 
-  rightControls.appendChild(dateInput);
-  rightControls.appendChild(menuBtn);
+  const todayBtn = document.createElement('button');
+  todayBtn.className = `date-toggle-btn ${state.selectedDate === todayStr ? 'active' : ''}`;
+  todayBtn.innerText = 'Today';
+  todayBtn.addEventListener('click', async () => {
+    if (state.selectedDate !== todayStr) {
+      state.selectedDate = todayStr;
+      state.loading = true;
+      render();
+      await loadData();
+    }
+  });
+
+  dateToggle.appendChild(yesterdayBtn);
+  dateToggle.appendChild(todayBtn);
+  rightControls.appendChild(dateToggle);
 
   topRow.appendChild(logo);
   topRow.appendChild(rightControls);
@@ -1658,6 +1669,19 @@ function createHeader() {
     });
 
     tabs.appendChild(standingsBtn);
+
+    // Hamburger menu button to the right of standings
+    const menuBtn = document.createElement('button');
+    menuBtn.className = 'team-tab team-tab-menu-trigger';
+    menuBtn.innerHTML = '☰';
+    menuBtn.title = 'App Menu';
+    menuBtn.addEventListener('click', () => {
+      if (state.activeView === 'dashboard' || state.activeView === 'standings') {
+        state.previousMainView = state.activeView;
+      }
+      toggleHamburgerMenu(true);
+    });
+    tabs.appendChild(menuBtn);
 
     // Wrap in sticky wrapper to fix to top on scroll
     const stickyWrapper = document.createElement('div');

@@ -58,7 +58,7 @@ body {
   display: flex;
   flex-direction: column;
   padding: 16px;
-  padding-bottom: 24px; /* Reduced since bottom navigation is removed */
+  padding-bottom: 72px; /* Bottom nav buffer spacing */
   position: relative;
 }
 
@@ -1703,16 +1703,19 @@ header {
 
 /* Sticky Navigation Wrapper */
 .sticky-nav-wrapper {
-  position: sticky;
-  top: 0;
-  z-index: 100;
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 500px;
+  z-index: 1000;
   background: rgba(248, 250, 252, 0.90); /* Matches Slate 50 background */
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  margin: 0 -16px 16px -16px;
   padding: 8px 16px;
-  border-bottom: 1px solid var(--border-glass);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+  border-top: 1px solid var(--border-glass);
+  box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.03);
 }
 
 /* Standings Tab Specific Coloring */
@@ -1872,6 +1875,45 @@ header {
 .slide-in-backward {
   animation: slide-in-backward 0.16s cubic-bezier(0.215, 0.61, 0.355, 1) forwards;
   will-change: transform, opacity;
+}
+
+/* Segmented Date Toggle Control */
+.date-toggle-group {
+  display: flex;
+  background: #e2e8f0; /* Slate 200 */
+  padding: 2px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+}
+
+.date-toggle-btn {
+  background: transparent;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.date-toggle-btn.active {
+  background: var(--team-primary);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Bottom Hamburger Menu Button Styling */
+.team-tab-menu-trigger {
+  font-size: 16px;
+  color: var(--text-secondary) !important;
+}
+
+.team-tab-menu-trigger:hover {
+  color: var(--text-primary) !important;
+  background: rgba(255, 255, 255, 0.4) !important;
 }
 
 
