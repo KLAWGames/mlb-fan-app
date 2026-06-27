@@ -665,7 +665,7 @@ function setupPullToRefresh() {
 
   document.addEventListener('touchstart', (e) => {
     // Ignore PTR touches on UI controls like edge navigation trigger, header buttons, or overlay popups
-    if (e.target.closest('.edge-menu-trigger') || 
+    if (e.target.closest('.floating-menu-trigger') || 
         e.target.closest('.header-top') ||
         e.target.closest('.recap-backdrop') || 
         e.target.closest('.recap-content') ||
@@ -1432,7 +1432,7 @@ function render() {
   // Ensure persistent shell containers exist
   let header = appContainer.querySelector('.app-header');
   let main = appContainer.querySelector('.app-main');
-  let trigger = appContainer.querySelector('.edge-menu-trigger');
+  let trigger = appContainer.querySelector('.floating-menu-trigger');
 
   if (!header || !main || !trigger) {
     appContainer.innerHTML = ''; // bootstrap once
@@ -1446,7 +1446,7 @@ function render() {
     main.style.flex = '1';
     
     trigger = document.createElement('button');
-    trigger.className = 'edge-menu-trigger';
+    trigger.className = 'floating-menu-trigger';
     trigger.innerHTML = '☰';
     trigger.title = 'Open Navigation Menu';
     trigger.addEventListener('click', () => {
@@ -1540,8 +1540,10 @@ function toggleHamburgerMenu(open) {
   if (open) {
     buildDrawerMenuList(list);
     drawer.classList.add('show');
+    document.body.style.overflow = 'hidden';
   } else {
     drawer.classList.remove('show');
+    document.body.style.overflow = '';
   }
 }
 
