@@ -276,6 +276,169 @@ function createDivisionRaceChart(teamA, teamB) {
   return div;
 }
 
+// Generate interactive SVG chart comparing multiple division/wild card teams
+function createMultiTeamRaceChart(activeTeam, teamsList) {
+  // Deduplicate teams by ID
+  const uniqueTeamsMap = new Map();
+  teamsList.forEach(t => {
+    if (t) uniqueTeamsMap.set(t.id, t);
+  });
+  uniqueTeamsMap.set(activeTeam.id, activeTeam);
+  const finalTeams = Array.from(uniqueTeamsMap.values());
+
+  const teamHistories = finalTeams.map(t => {
+    return {
+      team: t,
+      history: generateSeasonHistory(t.id, t.wins, t.losses)
+    };
+  });
+
+  const maxG = Math.max(...teamHistories.map(th => th.history.length - 1), 1);
+  const allY = teamHistories.flatMap(th => th.history);
+  const minYVal = Math.min(...allY);
+  const maxYVal = Math.max(...allY);
+
+  const minY = Math.min(minYVal - 2, 0);
+  const maxY = Math.max(maxYVal + 2, 2);
+  const rangeY = maxY - minY;
+
+  const svgWidth = 480;
+  const svgHeight = 200;
+  const padLeft = 45;
+  const padRight = 35;
+  const padTop = 15;
+  const padBottom = 25;
+  const chartWidth = svgWidth - padLeft - padRight;
+  const chartHeight = svgHeight - padTop - padBottom;
+
+  function getCoords(g, val) {
+    const x = padLeft + (g / maxG) * chartWidth;
+    const y = padTop + chartHeight - ((val - minY) / rangeY) * chartHeight;
+    return { x, y };
+  }
+
+  const ySteps = 4;
+  let gridLinesHtml = '';
+  const drawnValues = new Set();
+  
+  if (minY <= 0 && maxY >= 0) {
+    const { y } = getCoords(0, 0);
+    gridLinesHtml += `
+      <line x1="${padLeft}" y1="${y}" x2="${svgWidth - padRight}" y2="${y}" stroke="var(--border-glass-highlight)" stroke-width="1.5" />
+      <text x="${padLeft - 8}" y="${y}" font-size="9px" font-family="var(--font-body)" font-weight="600" fill="var(--text-muted)" text-anchor="end" alignment-baseline="middle">.500</text>
+    `;
+    drawnValues.add(0);
+  }
+
+  for (let i = 0; i <= ySteps; i++) {
+    const val = Math.round(minY + (i / ySteps) * rangeY);
+    if (drawnValues.has(val)) continue;
+    drawnValues.add(val);
+    const { y } = getCoords(0, val);
+    gridLinesHtml += `
+      <line x1="${padLeft}" y1="${y}" x2="${svgWidth - padRight}" y2="${y}" stroke="var(--border-glass)" stroke-width="1" stroke-dasharray="3,3" />
+      <text x="${padLeft - 8}" y="${y}" font-size="9px" font-family="var(--font-body)" fill="var(--text-muted)" text-anchor="end" alignment-baseline="middle">${val > 0 ? `+${val}` : val}</text>
+    `;
+  }
+
+  const xSteps = [0, Math.round(maxG / 2), maxG];
+  let xAxisHtml = '';
+  xSteps.forEach(g => {
+    const { x } = getCoords(g, 0);
+    xAxisHtml += `<line x1="${x}" y1="${padTop}" x2="${x}" y2="${svgHeight - padBottom}" stroke="var(--border-glass)" stroke-width="1" stroke-dasharray="3,3" />`;
+    xAxisHtml += `<text x="${x}" y="${svgHeight - padBottom + 12}" font-size="9px" font-family="var(--font-body)" fill="var(--text-muted)" text-anchor="middle">Gm ${g}</text>`;
+  });
+
+  let linesHtml = '';
+  let areaGradientsHtml = '';
+  let gradientDefsHtml = '';
+  let dotsHtml = '';
+  let labelsHtml = '';
+
+  // Render active team last so it sits on top of others
+  teamHistories.sort((a, b) => (a.team.id === activeTeam.id ? 1 : b.team.id === activeTeam.id ? -1 : 0));
+
+  const labelYMap = [];
+
+  teamHistories.forEach(th => {
+    const t = th.team;
+    const history = th.history;
+    const color = t.primaryColor || '#134a8e';
+    const isActive = t.id === activeTeam.id;
+
+    let path = '';
+    history.forEach((val, g) => {
+      const { x, y } = getCoords(g, val);
+      path += (g === 0 ? 'M' : 'L') + ` ${x.toFixed(1)} ${y.toFixed(1)}`;
+    });
+
+    const opacity = isActive ? 0.08 : 0.02;
+    let area = path;
+    const endCoords = getCoords(history.length - 1, minY);
+    const startCoords = getCoords(0, minY);
+    area += ` L ${endCoords.x.toFixed(1)} ${endCoords.y.toFixed(1)} L ${startCoords.x.toFixed(1)} ${startCoords.y.toFixed(1)} Z`;
+
+    gradientDefsHtml += `
+      <linearGradient id="grad-${t.id}" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="${color}" stop-opacity="${opacity}" />
+        <stop offset="100%" stop-color="${color}" stop-opacity="0.00" />
+      </linearGradient>
+    `;
+
+    areaGradientsHtml += `<path d="${area}" fill="url(#grad-${t.id})" />`;
+
+    const strokeWidth = isActive ? 3.5 : 1.8;
+    const strokeDash = isActive ? '' : '1,1';
+    linesHtml += `<path d="${path}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" ${strokeDash ? `stroke-dasharray="${strokeDash}"` : ''} />`;
+
+    const lastG = history.length - 1;
+    const lastVal = history[lastG];
+    const pt = getCoords(lastG, lastVal);
+
+    const r = isActive ? 5 : 3;
+    const strokeW = isActive ? 2.5 : 1.5;
+    dotsHtml += `<circle cx="${pt.x}" cy="${pt.y}" r="${r}" fill="#ffffff" stroke="${color}" stroke-width="${strokeW}" />`;
+
+    let targetY = pt.y;
+    let overlap = true;
+    let attempts = 0;
+    while (overlap && attempts < 10) {
+      overlap = false;
+      for (const existingY of labelYMap) {
+        if (Math.abs(existingY - targetY) < 10) {
+          overlap = true;
+          targetY += existingY >= targetY ? -10 : 10;
+          break;
+        }
+      }
+      attempts++;
+    }
+    labelYMap.push(targetY);
+
+    const labelWeight = isActive ? '700' : '500';
+    const labelOpacity = isActive ? '1' : '0.75';
+    labelsHtml += `<text x="${pt.x + 8}" y="${targetY}" font-size="8.5px" font-weight="${labelWeight}" opacity="${labelOpacity}" font-family="var(--font-title)" fill="${color}" alignment-baseline="middle">${t.abbreviation}</text>`;
+  });
+
+  const div = document.createElement('div');
+  div.className = 'division-chart-container';
+  div.style.width = '100%';
+
+  div.innerHTML = `
+    <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%" height="auto" style="overflow: visible; background: none; border-radius: 4px;">
+      <defs>${gradientDefsHtml}</defs>
+      ${gridLinesHtml}
+      ${xAxisHtml}
+      ${areaGradientsHtml}
+      ${linesHtml}
+      ${dotsHtml}
+      ${labelsHtml}
+    </svg>
+  `;
+
+  return div;
+}
+
 // Silent fetch of season schedule for a team
 async function fetchTeamSeasonSchedule(teamId) {
   if (state.teamGames && state.teamGames[teamId]) return;
@@ -1272,24 +1435,22 @@ function showRecapModal(isAutoTrigger = false) {
     const divId = teamToday.divisionId;
     const divTeams = state.processedStandingsYesterday?.divisionTeams?.[divId] || [];
     if (divTeams.length > 0) {
-      const opponent = divTeams[1]; // 2nd place
-      if (opponent) {
-        chartNode = createDivisionRaceChart(teamToday, opponent);
-        const colorA = teamToday.primaryColor || '#134a8e';
-        const colorB = opponent.primaryColor || '#f5d130';
-        chartLegendHtml = `
-          <div style="display:flex; justify-content:center; gap:20px; font-size:11px; margin-bottom:8px; margin-top:4px;">
-            <div style="display:flex; align-items:center; gap:6px;">
-              <span style="display:inline-block; width:8px; height:8px; background:${colorA}; border-radius:50%;"></span>
-              <span style="color:var(--text-primary); font-weight:700;">${teamToday.shortName}</span>
-            </div>
-            <div style="display:flex; align-items:center; gap:6px;">
-              <span style="display:inline-block; width:8px; height:8px; background:${colorB}; border-radius:50%;"></span>
-              <span style="color:var(--text-secondary); font-weight:600;">${opponent.shortName} (2nd Place)</span>
-            </div>
+      // Revert Check: to go back to dual-team, swap this line with: chartNode = createDivisionRaceChart(teamToday, divTeams[1]);
+      chartNode = createMultiTeamRaceChart(teamToday, divTeams);
+      
+      const colorA = teamToday.primaryColor || '#134a8e';
+      chartLegendHtml = `
+        <div style="display:flex; justify-content:center; gap:20px; font-size:11px; margin-bottom:8px; margin-top:4px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="display:inline-block; width:12px; height:3px; background:${colorA}; border-radius:1px;"></span>
+            <span style="color:var(--text-primary); font-weight:700;">${teamToday.shortName}</span>
           </div>
-        `;
-      }
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="display:inline-block; width:12px; height:1px; border-bottom: 2px dotted #888;"></span>
+            <span style="color:var(--text-secondary); font-weight:600; font-size:10px;">Division Rivals</span>
+          </div>
+        </div>
+      `;
     }
   } else {
     chartTitleText = 'Wild Card Race Trend';
@@ -1299,32 +1460,37 @@ function showRecapModal(isAutoTrigger = false) {
     const activeIdx = wcPool.findIndex(t => t.id === activeTeamId);
     
     if (wcPool.length > 0 && activeIdx >= 0) {
-      let opponentIdx = 2; // Chase the 3rd WC spot (index 2) by default
-      let opponentLabel = '3rd WC Spot';
-      
-      if (activeIdx <= 2) {
-        opponentIdx = Math.min(3, wcPool.length - 1);
-        opponentLabel = '1st Chaser';
+      // Select active team + playoff spot holders + chasers
+      const selectedWCTeams = [];
+      for (let i = 0; i < Math.min(3, wcPool.length); i++) {
+        selectedWCTeams.push(wcPool[i]);
       }
+      selectedWCTeams.push(wcPool[activeIdx]);
+      if (activeIdx + 1 < wcPool.length) {
+        selectedWCTeams.push(wcPool[activeIdx + 1]);
+      }
+      wcPool.forEach(t => {
+        if (t.wildCardGamesBack === wcPool[activeIdx].wildCardGamesBack) {
+          selectedWCTeams.push(t);
+        }
+      });
       
-      const opponent = wcPool[opponentIdx];
-      if (opponent && opponent.id !== activeTeamId) {
-        chartNode = createDivisionRaceChart(teamToday, opponent);
-        const colorA = teamToday.primaryColor || '#134a8e';
-        const colorB = opponent.primaryColor || '#f5d130';
-        chartLegendHtml = `
-          <div style="display:flex; justify-content:center; gap:20px; font-size:11px; margin-bottom:8px; margin-top:4px;">
-            <div style="display:flex; align-items:center; gap:6px;">
-              <span style="display:inline-block; width:8px; height:8px; background:${colorA}; border-radius:50%;"></span>
-              <span style="color:var(--text-primary); font-weight:700;">${teamToday.shortName}</span>
-            </div>
-            <div style="display:flex; align-items:center; gap:6px;">
-              <span style="display:inline-block; width:8px; height:8px; background:${colorB}; border-radius:50%;"></span>
-              <span style="color:var(--text-secondary); font-weight:600;">${opponent.shortName} (${opponentLabel})</span>
-            </div>
+      // Revert Check: to go back to dual-team, swap this line with: chartNode = createDivisionRaceChart(teamToday, wcPool[activeIdx <= 2 ? 3 : 2]);
+      chartNode = createMultiTeamRaceChart(teamToday, selectedWCTeams);
+      
+      const colorA = teamToday.primaryColor || '#134a8e';
+      chartLegendHtml = `
+        <div style="display:flex; justify-content:center; gap:20px; font-size:11px; margin-bottom:8px; margin-top:4px;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="display:inline-block; width:12px; height:3px; background:${colorA}; border-radius:1px;"></span>
+            <span style="color:var(--text-primary); font-weight:700;">${teamToday.shortName}</span>
           </div>
-        `;
-      }
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span style="display:inline-block; width:12px; height:1px; border-bottom: 2px dotted #888;"></span>
+            <span style="color:var(--text-secondary); font-weight:600; font-size:10px;">Wild Card Competitors</span>
+          </div>
+        </div>
+      `;
     }
   }
 
@@ -2520,23 +2686,22 @@ function createDashboardView() {
         legend.style.marginTop = '4px';
         
         const colorA = team.primaryColor || '#134a8e';
-        const colorB = opponent.primaryColor || '#f5d130';
-        const opponentLabel = isLeader ? '2nd Place' : 'Div Leader';
         
         legend.innerHTML = `
           <div style="display:flex; align-items:center; gap:6px;">
-            <span style="display:inline-block; width:8px; height:8px; background:${colorA}; border-radius:50%;"></span>
+            <span style="display:inline-block; width:12px; height:3px; background:${colorA}; border-radius:1px;"></span>
             <span style="color:var(--text-primary); font-weight:700;">${team.shortName} (Active)</span>
           </div>
           <div style="display:flex; align-items:center; gap:6px;">
-            <span style="display:inline-block; width:8px; height:8px; background:${colorB}; border-radius:50%;"></span>
-            <span style="color:var(--text-secondary); font-weight:600;">${opponent.shortName} (${opponentLabel})</span>
+            <span style="display:inline-block; width:12px; height:1px; border-bottom: 2px dotted #888;"></span>
+            <span style="color:var(--text-secondary); font-weight:600; font-size:10px;">Division Rivals</span>
           </div>
         `;
         timeline.appendChild(legend);
         
         // Generate SVG chart
-        const chartNode = createDivisionRaceChart(team, opponent);
+        // Revert Check: to go back to dual-team, swap this line with: const chartNode = createDivisionRaceChart(team, opponent);
+        const chartNode = createMultiTeamRaceChart(team, divTeams);
         timeline.appendChild(chartNode);
         
         // Add info subtitle
