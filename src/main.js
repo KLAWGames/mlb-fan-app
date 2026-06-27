@@ -469,20 +469,17 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
 
     const primaryTeam = groupItems[0].team;
     const hasActiveTeam = groupItems.some(item => item.team.id === activeTeam.id);
-    
-    let labelText = primaryTeam.abbreviation;
-    if (groupItems.length > 1) {
-      const otherTeams = groupItems.slice(1).map(item => item.team);
-      labelText += ` (+${otherTeams.length})`;
-      
-      // Format footnote: e.g., "+2 = HOU, TEX"
-      const footnoteText = `+${otherTeams.length} = ${otherTeams.map(t => t.abbreviation).join(', ')}`;
-      footnotes.push(footnoteText);
-    }
-
     const color = hasActiveTeam 
       ? (activeTeam.primaryColor || '#134a8e') 
       : (primaryTeam.primaryColor || '#888');
+
+    let labelText = primaryTeam.abbreviation;
+    const isTie = groupItems.length > 1;
+    if (isTie) {
+      // Format footnote: e.g., "TIE = TOR, HOU, TEX"
+      const teamsListStr = groupItems.map(item => item.team.abbreviation).join(', ');
+      footnotes.push({ hasActiveTeam, color, teamsListStr });
+    }
 
     // Run overlap resolver to avoid overlap between different groups
     let targetY = pt.y;
@@ -501,9 +498,28 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
     }
     labelYMap.push(targetY);
 
-    const labelWeight = hasActiveTeam ? '700' : '500';
-    const labelOpacity = hasActiveTeam ? '1' : '0.75';
-    labelsHtml += `<text x="${pt.x + 8}" y="${targetY}" font-size="8.5px" font-weight="${labelWeight}" opacity="${labelOpacity}" font-family="var(--font-title)" fill="${color}" alignment-baseline="middle">${labelText}</text>`;
+    if (isTie) {
+      // SVG pill dimensions for "TIE"
+      const pillW = 20;
+      const pillH = 11;
+      const pillX = pt.x + 8;
+      const pillY = targetY - 5.5; // Centered vertically on alignment line
+
+      const pillBgColor = hasActiveTeam ? color : 'rgba(100, 116, 139, 0.18)';
+      const pillTextColor = hasActiveTeam ? '#ffffff' : 'var(--text-secondary)';
+      const pillWeight = hasActiveTeam ? '800' : '600';
+
+      labelsHtml += `
+        <g>
+          <rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="3" fill="${pillBgColor}" />
+          <text x="${pillX + pillW/2}" y="${targetY}" font-size="7px" font-weight="${pillWeight}" font-family="var(--font-title)" fill="${pillTextColor}" text-anchor="middle" alignment-baseline="middle">TIE</text>
+        </g>
+      `;
+    } else {
+      const labelWeight = hasActiveTeam ? '700' : '500';
+      const labelOpacity = hasActiveTeam ? '1' : '0.75';
+      labelsHtml += `<text x="${pt.x + 8}" y="${targetY}" font-size="8.5px" font-weight="${labelWeight}" opacity="${labelOpacity}" font-family="var(--font-title)" fill="${color}" alignment-baseline="middle">${labelText}</text>`;
+    }
   });
 
   const div = document.createElement('div');
@@ -513,8 +529,13 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
   let footnoteHtml = '';
   if (footnotes.length > 0) {
     footnoteHtml = `
-      <div class="chart-footnotes" style="text-align: center; font-size: 11px; color: var(--text-secondary); margin-top: 8px; font-weight: 500; display: flex; flex-direction: column; gap: 2px;">
-        ${footnotes.map(f => `<div>ℹ️ ${f}</div>`).join('')}
+      <div class="chart-footnotes" style="display: flex; flex-direction: column; gap: 4px; align-items: center; justify-content: center; margin-top: 10px;">
+        ${footnotes.map(f => `
+          <div style="display: flex; align-items: center; font-size: 11px; color: var(--text-secondary); font-weight: 500;">
+            <span style="display:inline-block; padding: 2px 5px; font-size: 9px; font-weight: 700; font-family: var(--font-title); background: ${f.hasActiveTeam ? f.color : 'rgba(100, 116, 139, 0.18)'}; color: ${f.hasActiveTeam ? '#ffffff' : 'var(--text-secondary)'}; border-radius: 3px; margin-right: 6px; line-height: 1;">TIE</span>
+            <span>= ${f.teamsListStr}</span>
+          </div>
+        `).join('')}
       </div>
     `;
   }
