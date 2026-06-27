@@ -1687,12 +1687,14 @@ function showRecapModal(isAutoTrigger = false) {
       const linkEl = gameRow.querySelector('.analytics-trigger-link');
       if (linkEl) {
         const handleOpenRecapVisuals = (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          openGameAnalyticsCenter(g, state, render);
+          if (e) e.stopPropagation();
+          try {
+            openGameAnalyticsCenter(g, state, render);
+          } catch (err) {
+            console.error("Failed to open visuals from recap link:", err);
+          }
         };
         linkEl.addEventListener('click', handleOpenRecapVisuals);
-        linkEl.addEventListener('touchstart', handleOpenRecapVisuals, { passive: false });
       }
 
       rootingBody.appendChild(gameRow);
@@ -2725,16 +2727,20 @@ function createDashboardView() {
     analyticsBtn.innerHTML = '<span>📊</span> <span>Open Game Visual Analytics</span>';
 
     const handleOpenVisuals = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const g = seasonGames[state.selectedGameIdx];
-      if (g) {
-        openGameAnalyticsCenter(reconstructGameFromSeasonGame(g, team, state), state, render);
+      if (e) e.stopPropagation();
+      try {
+        const g = seasonGames[state.selectedGameIdx] || seasonGames[seasonGames.length - 1];
+        if (g) {
+          openGameAnalyticsCenter(reconstructGameFromSeasonGame(g, team, state), state, render);
+        } else {
+          console.warn("handleOpenVisuals: seasonGames array is empty.");
+        }
+      } catch (err) {
+        console.error("Failed to open visuals from banner button:", err);
       }
     };
 
     analyticsBtn.addEventListener('click', handleOpenVisuals);
-    analyticsBtn.addEventListener('touchstart', handleOpenVisuals, { passive: false });
     detailStrip.appendChild(analyticsBtn);
     
     function updateDetailStrip(g) {
@@ -3642,13 +3648,15 @@ function createDashboardView() {
       analyticsBtn.innerHTML = '<span>📊</span> <span>Open Game Visual Analytics</span>';
 
       const handleOpenCardVisuals = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        openGameAnalyticsCenter(item, state, render);
+        if (e) e.stopPropagation();
+        try {
+          openGameAnalyticsCenter(item, state, render);
+        } catch (err) {
+          console.error("Failed to open visuals from matchup card button:", err);
+        }
       };
 
       analyticsBtn.addEventListener('click', handleOpenCardVisuals);
-      analyticsBtn.addEventListener('touchstart', handleOpenCardVisuals, { passive: false });
 
       analyticsBtnRow.appendChild(analyticsBtn);
       card.appendChild(analyticsBtnRow);

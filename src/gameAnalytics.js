@@ -504,9 +504,10 @@ export function drawSprayFieldSVG(plays, activePlayId, clickCallback) {
 }
 
 export function openGameAnalyticsCenter(game, state, render) {
-  const normGame = normalizeGame(game);
-  const existing = document.querySelector('.analytics-center-backdrop');
-  if (existing) existing.remove();
+  try {
+    const normGame = normalizeGame(game);
+    const existing = document.querySelector('.analytics-center-backdrop');
+    if (existing) existing.remove();
 
   const backdrop = document.createElement('div');
   backdrop.className = 'analytics-center-backdrop';
@@ -915,4 +916,7 @@ export function openGameAnalyticsCenter(game, state, render) {
 
   updateVisContent();
   document.body.appendChild(backdrop);
+  } catch (err) {
+    console.error("Error in openGameAnalyticsCenter:", err);
+  }
 }
