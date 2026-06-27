@@ -1864,6 +1864,47 @@ function getPlayerHitStreaks(teamId, dateStr) {
   return activeStreaks;
 }
 
+// Helper to determine active/complete state of games for division/league teams
+function getRaceStatusNote(targetTeamIds) {
+  const games = state.rawSchedule || [];
+  
+  // Filter games involving any of the target teams
+  const relevantGames = games.filter(g => {
+    const awayId = g.awayTeam?.id;
+    const homeId = g.homeTeam?.id;
+    return targetTeamIds.has(awayId) || targetTeamIds.has(homeId);
+  });
+
+  if (relevantGames.length === 0) {
+    return "No games scheduled today.";
+  }
+
+  let completedCount = 0;
+  let liveCount = 0;
+  let scheduledCount = 0;
+
+  relevantGames.forEach(g => {
+    const isLive = g.status.statusCode === 'I' || g.status.detailedState.toLowerCase().includes('progress');
+    const isFinal = g.status.statusCode === 'F' || g.status.detailedState === 'Final' || g.status.statusCode === 'O';
+    
+    if (isFinal) {
+      completedCount++;
+    } else if (isLive) {
+      liveCount++;
+    } else {
+      scheduledCount++;
+    }
+  });
+
+  if (completedCount === 0 && liveCount === 0) {
+    return "No games have been played today.";
+  } else if (liveCount > 0 || scheduledCount > 0) {
+    return "Active games are remaining today that will impact standings.";
+  } else {
+    return "All games are complete for today.";
+  }
+}
+
 // Dashboard View
 function createDashboardView() {
   const container = document.createElement('div');
@@ -2360,6 +2401,12 @@ function createDashboardView() {
         timeline.appendChild(info);
       }
     }
+    const divTeamIds = new Set(divTeams.map(t => t.id));
+    const divisionNote = document.createElement('div');
+    divisionNote.className = 'race-status-note';
+    divisionNote.innerHTML = `ℹ️ ${getRaceStatusNote(divTeamIds)}`;
+    timeline.appendChild(divisionNote);
+
     trackerCard.appendChild(timeline);
   } else {
     // WILD CARD VISUAL LADDER
@@ -2472,6 +2519,12 @@ function createDashboardView() {
         lastIdx = idx;
       });
     }
+    const leagueTeamIds = new Set(allLeague.map(t => t.id));
+    const wcNote = document.createElement('div');
+    wcNote.className = 'race-status-note';
+    wcNote.innerHTML = `ℹ️ ${getRaceStatusNote(leagueTeamIds)}`;
+    ladder.appendChild(wcNote);
+
     trackerCard.appendChild(ladder);
   }
   container.appendChild(trackerCard);

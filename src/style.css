@@ -1947,5 +1947,17 @@ header {
   background: rgba(255, 255, 255, 0.4) !important;
 }
 
+/* Race Status Note at the bottom of Division and Wild Card tracker card */
+.race-status-note {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 10px 16px;
+  border-top: 1px dashed var(--border-glass);
+  margin-top: 16px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 
 
