@@ -344,7 +344,7 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
   const svgWidth = 480;
   const svgHeight = 280;
   const padLeft = 45;
-  const padRight = 35;
+  const padRight = 65;
   const padTop = 15;
   const padBottom = 25;
   const chartWidth = svgWidth - padLeft - padRight;
