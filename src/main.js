@@ -1873,19 +1873,32 @@ function getPlayerHitStreaks(teamId, dateStr) {
   return activeStreaks;
 }
 
+// Helper to format YYYY-MM-DD into a human-readable date (e.g. Jun 27)
+function formatHumanDate(dateStr) {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const day = parseInt(parts[2], 10);
+  const d = new Date(year, month, day);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 // Helper to determine active/complete state of games for division/league teams
 function getRaceStatusNote(targetTeamIds) {
   const games = state.rawSchedule || [];
   
-  // Filter games involving any of the target teams
+  // Filter games involving any of the target teams (raw API schema uses teams.away.team.id)
   const relevantGames = games.filter(g => {
-    const awayId = g.awayTeam?.id;
-    const homeId = g.homeTeam?.id;
+    const awayId = g.teams?.away?.team?.id;
+    const homeId = g.teams?.home?.team?.id;
     return targetTeamIds.has(awayId) || targetTeamIds.has(homeId);
   });
 
   if (relevantGames.length === 0) {
-    return ""; // Hide the note if no games at all are scheduled today
+    const formattedDate = formatHumanDate(state.selectedDate);
+    return `No Games Scheduled for ${formattedDate}`;
   }
 
   let completedCount = 0;
@@ -1905,8 +1918,10 @@ function getRaceStatusNote(targetTeamIds) {
     }
   });
 
+  const formattedDate = formatHumanDate(state.selectedDate);
+
   if (completedCount === relevantGames.length) {
-    return "All Games Complete";
+    return `All Games Complete for ${formattedDate}`;
   }
 
   const total = relevantGames.length;
@@ -2416,13 +2431,10 @@ function createDashboardView() {
       }
     }
     const divTeamIds = new Set(divTeams.map(t => t.id));
-    const divNoteText = getRaceStatusNote(divTeamIds);
-    if (divNoteText) {
-      const divisionNote = document.createElement('div');
-      divisionNote.className = 'race-status-note';
-      divisionNote.innerHTML = `ℹ️ ${divNoteText}`;
-      timeline.appendChild(divisionNote);
-    }
+    const divisionNote = document.createElement('div');
+    divisionNote.className = 'race-status-note';
+    divisionNote.innerHTML = `ℹ️ ${getRaceStatusNote(divTeamIds)}`;
+    timeline.appendChild(divisionNote);
 
     trackerCard.appendChild(timeline);
   } else {
@@ -2537,13 +2549,10 @@ function createDashboardView() {
       });
     }
     const leagueTeamIds = new Set(allLeague.map(t => t.id));
-    const wcNoteText = getRaceStatusNote(leagueTeamIds);
-    if (wcNoteText) {
-      const wcNote = document.createElement('div');
-      wcNote.className = 'race-status-note';
-      wcNote.innerHTML = `ℹ️ ${wcNoteText}`;
-      ladder.appendChild(wcNote);
-    }
+    const wcNote = document.createElement('div');
+    wcNote.className = 'race-status-note';
+    wcNote.innerHTML = `ℹ️ ${getRaceStatusNote(leagueTeamIds)}`;
+    ladder.appendChild(wcNote);
 
     trackerCard.appendChild(ladder);
   }
