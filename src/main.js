@@ -1925,7 +1925,7 @@ function toggleHamburgerMenu(open) {
     const header = document.createElement('div');
     header.className = 'drawer-header';
     const title = document.createElement('h3');
-    title.innerText = 'BaseTab Menu';
+    title.innerText = 'Fantabulous Menu';
     const closeBtn = document.createElement('button');
     closeBtn.className = 'drawer-close-btn';
     closeBtn.innerHTML = '×';
@@ -3802,7 +3802,7 @@ function createCreditsVersionView() {
   appMetaText.style.fontSize = '13px';
   appMetaText.style.color = 'var(--text-secondary)';
   appMetaText.style.lineHeight = '1.6';
-  appMetaText.innerHTML = '<strong>BaseTab Web App</strong><br>Version: v1.2.0<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
+  appMetaText.innerHTML = '<strong>Fantabulous Web App</strong><br>Version: v1.2.0<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
   creditsCard.appendChild(appMetaText);
 
   container.appendChild(creditsCard);
