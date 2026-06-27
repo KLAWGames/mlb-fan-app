@@ -664,8 +664,8 @@ function setupPullToRefresh() {
   const resistance = 0.35; // drag resistance multiplier
 
   document.addEventListener('touchstart', (e) => {
-    // Ignore PTR touches on UI controls like bottom navigation, header buttons, or overlay popups
-    if (e.target.closest('.sticky-nav-wrapper') || 
+    // Ignore PTR touches on UI controls like edge navigation trigger, header buttons, or overlay popups
+    if (e.target.closest('.edge-menu-trigger') || 
         e.target.closest('.header-top') ||
         e.target.closest('.recap-backdrop') || 
         e.target.closest('.recap-content') ||
@@ -1432,9 +1432,9 @@ function render() {
   // Ensure persistent shell containers exist
   let header = appContainer.querySelector('.app-header');
   let main = appContainer.querySelector('.app-main');
-  let footer = appContainer.querySelector('.sticky-nav-wrapper');
+  let trigger = appContainer.querySelector('.edge-menu-trigger');
 
-  if (!header || !main || !footer) {
+  if (!header || !main || !trigger) {
     appContainer.innerHTML = ''; // bootstrap once
     
     header = document.createElement('header');
@@ -1445,19 +1445,24 @@ function render() {
     main.className = 'app-main';
     main.style.flex = '1';
     
-    footer = document.createElement('div');
-    footer.className = 'sticky-nav-wrapper';
+    trigger = document.createElement('button');
+    trigger.className = 'edge-menu-trigger';
+    trigger.innerHTML = '☰';
+    trigger.title = 'Open Navigation Menu';
+    trigger.addEventListener('click', () => {
+      if (state.activeView === 'dashboard' || state.activeView === 'standings') {
+        state.previousMainView = state.activeView;
+      }
+      toggleHamburgerMenu(true);
+    });
     
     appContainer.appendChild(header);
     appContainer.appendChild(main);
-    appContainer.appendChild(footer);
+    appContainer.appendChild(trigger);
   }
 
   // 1. Update Header content (Date toggle control)
   updateHeaderContent(header);
-
-  // 2. Update Footer content (Tracked teams & Standings tabs)
-  updateFooterContent(footer);
 
   // 3. Update Main view content
   main.innerHTML = '';
@@ -1494,6 +1499,7 @@ function render() {
 // Global Hamburger Menu Controller
 function toggleHamburgerMenu(open) {
   let drawer = document.getElementById('hamburger-drawer');
+  let list;
   if (!drawer) {
     drawer = document.createElement('div');
     drawer.id = 'hamburger-drawer';
@@ -1520,63 +1526,127 @@ function toggleHamburgerMenu(open) {
     header.appendChild(closeBtn);
     content.appendChild(header);
     
-    const list = document.createElement('div');
+    list = document.createElement('div');
+    list.id = 'drawer-menu-list';
     list.className = 'drawer-menu-list';
-    
-    // Option 1: Team Select
-    const optTeamSelect = document.createElement('button');
-    optTeamSelect.className = 'drawer-menu-item';
-    optTeamSelect.innerHTML = '👥 <span>Configure Teams</span>';
-    optTeamSelect.addEventListener('click', () => {
-      toggleHamburgerMenu(false);
-      state.activeView = 'team-select';
-      state.searchQuery = '';
-      render();
-    });
-    
-    // Option 2: Credits & Version
-    const optCredits = document.createElement('button');
-    optCredits.className = 'drawer-menu-item';
-    optCredits.innerHTML = 'ℹ️ <span>Credits & Version</span>';
-    optCredits.addEventListener('click', () => {
-      toggleHamburgerMenu(false);
-      state.activeView = 'credits-version';
-      render();
-    });
-    
-    // Option 3: Force Reload
-    const optReload = document.createElement('button');
-    optReload.className = 'drawer-menu-item';
-    optReload.innerHTML = '🔄 <span>Force Reload App</span>';
-    optReload.addEventListener('click', () => {
-      toggleHamburgerMenu(false);
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(registrations => {
-          for (let registration of registrations) {
-            registration.unregister();
-          }
-        });
-      }
-      window.location.reload(true);
-    });
-    
-    list.appendChild(optTeamSelect);
-    list.appendChild(optCredits);
-    list.appendChild(optReload);
     content.appendChild(list);
     
     drawer.appendChild(content);
     document.body.appendChild(drawer);
+  } else {
+    list = drawer.querySelector('#drawer-menu-list');
   }
   
   if (open) {
+    buildDrawerMenuList(list);
     drawer.classList.add('show');
   } else {
     drawer.classList.remove('show');
   }
 }
 
-// Header Component
+// Dynamically build thumb-friendly settings menu tray items
+function buildDrawerMenuList(list) {
+  list.innerHTML = '';
+
+  // 1. Group 1: Tracked Favorite Teams
+  state.selectedTeamIds.forEach(id => {
+    const team = teamsData[id];
+    if (!team) return;
+
+    const btn = document.createElement('button');
+    const isTeamActive = state.activeView === 'dashboard' && state.activeTeamId === id;
+    btn.className = `drawer-menu-item ${isTeamActive ? 'active' : ''}`;
+    
+    const badge = document.createElement('div');
+    badge.className = 'team-tab-badge';
+    badge.innerText = team.abbreviation;
+    badge.style.background = team.primaryColor;
+    badge.style.border = `1px solid ${team.secondaryColor}`;
+    badge.style.marginRight = '8px';
+
+    const label = document.createElement('span');
+    label.innerText = team.name;
+
+    btn.appendChild(badge);
+    btn.appendChild(label);
+
+    btn.addEventListener('click', () => {
+      toggleHamburgerMenu(false);
+      transitionToView('dashboard', id);
+    });
+
+    list.appendChild(btn);
+  });
+
+  // Divider
+  if (state.selectedTeamIds.length > 0) {
+    const divider = document.createElement('div');
+    divider.style.borderBottom = '1px solid var(--border-glass)';
+    divider.style.margin = '4px 0';
+    list.appendChild(divider);
+  }
+
+  // 2. Standings Selector
+  const optStandings = document.createElement('button');
+  const isStandingsActive = state.activeView === 'standings';
+  optStandings.className = `drawer-menu-item ${isStandingsActive ? 'active' : ''}`;
+  optStandings.innerHTML = '🏆 <span>Standings</span>';
+  optStandings.addEventListener('click', () => {
+    toggleHamburgerMenu(false);
+    transitionToView('standings');
+  });
+  list.appendChild(optStandings);
+
+  // 3. Configure Teams Selector
+  const optTeamSelect = document.createElement('button');
+  const isTeamSelectActive = state.activeView === 'team-select';
+  optTeamSelect.className = `drawer-menu-item ${isTeamSelectActive ? 'active' : ''}`;
+  optTeamSelect.innerHTML = '👥 <span>Configure Teams</span>';
+  optTeamSelect.addEventListener('click', () => {
+    toggleHamburgerMenu(false);
+    state.activeView = 'team-select';
+    state.searchQuery = '';
+    render();
+  });
+  list.appendChild(optTeamSelect);
+
+  // 4. Credits & Version Selector
+  const optCredits = document.createElement('button');
+  const isCreditsActive = state.activeView === 'credits-version';
+  optCredits.className = `drawer-menu-item ${isCreditsActive ? 'active' : ''}`;
+  optCredits.innerHTML = 'ℹ️ <span>Credits & Version</span>';
+  optCredits.addEventListener('click', () => {
+    toggleHamburgerMenu(false);
+    state.activeView = 'credits-version';
+    render();
+  });
+  list.appendChild(optCredits);
+
+  // Separator
+  const divider2 = document.createElement('div');
+  divider2.style.borderBottom = '1px solid var(--border-glass)';
+  divider2.style.margin = '4px 0';
+  list.appendChild(divider2);
+
+  // 5. Force Reset (Clear cache & refresh)
+  const optReload = document.createElement('button');
+  optReload.className = 'drawer-menu-item';
+  optReload.innerHTML = '🔄 <span>Force Reset</span>';
+  optReload.addEventListener('click', () => {
+    toggleHamburgerMenu(false);
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        for (let registration of registrations) {
+          registration.unregister();
+        }
+      });
+    }
+    window.location.reload(true);
+  });
+  list.appendChild(optReload);
+}
+
 // Update persistent Header content
 function updateHeaderContent(header) {
   header.innerHTML = '';
@@ -1624,77 +1694,6 @@ function updateHeaderContent(header) {
   rightControls.appendChild(dateToggle);
   topRow.appendChild(rightControls);
   header.appendChild(topRow);
-}
-
-// Update persistent Footer content (ALWAYS visible navigation tabs)
-function updateFooterContent(footer) {
-  footer.innerHTML = '';
-
-  const tabs = document.createElement('div');
-  tabs.className = 'team-tabs';
-
-  state.selectedTeamIds.forEach(id => {
-    const team = teamsData[id];
-    if (!team) return;
-
-    const btn = document.createElement('button');
-    const isTeamActive = state.activeView === 'dashboard' && state.activeTeamId === id;
-    btn.className = `team-tab ${isTeamActive ? 'active' : ''}`;
-    btn.title = team.name;
-    
-    const badge = document.createElement('div');
-    badge.className = 'team-tab-badge';
-    badge.innerText = team.abbreviation;
-    badge.style.background = team.primaryColor;
-    badge.style.border = `1px solid ${team.secondaryColor}`;
-
-    btn.appendChild(badge);
-
-    btn.addEventListener('click', () => {
-      transitionToView('dashboard', id);
-    });
-
-    tabs.appendChild(btn);
-  });
-
-  // Standings Switcher Tab (🏆) next to teams
-  const standingsBtn = document.createElement('button');
-  const isStandingsActive = state.activeView === 'standings';
-  standingsBtn.className = `team-tab standings-tab-item ${isStandingsActive ? 'active' : ''}`;
-
-  const standingsBadge = document.createElement('div');
-  standingsBadge.className = 'team-tab-badge';
-  standingsBadge.innerText = '🏆';
-  standingsBadge.style.background = '#64748b';
-  standingsBadge.style.border = '1px solid #475569';
-  standingsBadge.style.color = '#ffffff';
-
-  const standingsLabel = document.createElement('span');
-  standingsLabel.innerText = 'Standings';
-
-  standingsBtn.appendChild(standingsBadge);
-  standingsBtn.appendChild(standingsLabel);
-
-  standingsBtn.addEventListener('click', () => {
-    transitionToView('standings');
-  });
-
-  tabs.appendChild(standingsBtn);
-
-  // Hamburger menu button to the right of standings
-  const menuBtn = document.createElement('button');
-  menuBtn.className = 'team-tab team-tab-menu-trigger';
-  menuBtn.innerHTML = '☰';
-  menuBtn.title = 'App Menu';
-  menuBtn.addEventListener('click', () => {
-    if (state.activeView === 'dashboard' || state.activeView === 'standings') {
-      state.previousMainView = state.activeView;
-    }
-    toggleHamburgerMenu(true);
-  });
-  tabs.appendChild(menuBtn);
-
-  footer.appendChild(tabs);
 }
 
 // Loader Component

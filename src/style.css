@@ -58,7 +58,7 @@ body {
   display: flex;
   flex-direction: column;
   padding: 16px;
-  padding-bottom: 72px; /* Bottom nav buffer spacing */
+  padding-bottom: 24px; /* Reduced since bottom nav is removed */
   position: relative;
 }
 
@@ -1702,28 +1702,39 @@ header {
   }
 }
 
-/* Sticky Navigation Wrapper */
-.sticky-nav-wrapper {
+/* Floating Left-Edge Menu Trigger Tab */
+.edge-menu-trigger {
   position: fixed;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 500px;
-  z-index: 1000;
-  background: rgba(248, 250, 252, 0.90); /* Matches Slate 50 background */
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  padding: 8px 16px;
-  border-top: 1px solid var(--border-glass);
-  box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.03);
+  left: 0;
+  bottom: 40%;
+  transform: translateY(50%);
+  width: 44px;
+  height: 52px;
+  background: linear-gradient(135deg, var(--team-primary) 0%, var(--team-secondary) 100%);
+  border: 1px solid var(--border-glass);
+  border-left: none;
+  border-radius: 0 16px 16px 0;
+  color: #ffffff;
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-right: 4px;
+  box-shadow: 4px 2px 15px rgba(15, 23, 42, 0.15);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, width;
 }
 
-/* Standings Tab Specific Coloring */
-.team-tab.standings-tab-item.active {
-  background: #475569 !important; /* Neutral slate active background */
-  color: #ffffff !important;
-  box-shadow: 0 2px 6px rgba(71, 85, 105, 0.25) !important;
+.edge-menu-trigger:hover {
+  width: 50px;
+  padding-right: 6px;
+  box-shadow: 6px 3px 20px rgba(15, 23, 42, 0.2);
+}
+
+.edge-menu-trigger:active {
+  transform: translateY(50%) scale(0.95);
 }
 
 /* Hamburger Drawer Navigation Menu Sidebar */
@@ -1814,13 +1825,14 @@ header {
 }
 
 .drawer-menu-list {
-  padding: 16px 12px;
+  padding: 24px 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   flex: 1;
   overflow-y: auto;
   overscroll-behavior: contain;
+  justify-content: flex-end; /* Align all items to the bottom for easy thumb reach */
 }
 
 .drawer-menu-item {
@@ -1847,6 +1859,16 @@ header {
 }
 .drawer-menu-item:active {
   transform: scale(0.98);
+}
+
+.drawer-menu-item.active {
+  background: var(--team-primary);
+  color: #ffffff;
+}
+
+.drawer-menu-item.active:hover {
+  background: var(--team-primary);
+  color: #ffffff;
 }
 @keyframes slide-in-forward {
   from {
