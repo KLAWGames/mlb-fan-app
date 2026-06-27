@@ -1206,16 +1206,19 @@ function showRecapModal(isAutoTrigger = false) {
   divLabel.innerHTML = `<strong>Division Race:</strong> ${teamToday.divisionLeader ? 'Leading' : `${teamToday.gamesBack.toFixed(1)} GB`}`;
   
   const divBadge = document.createElement('span');
+  const divStart = teamYesterday.divisionLeader ? '0.0 GB' : `${teamYesterday.gamesBack.toFixed(1)} GB`;
+  const divEnd = teamToday.divisionLeader ? '0.0 GB' : `${teamToday.gamesBack.toFixed(1)} GB`;
+
   if (divTrend > 0) {
     divBadge.className = 'recap-trend-badge gained';
-    divBadge.innerText = `▲ Gained ${divTrend.toFixed(1)} G`;
+    divBadge.innerText = `▲ Gained Ground (${divStart} to ${divEnd})`;
     hasGainedGround = true;
   } else if (divTrend < 0) {
     divBadge.className = 'recap-trend-badge lost';
-    divBadge.innerText = `▼ Lost ${Math.abs(divTrend).toFixed(1)} G`;
+    divBadge.innerText = `▼ Lost Ground (${divStart} to ${divEnd})`;
   } else {
     divBadge.className = 'recap-trend-badge no-change';
-    divBadge.innerText = '— No Change';
+    divBadge.innerText = `— No Change (${divEnd})`;
   }
   divRow.appendChild(divLabel);
   divRow.appendChild(divBadge);
@@ -1238,17 +1241,28 @@ function showRecapModal(isAutoTrigger = false) {
   const wcLabel = document.createElement('span');
   wcLabel.innerHTML = `<strong>Wild Card Race:</strong> ${wcText}`;
 
+  const formatWCText = (t) => {
+    if (t.isWildCardSpot) {
+      if (t.wildCardGamesBack === 0) return '0.0 GB';
+      return `+${Math.abs(t.wildCardGamesBack).toFixed(1)} WC`;
+    }
+    return `${t.wildCardGamesBack.toFixed(1)} GB`;
+  };
+
+  const wcStart = formatWCText(teamYesterday);
+  const wcEnd = formatWCText(teamToday);
+
   const wcBadge = document.createElement('span');
   if (wcTrend > 0) {
     wcBadge.className = 'recap-trend-badge gained';
-    wcBadge.innerText = `▲ Gained ${wcTrend.toFixed(1)} G`;
+    wcBadge.innerText = `▲ Gained Ground (${wcStart} to ${wcEnd})`;
     hasGainedGround = true;
   } else if (wcTrend < 0) {
     wcBadge.className = 'recap-trend-badge lost';
-    wcBadge.innerText = `▼ Lost ${Math.abs(wcTrend).toFixed(1)} G`;
+    wcBadge.innerText = `▼ Lost Ground (${wcStart} to ${wcEnd})`;
   } else {
     wcBadge.className = 'recap-trend-badge no-change';
-    wcBadge.innerText = '— No Change';
+    wcBadge.innerText = `— No Change (${wcEnd})`;
   }
   wcRow.appendChild(wcLabel);
   wcRow.appendChild(wcBadge);
