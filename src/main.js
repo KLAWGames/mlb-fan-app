@@ -287,9 +287,15 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
   const finalTeams = Array.from(uniqueTeamsMap.values());
 
   const teamHistories = finalTeams.map(t => {
+    const rawHistory = generateSeasonHistory(t.id, t.wins, t.losses);
+    const sliceCount = 10;
+    const startIdx = Math.max(0, rawHistory.length - 1 - sliceCount);
+    const historySlice = rawHistory.slice(startIdx);
     return {
       team: t,
-      history: generateSeasonHistory(t.id, t.wins, t.losses)
+      history: historySlice,
+      startIdx: startIdx,
+      totalGames: rawHistory.length - 1
     };
   });
 
@@ -346,7 +352,11 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
   xSteps.forEach(g => {
     const { x } = getCoords(g, 0);
     xAxisHtml += `<line x1="${x}" y1="${padTop}" x2="${x}" y2="${svgHeight - padBottom}" stroke="var(--border-glass)" stroke-width="1" stroke-dasharray="3,3" />`;
-    xAxisHtml += `<text x="${x}" y="${svgHeight - padBottom + 12}" font-size="9px" font-family="var(--font-body)" fill="var(--text-muted)" text-anchor="middle">Gm ${g}</text>`;
+    
+    // Calculate the actual game number for this step based on the active team
+    const firstTeam = teamHistories.find(th => th.team.id === activeTeam.id) || teamHistories[0];
+    const actualGameNum = (firstTeam ? firstTeam.startIdx : 0) + g;
+    xAxisHtml += `<text x="${x}" y="${svgHeight - padBottom + 12}" font-size="9px" font-family="var(--font-body)" fill="var(--text-muted)" text-anchor="middle">Gm ${actualGameNum}</text>`;
   });
 
   let linesHtml = '';
