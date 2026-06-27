@@ -2487,7 +2487,7 @@ function createDashboardView() {
     { label: 'Record', value: `${wins}-${losses}` },
     { label: 'Last 10', value: last10Text },
     { label: 'Streak', value: streakText },
-    { label: 'Left', value: `${gamesRemaining}` },
+    { label: 'Games Left', value: `${gamesRemaining}` },
     { label: 'Division', value: divStandingText },
     { label: 'Wild Card', value: wcStandingText }
   ];
@@ -3150,74 +3150,110 @@ function createDashboardView() {
     return wrapper;
   }
 
-  // 3. Collapsible Magic Numbers Accordion (🔒 Clinch Math)
-  const magicAccordion = document.createElement('div');
-  magicAccordion.className = `magic-accordion ${state.magicNumberExpanded ? 'expanded' : ''}`;
+  // 3. Collapsible Magic Numbers Accordion (🔒 Playoff Clinch Math)
+  // Hide this section until there are only 20 games left in the season (gamesRemaining <= 20)
+  if (gamesRemaining <= 20) {
+    const magicAccordion = document.createElement('div');
+    magicAccordion.className = `magic-accordion ${state.magicNumberExpanded ? 'expanded' : ''}`;
 
-  const accordionHeader = document.createElement('button');
-  accordionHeader.className = 'magic-accordion-header';
-  
-  const headerTitle = document.createElement('span');
-  headerTitle.innerHTML = '🔒 Playoff Clinch Math';
-  
-  const caret = document.createElement('span');
-  caret.className = 'magic-accordion-caret';
-  caret.innerText = '▼';
+    const accordionHeader = document.createElement('button');
+    accordionHeader.className = 'magic-accordion-header';
+    
+    const headerTitle = document.createElement('span');
+    headerTitle.innerHTML = '🔒 Playoff Clinch Math';
+    
+    const caret = document.createElement('span');
+    caret.className = 'magic-accordion-caret';
+    caret.innerText = '▼';
 
-  accordionHeader.appendChild(headerTitle);
-  accordionHeader.appendChild(caret);
-  magicAccordion.appendChild(accordionHeader);
+    accordionHeader.appendChild(headerTitle);
+    accordionHeader.appendChild(caret);
+    magicAccordion.appendChild(accordionHeader);
 
-  const accordionContent = document.createElement('div');
-  accordionContent.className = 'magic-accordion-content';
+    const accordionContent = document.createElement('div');
+    accordionContent.className = 'magic-accordion-content';
 
-  accordionHeader.addEventListener('click', () => {
-    state.magicNumberExpanded = !state.magicNumberExpanded;
-    render();
-  });
+    accordionHeader.addEventListener('click', () => {
+      state.magicNumberExpanded = !state.magicNumberExpanded;
+      render();
+    });
 
-  const hasDivMagic = team.divisionMagicNumber !== undefined && team.divisionMagicNumber !== null;
-  const hasWcMagic = team.wildCardMagicNumber !== undefined && team.wildCardMagicNumber !== null;
+    const hasDivMagic = team.divisionMagicNumber !== undefined && team.divisionMagicNumber !== null;
+    const hasWcMagic = team.wildCardMagicNumber !== undefined && team.wildCardMagicNumber !== null;
 
-  if (state.magicNumberExpanded) {
-    let clinchs = [];
+    if (state.magicNumberExpanded) {
+      // Division magic number info
+      const divText = document.createElement('div');
+      divText.style.marginBottom = '12px';
+      divText.style.fontSize = '13px';
+      if (hasDivMagic) {
+        const winsHalf = Math.ceil(team.divisionMagicNumber / 2);
+        const lossesHalf = Math.floor(team.divisionMagicNumber / 2);
+        divText.innerHTML = `
+          <strong>Division Magic Number: <span style="color:var(--color-gold); font-size:16px;">${team.divisionMagicNumber}</span></strong><br/>
+          Any combination of ${team.shortName} wins and ${team.divisionChallengerName || 'division rivals'} losses totaling ${team.divisionMagicNumber} clinches the division. <span style="color:var(--text-muted); font-size:11px;">(${gamesRemaining} games left)</span>
+          <div style="margin-top: 6px; font-size: 11px; color: var(--text-secondary); background: rgba(255,255,255,0.03); border-radius: 4px; padding: 6px 8px; border-left: 3px solid var(--color-gold); line-height: 1.5;">
+            <strong>To Clinch the Division, ${team.shortName} needs:</strong><br/>
+            • <strong>${team.divisionMagicNumber} wins</strong> (with zero challenger losses)<br/>
+            • <strong>${winsHalf} wins</strong> + <strong>${lossesHalf} ${team.divisionChallengerName || 'rival'} losses</strong><br/>
+            • <strong>${team.divisionMagicNumber} losses</strong> by the ${team.divisionChallengerName || 'challenger'} (with zero wins)
+          </div>
+        `;
+      } else if (team.divisionLeader) {
+        divText.innerHTML = `<strong>Division Magic Number:</strong> No active magic number. You are leading the division. <span style="color:var(--text-muted); font-size:11px;">(${gamesRemaining} games left)</span>`;
+      } else {
+        divText.innerHTML = `
+          <strong>Division Position:</strong> Trailing the division leader (<strong>${team.divisionLeaderName || 'Leader'}</strong>) by <strong>${team.gamesBack} games</strong>. <span style="color:var(--text-muted); font-size:11px;">(${gamesRemaining} games left)</span>
+          <div style="margin-top: 6px; font-size: 11px; color: var(--text-secondary); background: rgba(255,255,255,0.03); border-radius: 4px; padding: 6px 8px; border-left: 3px solid var(--border-glass-highlight); line-height: 1.5;">
+            <strong>To claim the Division Title:</strong><br/>
+            • ${team.shortName} must win games AND have the ${team.divisionLeaderName || 'Leader'} lose games to make up the <strong>${team.gamesBack} games back</strong> deficit.
+          </div>
+        `;
+      }
+      accordionContent.appendChild(divText);
 
-    // Division magic number info
-    const divText = document.createElement('p');
-    divText.style.marginBottom = '10px';
-    divText.style.fontSize = '13px';
-    if (hasDivMagic) {
-      divText.innerHTML = `<strong>Division Magic Number: <span style="color:var(--color-gold); font-size:16px;">${team.divisionMagicNumber}</span></strong><br/>Any combination of ${team.shortName} wins and division rivals losses totaling ${team.divisionMagicNumber} clinches the division. <span style="color:var(--text-muted); font-size:11px;">(${gamesRemaining} games remaining)</span>`;
-    } else if (team.divisionLeader) {
-      divText.innerHTML = `<strong>Division Magic Number:</strong> No active magic number. You are leading the division. <span style="color:var(--text-muted); font-size:11px;">(${gamesRemaining} games remaining)</span>`;
-    } else {
-      divText.innerHTML = `<strong>Division Position:</strong> Trailing the division leader by ${team.gamesBack} games. <span style="color:var(--text-muted); font-size:11px;">(${gamesRemaining} games remaining)</span>`;
+      // Wild Card magic number info
+      const wcText = document.createElement('div');
+      wcText.style.marginBottom = '12px';
+      wcText.style.fontSize = '13px';
+      if (hasWcMagic) {
+        const winsHalf = Math.ceil(team.wildCardMagicNumber / 2);
+        const lossesHalf = Math.floor(team.wildCardMagicNumber / 2);
+        wcText.innerHTML = `
+          <strong>Wild Card Magic Number: <span style="color:var(--color-gold); font-size:16px;">${team.wildCardMagicNumber}</span></strong><br/>
+          Any combination of ${team.shortName} wins and the first-out team's (${team.wildCardChallengerName || 'challenger'}) losses totaling ${team.wildCardMagicNumber} clinches a Wild Card spot. <span style="color:var(--text-muted); font-size:11px;">(${gamesRemaining} games left)</span>
+          <div style="margin-top: 6px; font-size: 11px; color: var(--text-secondary); background: rgba(255,255,255,0.03); border-radius: 4px; padding: 6px 8px; border-left: 3px solid var(--color-gold); line-height: 1.5;">
+            <strong>To Clinch a Wild Card Spot, ${team.shortName} needs:</strong><br/>
+            • <strong>${team.wildCardMagicNumber} wins</strong> (with zero challenger losses)<br/>
+            • <strong>${winsHalf} wins</strong> + <strong>${lossesHalf} ${team.wildCardChallengerName || 'challenger'} losses</strong><br/>
+            • <strong>${team.wildCardMagicNumber} losses</strong> by the ${team.wildCardChallengerName || 'challenger'} (with zero wins)
+          </div>
+        `;
+      } else if (team.isWildCardSpot) {
+        wcText.innerHTML = `<strong>Wild Card Position:</strong> Holding a Wild Card spot (+${Math.abs(team.wildCardGamesBack)} ahead of cutoff). <span style="color:var(--text-muted); font-size:11px;">(${gamesRemaining} games left)</span>`;
+      } else {
+        wcText.innerHTML = `
+          <strong>Wild Card Position:</strong> Trailing the Wild Card cutoff (<strong>${team.wildCardCutoffName || 'Cutoff'}</strong>) by <strong>${team.wildCardGamesBack} games</strong>. <span style="color:var(--text-muted); font-size:11px;">(${gamesRemaining} games left)</span>
+          <div style="margin-top: 6px; font-size: 11px; color: var(--text-secondary); background: rgba(255,255,255,0.03); border-radius: 4px; padding: 6px 8px; border-left: 3px solid var(--border-glass-highlight); line-height: 1.5;">
+            <strong>To claim a Playoff Spot:</strong><br/>
+            • ${team.shortName} must win games AND have the ${team.wildCardCutoffName || 'Cutoff'} lose games to make up the <strong>${team.wildCardGamesBack} games back</strong> deficit.
+          </div>
+        `;
+      }
+      accordionContent.appendChild(wcText);
+
+      const explText = document.createElement('div');
+      explText.className = 'magic-explain-text';
+      explText.innerHTML = `
+        <strong>What is a Magic Number?</strong><br/>
+        In baseball, the magic number is the total number of wins by your team and/or losses by your closest challenger required to mathematically clinch a playoff position. It represents guaranteed advancement.
+      `;
+      accordionContent.appendChild(explText);
     }
-    accordionContent.appendChild(divText);
 
-    // Wild Card magic number info
-    const wcText = document.createElement('p');
-    wcText.style.fontSize = '13px';
-    if (hasWcMagic) {
-      wcText.innerHTML = `<strong>Wild Card Magic Number: <span style="color:var(--color-gold); font-size:16px;">${team.wildCardMagicNumber}</span></strong><br/>Any combination of ${team.shortName} wins and the first-out team's losses totaling ${team.wildCardMagicNumber} clinches a Wild Card spot. <span style="color:var(--text-muted); font-size:11px;">(${gamesRemaining} games remaining)</span>`;
-    } else if (team.isWildCardSpot) {
-      wcText.innerHTML = `<strong>Wild Card Position:</strong> Holding a Wild Card spot (+${Math.abs(team.wildCardGamesBack)} ahead of cutoff). <span style="color:var(--text-muted); font-size:11px;">(${gamesRemaining} games remaining)</span>`;
-    } else {
-      wcText.innerHTML = `<strong>Wild Card Position:</strong> Trailing the Wild Card cutoff by ${team.wildCardGamesBack} games. <span style="color:var(--text-muted); font-size:11px;">(${gamesRemaining} games remaining)</span>`;
-    }
-    accordionContent.appendChild(wcText);
-
-    const explText = document.createElement('div');
-    explText.className = 'magic-explain-text';
-    explText.innerHTML = `
-      <strong>What is a Magic Number?</strong><br/>
-      In baseball, the magic number is the total number of wins by your team and/or losses by your closest challenger required to mathematically clinch a playoff position. It represents guaranteed advancement.
-    `;
-    accordionContent.appendChild(explText);
+    magicAccordion.appendChild(accordionContent);
+    container.appendChild(magicAccordion);
   }
-
-  magicAccordion.appendChild(accordionContent);
-  container.appendChild(magicAccordion);
 
   // 3. Matchup / Rooting Guide Section
   const headerContainer = document.createElement('div');

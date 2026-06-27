@@ -64,6 +64,7 @@ export function processStandings(rawStandings) {
     const leader = divisionTeams[divId][0];
     divisionTeams[divId].forEach((team, idx) => {
       team.divisionRank = idx + 1;
+      team.divisionLeaderName = leader.name;
       if (idx === 0) {
         team.gamesBack = 0;
         team.divisionLeader = true;
@@ -80,6 +81,7 @@ export function processStandings(rawStandings) {
       const mn = 163 - leader.wins - secondPlace.losses;
       if (mn <= 162 && mn > 0) {
         leader.divisionMagicNumber = mn;
+        leader.divisionChallengerName = secondPlace.name;
       }
     }
   }
@@ -117,6 +119,7 @@ export function processStandings(rawStandings) {
       team.isWildCardSpot = idx < 3; // Top 3 spots qualify
 
       if (cutoffTeam) {
+        team.wildCardCutoffName = cutoffTeam.name;
         // Compute games back relative to the cutoff (3rd spot)
         // If team is in a wildcard spot, they are "ahead" of cutoff (represented by negative GB)
         const gb = ((cutoffTeam.wins - team.wins) + (team.losses - cutoffTeam.losses)) / 2;
@@ -128,6 +131,7 @@ export function processStandings(rawStandings) {
         const mn = 163 - team.wins - firstOutTeam.losses;
         if (mn <= 162 && mn > 0) {
           team.wildCardMagicNumber = mn;
+          team.wildCardChallengerName = firstOutTeam.name;
         }
       }
     });
