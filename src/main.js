@@ -4,6 +4,15 @@ import { fetchStandings, fetchSchedule, formatLocalDate } from './mlbApi.js';
 import { processStandings, analyzeMatchups } from './rootingEngine.js';
 import { openGameAnalyticsCenter, reconstructGameFromSeasonGame } from './gameAnalytics.js';
 
+// Global error handler for diagnostic alerts on mobile devices
+window.onerror = function (message, source, lineno, colno, error) {
+  alert("GLOBAL ERROR: " + message + " at " + source + ":" + lineno + (error ? "\n" + error.stack : ""));
+  return false;
+};
+window.addEventListener('unhandledrejection', function (event) {
+  alert("UNHANDLED REJECTION: " + event.reason + (event.reason?.stack ? "\n" + event.reason.stack : ""));
+});
+
 // Helper to get local date adjusted for the 2:00 AM baseball day rollover
 function getBaseballDate(offsetDays = 0) {
   const shiftedDate = new Date(Date.now() - 2 * 60 * 60 * 1000);
@@ -2737,6 +2746,7 @@ function createDashboardView() {
         }
       } catch (err) {
         console.error("Failed to open visuals from banner button:", err);
+        alert("Banner Button Error:\n" + err.message + "\n" + err.stack);
       }
     };
 

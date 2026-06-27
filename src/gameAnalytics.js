@@ -918,5 +918,6 @@ export function openGameAnalyticsCenter(game, state, render) {
   document.body.appendChild(backdrop);
   } catch (err) {
     console.error("Error in openGameAnalyticsCenter:", err);
+    alert("openGameAnalyticsCenter Error:\n" + err.message + "\n" + err.stack);
   }
 }
