@@ -2,6 +2,7 @@ import './style.css';
 import { teamsData } from './teamsData.js';
 import { fetchStandings, fetchSchedule, formatLocalDate } from './mlbApi.js';
 import { processStandings, analyzeMatchups } from './rootingEngine.js';
+import { openGameAnalyticsCenter, reconstructGameFromSeasonGame } from './gameAnalytics.js';
 
 // Helper to get local date adjusted for the 2:00 AM baseball day rollover
 function getBaseballDate(offsetDays = 0) {
@@ -630,6 +631,8 @@ function generateSeasonGames(teamId, wins, losses) {
           dateStr,
           opponent: opponentData.name,
           opponentAbbr: opponentData.abbreviation,
+          opponentId: opponentObj.id,
+          isHome,
           isWin,
           teamScore,
           oppScore,
@@ -697,6 +700,8 @@ function generateSeasonGames(teamId, wins, losses) {
       dateStr: gameDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
       opponent: opponent.name,
       opponentAbbr: opponent.abbreviation,
+      opponentId: oppId,
+      isHome: (i % 2 === 0),
       isWin,
       teamScore,
       oppScore: finalOppScore,
@@ -1673,13 +1678,19 @@ function showRecapModal(isAutoTrigger = false) {
           <strong>${g.awayTeam.abbreviation} ${g.awayScore} @ ${g.homeTeam.abbreviation} ${g.homeScore}</strong>
           ${outcomeBadgeHtml}
         </div>
-        <div style="color: var(--text-secondary); font-size:11px; margin-bottom:4px;">
-          Rooted for: <strong>${rootTeamName}</strong>. 
-          ${winnerTeam.shortName} beat ${loserTeam.shortName}.
+        <div style="color: var(--text-secondary); font-size:11px; margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
+          <span>Rooted for: <strong>${rootTeamName}</strong>. ${winnerTeam.shortName} beat ${loserTeam.shortName}.</span>
+          <span class="analytics-trigger-link" style="color: var(--color-gold); font-weight: 700; cursor: pointer; text-decoration: underline; font-size: 10px; margin-left: 8px; flex-shrink: 0;">📊 View Analytics</span>
         </div>
       `;
 
-
+      const linkEl = gameRow.querySelector('.analytics-trigger-link');
+      if (linkEl) {
+        linkEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openGameAnalyticsCenter(g, state, render);
+        });
+      }
 
       rootingBody.appendChild(gameRow);
     });
@@ -2648,15 +2659,10 @@ function createDashboardView() {
     // --- Row 3: Selected Game Detail Strip ---
     const detailStrip = document.createElement('div');
     detailStrip.className = 'banner-detail-strip';
-    detailStrip.style.display = 'flex';
-    detailStrip.style.alignItems = 'center';
-    detailStrip.style.justifyContent = 'space-between';
-    detailStrip.style.gap = '12px';
-    detailStrip.style.padding = '6px 8px';
-    detailStrip.style.background = 'rgba(0, 0, 0, 0.18)';
-    detailStrip.style.borderRadius = '4px';
-    detailStrip.style.border = '1px solid rgba(255, 255, 255, 0.08)';
-    detailStrip.style.width = '100%';
+    detailStrip.style.cssText = 'display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; background: rgba(0, 0, 0, 0.18); border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08); width: 100%;';
+
+    const topRow = document.createElement('div');
+    topRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%;';
 
     const textContainer = document.createElement('div');
     textContainer.style.flex = '1';
@@ -2699,6 +2705,29 @@ function createDashboardView() {
 
     btnGroup.appendChild(prevBtn);
     btnGroup.appendChild(nextBtn);
+
+    topRow.appendChild(textContainer);
+    topRow.appendChild(btnGroup);
+    detailStrip.appendChild(topRow);
+
+    // Separator Line
+    const separator = document.createElement('div');
+    separator.style.cssText = 'border-top: 1px dashed rgba(255, 255, 255, 0.15); width: 100%; height: 0;';
+    detailStrip.appendChild(separator);
+
+    // Full-width Analytics Button
+    const analyticsBtn = document.createElement('button');
+    analyticsBtn.className = 'banner-nav-btn';
+    analyticsBtn.style.cssText = 'width: 100%; margin: 0; padding: 6px 12px; font-size: 11.5px; font-weight: 700; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.12); color: #ffffff; box-shadow: none;';
+    analyticsBtn.innerHTML = '<span>📊</span> <span>Open Game Visual Analytics</span>';
+    analyticsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const g = seasonGames[state.selectedGameIdx];
+      if (g) {
+        openGameAnalyticsCenter(reconstructGameFromSeasonGame(g, team, state), state, render);
+      }
+    });
+    detailStrip.appendChild(analyticsBtn);
     
     function updateDetailStrip(g) {
       const resultText = g.isWin ? 'Win' : 'Loss';
@@ -2722,8 +2751,6 @@ function createDashboardView() {
       updateDetailStrip(seasonGames[state.selectedGameIdx]);
     }
 
-    detailStrip.appendChild(textContainer);
-    detailStrip.appendChild(btnGroup);
     banner.appendChild(detailStrip);
 
   }
@@ -3598,6 +3625,22 @@ function createDashboardView() {
         card.appendChild(rootingBanner);
       }
 
+      const analyticsBtnRow = document.createElement('div');
+      analyticsBtnRow.style.cssText = 'margin-top: 10px; display: flex; justify-content: center; width: 100%;';
+
+      const analyticsBtn = document.createElement('button');
+      analyticsBtn.className = 'recap-trigger-btn';
+      analyticsBtn.style.cssText = 'width: 100%; margin: 0; padding: 10px 14px; font-size: 12.5px; font-weight: 700; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;';
+      analyticsBtn.innerHTML = '<span>📊</span> <span>Open Game Visual Analytics</span>';
+
+      analyticsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openGameAnalyticsCenter(item, state, render);
+      });
+
+      analyticsBtnRow.appendChild(analyticsBtn);
+      card.appendChild(analyticsBtnRow);
+
       const footerHint = document.createElement('div');
       footerHint.className = 'game-card-footer';
       footerHint.innerText = 'Click card to collapse details';
@@ -4022,7 +4065,8 @@ document.addEventListener('touchstart', (e) => {
       e.target.closest('.date-selector') || 
       e.target.closest('.recap-content') ||
       e.target.closest('.drawer-content') ||
-      e.target.closest('.team-list-grid')) {
+      e.target.closest('.team-list-grid') ||
+      e.target.closest('.analytics-center-backdrop')) {
     return;
   }
   touchStartX = e.touches[0].clientX;
