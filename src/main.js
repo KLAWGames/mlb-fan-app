@@ -1261,13 +1261,97 @@ function showRecapModal(isAutoTrigger = false) {
     startConfetti();
   }
 
+  // Visual Race Chart Card (Division or Wild Card depending on division leadership)
+  let chartNode = null;
+  let chartLegendHtml = '';
+  let chartTitleText = '';
+
+  const isDivLeader = teamToday.divisionLeader;
+  if (isDivLeader) {
+    chartTitleText = 'Division Race Trend';
+    const divId = teamToday.divisionId;
+    const divTeams = state.processedStandingsYesterday?.divisionTeams?.[divId] || [];
+    if (divTeams.length > 0) {
+      const opponent = divTeams[1]; // 2nd place
+      if (opponent) {
+        chartNode = createDivisionRaceChart(teamToday, opponent);
+        const colorA = teamToday.primaryColor || '#134a8e';
+        const colorB = opponent.primaryColor || '#f5d130';
+        chartLegendHtml = `
+          <div style="display:flex; justify-content:center; gap:20px; font-size:11px; margin-bottom:8px; margin-top:4px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="display:inline-block; width:8px; height:8px; background:${colorA}; border-radius:50%;"></span>
+              <span style="color:var(--text-primary); font-weight:700;">${teamToday.shortName}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="display:inline-block; width:8px; height:8px; background:${colorB}; border-radius:50%;"></span>
+              <span style="color:var(--text-secondary); font-weight:600;">${opponent.shortName} (2nd Place)</span>
+            </div>
+          </div>
+        `;
+      }
+    }
+  } else {
+    chartTitleText = 'Wild Card Race Trend';
+    const leagueId = teamToday.leagueId;
+    const allLeague = state.processedStandingsYesterday?.leagueTeams?.[leagueId] || [];
+    const wcPool = allLeague.filter(t => !t.divisionLeader).sort((a, b) => a.wildCardRank - b.wildCardRank);
+    const activeIdx = wcPool.findIndex(t => t.id === activeTeamId);
+    
+    if (wcPool.length > 0 && activeIdx >= 0) {
+      let opponentIdx = 2; // Chase the 3rd WC spot (index 2) by default
+      let opponentLabel = '3rd WC Spot';
+      
+      if (activeIdx <= 2) {
+        opponentIdx = Math.min(3, wcPool.length - 1);
+        opponentLabel = '1st Chaser';
+      }
+      
+      const opponent = wcPool[opponentIdx];
+      if (opponent && opponent.id !== activeTeamId) {
+        chartNode = createDivisionRaceChart(teamToday, opponent);
+        const colorA = teamToday.primaryColor || '#134a8e';
+        const colorB = opponent.primaryColor || '#f5d130';
+        chartLegendHtml = `
+          <div style="display:flex; justify-content:center; gap:20px; font-size:11px; margin-bottom:8px; margin-top:4px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="display:inline-block; width:8px; height:8px; background:${colorA}; border-radius:50%;"></span>
+              <span style="color:var(--text-primary); font-weight:700;">${teamToday.shortName}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="display:inline-block; width:8px; height:8px; background:${colorB}; border-radius:50%;"></span>
+              <span style="color:var(--text-secondary); font-weight:600;">${opponent.shortName} (${opponentLabel})</span>
+            </div>
+          </div>
+        `;
+      }
+    }
+  }
+
+  if (chartNode) {
+    const chartCard = document.createElement('div');
+    chartCard.className = 'recap-card';
+    
+    const chartTitle = document.createElement('div');
+    chartTitle.className = 'recap-card-title';
+    chartTitle.innerText = chartTitleText;
+    chartCard.appendChild(chartTitle);
+    
+    const legendDiv = document.createElement('div');
+    legendDiv.innerHTML = chartLegendHtml;
+    chartCard.appendChild(legendDiv);
+    
+    chartCard.appendChild(chartNode);
+    body.appendChild(chartCard);
+  }
+
   // 3. Rooting Advice Results Card
   const rootingCard = document.createElement('div');
   rootingCard.className = 'recap-card';
 
   const rootingTitle = document.createElement('div');
   rootingTitle.className = 'recap-card-title';
-  rootingTitle.innerText = 'Rivalry Outcomes Yesterday';
+  rootingTitle.innerText = 'Games that Mattered Yesterday';
   rootingCard.appendChild(rootingTitle);
 
   const rootingBody = document.createElement('div');
