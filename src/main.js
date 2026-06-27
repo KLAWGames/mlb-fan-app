@@ -123,7 +123,7 @@ function createDivisionRaceChart(teamA, teamB) {
 
   // SVG dimensions
   const svgWidth = 480;
-  const svgHeight = 200;
+  const svgHeight = 280;
   const padLeft = 45;
   const padRight = 35;
   const padTop = 15;
@@ -309,7 +309,7 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
   const rangeY = maxY - minY;
 
   const svgWidth = 480;
-  const svgHeight = 200;
+  const svgHeight = 280;
   const padLeft = 45;
   const padRight = 35;
   const padTop = 15;
