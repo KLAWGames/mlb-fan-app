@@ -1878,6 +1878,11 @@ function createDashboardView() {
   banner.style.padding = '16px';
   banner.style.position = 'relative';
 
+  const wins = team.wins !== undefined ? team.wins : 0;
+  const losses = team.losses !== undefined ? team.losses : 0;
+  const gamesRemaining = 162 - wins - losses;
+  const seasonGames = generateSeasonGames(team.id, wins, losses);
+
   // Zoom Button (Toggle Zoom level of the run differential chart)
   const zoomBtn = document.createElement('button');
   zoomBtn.className = 'banner-zoom-btn';
@@ -1894,7 +1899,6 @@ function createDashboardView() {
     state.bannerZoomedIn = !state.bannerZoomedIn;
     
     // Adjust selectedGameIdx if it goes out of bounds of the zoom view
-    const seasonGames = generateSeasonGames(team.id, team.wins || 0, team.losses || 0);
     if (state.bannerZoomedIn && seasonGames.length > 10) {
       const minVisibleIdx = seasonGames.length - 10;
       if (state.selectedGameIdx === null || state.selectedGameIdx < minVisibleIdx) {
@@ -1925,12 +1929,28 @@ function createDashboardView() {
 
   const textNode = document.createElement('div');
   textNode.className = 'banner-team-text';
+
+  const nameWrapper = document.createElement('div');
+  nameWrapper.style.display = 'flex';
+  nameWrapper.style.alignItems = 'center';
+  nameWrapper.style.gap = '8px';
+
   const name = document.createElement('h2');
   name.innerText = team.name;
+  name.style.margin = '0';
+  nameWrapper.appendChild(name);
+
+  // Streak indicator next to name if team is on a streak
+  const activeTeamStreak = getTeamStreak(team.id, wins, losses);
+  if (activeTeamStreak && activeTeamStreak.count >= 3) {
+    nameWrapper.appendChild(createStreakBadge(activeTeamStreak));
+  }
+
   const desc = document.createElement('p');
   const leagueName = team.leagueId === 103 ? 'American League' : 'National League';
   desc.innerText = `${leagueName} • ${team.divisionName}`;
-  textNode.appendChild(name);
+
+  textNode.appendChild(nameWrapper);
   textNode.appendChild(desc);
 
   left.appendChild(badge);
@@ -1943,10 +1963,21 @@ function createDashboardView() {
   right.style.gap = '8px';
   right.style.flexWrap = 'wrap';
 
-  const wins = team.wins !== undefined ? team.wins : 0;
-  const losses = team.losses !== undefined ? team.losses : 0;
-  const gamesRemaining = 162 - wins - losses;
-  
+  // Calculate Last 10 games record
+  const last10 = seasonGames.slice(-10);
+  let last10Wins = 0;
+  let last10Losses = 0;
+  last10.forEach(g => {
+    if (g.isWin) last10Wins++;
+    else last10Losses++;
+  });
+  const last10Text = `${last10Wins}-${last10Losses}`;
+
+  // Calculate formatted streak string (W/L)
+  let streakText = '-';
+  if (activeTeamStreak.type === 'win') streakText = `W${activeTeamStreak.count}`;
+  else if (activeTeamStreak.type === 'loss') streakText = `L${activeTeamStreak.count}`;
+
   let divStandingText = '-';
   if (team.divisionLeader) divStandingText = "Leader";
   else if (team.gamesBack !== undefined) divStandingText = `${team.gamesBack} GB`;
@@ -1955,6 +1986,8 @@ function createDashboardView() {
 
   const statBoxes = [
     { label: 'Record', value: `${wins}-${losses}` },
+    { label: 'Last 10', value: last10Text },
+    { label: 'Streak', value: streakText },
     { label: 'Left', value: `${gamesRemaining}` },
     { label: 'Division', value: divStandingText },
     { label: 'Wild Card', value: wcStandingText }
@@ -1964,12 +1997,12 @@ function createDashboardView() {
     const boxEl = document.createElement('div');
     boxEl.style.background = 'rgba(255, 255, 255, 0.10)';
     boxEl.style.border = '1px solid rgba(255, 255, 255, 0.18)';
-    boxEl.style.padding = '4px 10px';
+    boxEl.style.padding = '4px 8px';
     boxEl.style.borderRadius = '4px';
     boxEl.style.display = 'flex';
     boxEl.style.flexDirection = 'column';
     boxEl.style.alignItems = 'center';
-    boxEl.style.minWidth = '70px';
+    boxEl.style.minWidth = '62px';
 
     const labelEl = document.createElement('span');
     labelEl.innerText = box.label;
@@ -1982,7 +2015,7 @@ function createDashboardView() {
 
     const valEl = document.createElement('span');
     valEl.innerText = box.value;
-    valEl.style.fontSize = '13px';
+    valEl.style.fontSize = '12px';
     valEl.style.color = '#ffffff';
     valEl.style.fontWeight = '800';
     valEl.style.fontFamily = 'var(--font-title)';
@@ -1997,7 +2030,7 @@ function createDashboardView() {
   banner.appendChild(headerRow);
 
   // --- Row 2: Run Differential Bar Chart ---
-  const seasonGames = generateSeasonGames(team.id, wins, losses);
+
   
   if (seasonGames.length > 0) {
     const displayGames = state.bannerZoomedIn ? seasonGames.slice(-10) : seasonGames;
