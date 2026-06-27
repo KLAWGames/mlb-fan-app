@@ -130,7 +130,7 @@ export function getDeterministicSankeyStats(game, teamId) {
 
 export function drawSankeySVG(stats, team) {
   const svgWidth = 540;
-  const svgHeight = 500;
+  const svgHeight = 420;
   const padTop = 20;
   const padBottom = 20;
   const nodeWidth = 14;
@@ -142,7 +142,7 @@ export function drawSankeySVG(stats, team) {
   } = stats;
 
   const AtBats = Outs + Hits + Walks + HBP;
-  const scaleY = Math.min(8.5, (svgHeight - padTop - padBottom - 110) / AtBats);
+  const scaleY = Math.min(6.5, (svgHeight - padTop - padBottom - 110) / AtBats);
   const gapY = 12;
   const col1_x = 35;
   const col2_x = 220;
@@ -180,32 +180,20 @@ export function drawSankeySVG(stats, team) {
     { id: 'hr', label: 'Home Run', value: HomeRun, color: 'rgba(16, 185, 129, 0.85)' }
   ].filter(n => n.value > 0);
 
-  const totalH_subhits = subHits.reduce((sum, n) => sum + n.value * scaleY, 0) + (subHits.length - 1) * gapY;
-  const startY_subhits = Math.max(padTop, y_hits + (h_hits - totalH_subhits) / 2);
-  
-  let currY = startY_subhits;
+  const activeCol3NodesCount = subHits.length + subOuts.length + (Walks > 0 ? 1 : 0) + (HBP > 0 ? 1 : 0);
+  const totalGapsCol3 = (activeCol3NodesCount - 1) * gapY;
+  const totalHCol3 = AtBats * scaleY;
+  const neededHeightCol3 = totalHCol3 + totalGapsCol3;
+  const startY_col3 = padTop + (svgHeight - padTop - padBottom - neededHeightCol3) / 2;
+
+  let currY = startY_col3;
   const nodes_subhits = subHits.map(sh => {
     const h = sh.value * scaleY;
-    const n = { ...sh, x: col3_x, y: currY, h, sourceOffset: 0, targetOffset: 0 };
+    const n = { ...sh, x: col3_x, y: currY, h, color: 'rgba(16, 185, 129, 0.85)', sourceOffset: 0, targetOffset: 0 };
     currY += h + gapY;
     return n;
   });
 
-  const subOuts = [
-    { id: 'ground', label: 'Ground Out', value: GroundOut },
-    { id: 'lineout', label: 'Lineout', value: Lineout },
-    { id: 'flyout', label: 'Flyout', value: Flyout },
-    { id: 'sac', label: 'Sac Fly', value: SacFly },
-    { id: 'pop', label: 'Pop Out', value: PopOut },
-    { id: 'strikeout', label: 'Strikeout', value: Strikeout },
-    { id: 'thrown', label: 'Thrown Out', value: ThrownOut },
-    { id: 'unplayed', label: 'Unplayed', value: Unplayed }
-  ].filter(n => n.value > 0);
-
-  const totalH_subouts = subOuts.reduce((sum, n) => sum + n.value * scaleY, 0) + (subOuts.length - 1) * gapY;
-  const startY_subouts = Math.max(padTop, y_outs + (h_outs - totalH_subouts) / 2);
-
-  currY = startY_subouts;
   const nodes_subouts = subOuts.map(so => {
     const h = so.value * scaleY;
     const n = { ...so, x: col3_x, y: currY, h, color: 'rgba(236, 72, 153, 0.85)', sourceOffset: 0, targetOffset: 0 };
@@ -213,8 +201,19 @@ export function drawSankeySVG(stats, team) {
     return n;
   });
 
-  const node_subwalks = { id: 'sw-walks', label: 'Walks', value: Walks, x: col3_x, y: y_walks, h: h_walks, color: 'rgba(59, 130, 246, 0.85)', sourceOffset: 0, targetOffset: 0 };
-  const node_subhbp = { id: 'sh-hbp', label: 'HBP', value: HBP, x: col3_x, y: y_hbp, h: h_hbp, color: 'rgba(245, 158, 11, 0.85)', sourceOffset: 0, targetOffset: 0 };
+  let node_subwalks = null;
+  if (Walks > 0) {
+    const h = Walks * scaleY;
+    node_subwalks = { id: 'sw-walks', label: 'Walks', value: Walks, x: col3_x, y: currY, h, color: 'rgba(59, 130, 246, 0.85)', sourceOffset: 0, targetOffset: 0 };
+    currY += h + gapY;
+  }
+
+  let node_subhbp = null;
+  if (HBP > 0) {
+    const h = HBP * scaleY;
+    node_subhbp = { id: 'sh-hbp', label: 'HBP', value: HBP, x: col3_x, y: currY, h, color: 'rgba(245, 158, 11, 0.85)', sourceOffset: 0, targetOffset: 0 };
+    currY += h + gapY;
+  }
 
   const allNodes = [
     node_atbats,
@@ -368,7 +367,45 @@ export function getDeterministicSprayPlays(game, teamId) {
     addPlay('out', 'Thrown Out', 12, 50, -43, 43, 60, 85, -30, 40, 2, 90);
   }
 
-  return plays;
+  const batterStats = {};
+  roster.forEach(b => {
+    batterStats[b] = { H: 0, AB: 0, BB: 0, HBP: 0 };
+  });
+
+  plays.forEach(p => {
+    if (!batterStats[p.batter]) {
+      batterStats[p.batter] = { H: 0, AB: 0, BB: 0, HBP: 0 };
+    }
+    const b = batterStats[p.batter];
+    if (p.event === 'single' || p.event === 'double' || p.event === 'triple' || p.event === 'hr') {
+      b.H += 1;
+      b.AB += 1;
+    } else if (p.event === 'out') {
+      if (p.desc !== 'Sac Fly') {
+        b.AB += 1;
+      }
+    }
+  });
+
+  for (let i = 0; i < stats.Strikeout; i++) {
+    const batter = roster[Math.floor(lcgRandom() * roster.length)];
+    if (!batterStats[batter]) batterStats[batter] = { H: 0, AB: 0, BB: 0, HBP: 0 };
+    batterStats[batter].AB += 1;
+  }
+
+  for (let i = 0; i < stats.Walks; i++) {
+    const batter = roster[Math.floor(lcgRandom() * roster.length)];
+    if (!batterStats[batter]) batterStats[batter] = { H: 0, AB: 0, BB: 0, HBP: 0 };
+    batterStats[batter].BB += 1;
+  }
+
+  for (let i = 0; i < stats.HBP; i++) {
+    const batter = roster[Math.floor(lcgRandom() * roster.length)];
+    if (!batterStats[batter]) batterStats[batter] = { H: 0, AB: 0, BB: 0, HBP: 0 };
+    batterStats[batter].HBP += 1;
+  }
+
+  return { plays, batterStats };
 }
 
 export function drawSprayFieldSVG(plays, activePlayId, clickCallback) {
@@ -622,7 +659,7 @@ export function openGameAnalyticsCenter(game, state, render) {
       const stats = getDeterministicSankeyStats(game, selectedTeamId);
       
       const scrollWrapper = document.createElement('div');
-      scrollWrapper.style.cssText = 'width: 100%; max-height: 360px; overflow: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border-glass); border-radius: 12px; background: #f8fafc; padding: 12px; position: relative;';
+      scrollWrapper.style.cssText = 'width: 100%; max-height: 440px; overflow: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border-glass); border-radius: 12px; background: #f8fafc; padding: 12px; position: relative;';
       
       const sankeyNode = drawSankeySVG(stats, teamObj);
       scrollWrapper.appendChild(sankeyNode);
@@ -670,7 +707,7 @@ export function openGameAnalyticsCenter(game, state, render) {
       visContainer.appendChild(helper);
 
     } else if (selectedVis === 'spray') {
-      const plays = getDeterministicSprayPlays(game, selectedTeamId);
+      const { plays, batterStats } = getDeterministicSprayPlays(game, selectedTeamId);
       const uniqueBatters = Array.from(new Set(plays.map(p => p.batter))).sort();
       
       const batterSelectContainer = document.createElement('div');
@@ -747,6 +784,17 @@ export function openGameAnalyticsCenter(game, state, render) {
       batterSelectContainer.appendChild(select);
       batterSelectContainer.appendChild(cycleGroup);
       visContainer.appendChild(batterSelectContainer);
+
+      const statsSummary = document.createElement('div');
+      statsSummary.style.cssText = 'font-size: 11px; padding: 6px 10px; border-radius: 6px; background: #f8fafc; border: 1px solid var(--border-glass); text-align: center; font-weight: 500; display: none; margin-bottom: 4px;';
+      if (selectedBatter !== 'all') {
+        const bs = batterStats[selectedBatter] || { H: 0, AB: 0, BB: 0, HBP: 0 };
+        const bbStr = bs.BB > 0 ? `, ${bs.BB} BB` : '';
+        const hbpStr = bs.HBP > 0 ? `, ${bs.HBP} HBP` : '';
+        statsSummary.innerHTML = `<span style="color: var(--text-secondary);">Today's Game Stats:</span> <strong style="color: var(--color-win); font-weight: 800; font-size: 11.5px;">${bs.H} for ${bs.AB}</strong>${bbStr}${hbpStr}`;
+        statsSummary.style.display = 'block';
+      }
+      visContainer.appendChild(statsSummary);
       
       const fieldWrapper = document.createElement('div');
       fieldWrapper.style.cssText = 'position: relative; width: 100%; aspect-ratio: 1.55; max-height: 250px; background: #022c22; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-glass); display: flex; justify-content: center;';
