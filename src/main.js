@@ -1686,10 +1686,13 @@ function showRecapModal(isAutoTrigger = false) {
 
       const linkEl = gameRow.querySelector('.analytics-trigger-link');
       if (linkEl) {
-        linkEl.addEventListener('click', (e) => {
+        const handleOpenRecapVisuals = (e) => {
+          e.preventDefault();
           e.stopPropagation();
           openGameAnalyticsCenter(g, state, render);
-        });
+        };
+        linkEl.addEventListener('click', handleOpenRecapVisuals);
+        linkEl.addEventListener('touchstart', handleOpenRecapVisuals, { passive: false });
       }
 
       rootingBody.appendChild(gameRow);
@@ -2720,13 +2723,18 @@ function createDashboardView() {
     analyticsBtn.className = 'banner-nav-btn';
     analyticsBtn.style.cssText = 'width: 100%; margin: 0; padding: 6px 12px; font-size: 11.5px; font-weight: 700; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.12); color: #ffffff; box-shadow: none;';
     analyticsBtn.innerHTML = '<span>📊</span> <span>Open Game Visual Analytics</span>';
-    analyticsBtn.addEventListener('click', (e) => {
+
+    const handleOpenVisuals = (e) => {
+      e.preventDefault();
       e.stopPropagation();
       const g = seasonGames[state.selectedGameIdx];
       if (g) {
         openGameAnalyticsCenter(reconstructGameFromSeasonGame(g, team, state), state, render);
       }
-    });
+    };
+
+    analyticsBtn.addEventListener('click', handleOpenVisuals);
+    analyticsBtn.addEventListener('touchstart', handleOpenVisuals, { passive: false });
     detailStrip.appendChild(analyticsBtn);
     
     function updateDetailStrip(g) {
@@ -3633,10 +3641,14 @@ function createDashboardView() {
       analyticsBtn.style.cssText = 'width: 100%; margin: 0; padding: 10px 14px; font-size: 12.5px; font-weight: 700; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;';
       analyticsBtn.innerHTML = '<span>📊</span> <span>Open Game Visual Analytics</span>';
 
-      analyticsBtn.addEventListener('click', (e) => {
+      const handleOpenCardVisuals = (e) => {
+        e.preventDefault();
         e.stopPropagation();
         openGameAnalyticsCenter(item, state, render);
-      });
+      };
+
+      analyticsBtn.addEventListener('click', handleOpenCardVisuals);
+      analyticsBtn.addEventListener('touchstart', handleOpenCardVisuals, { passive: false });
 
       analyticsBtnRow.appendChild(analyticsBtn);
       card.appendChild(analyticsBtnRow);

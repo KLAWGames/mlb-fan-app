@@ -130,9 +130,9 @@ export function getDeterministicSankeyStats(game, teamId) {
 
 export function drawSankeySVG(stats, team) {
   const svgWidth = 540;
-  const svgHeight = 330;
-  const padTop = 15;
-  const padBottom = 15;
+  const svgHeight = 500;
+  const padTop = 20;
+  const padBottom = 20;
   const nodeWidth = 14;
 
   const {
@@ -142,8 +142,8 @@ export function drawSankeySVG(stats, team) {
   } = stats;
 
   const AtBats = Outs + Hits + Walks + HBP;
-  const scaleY = Math.min(6, (svgHeight - padTop - padBottom - 64) / AtBats);
-  const gapY = 6;
+  const scaleY = Math.min(8.5, (svgHeight - padTop - padBottom - 110) / AtBats);
+  const gapY = 12;
   const col1_x = 35;
   const col2_x = 220;
   const col3_x = 420;
@@ -622,7 +622,7 @@ export function openGameAnalyticsCenter(game, state, render) {
       const stats = getDeterministicSankeyStats(game, selectedTeamId);
       
       const scrollWrapper = document.createElement('div');
-      scrollWrapper.style.cssText = 'width: 100%; max-height: 290px; overflow: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border-glass); border-radius: 12px; background: #f8fafc; padding: 12px; position: relative;';
+      scrollWrapper.style.cssText = 'width: 100%; max-height: 360px; overflow: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border-glass); border-radius: 12px; background: #f8fafc; padding: 12px; position: relative;';
       
       const sankeyNode = drawSankeySVG(stats, teamObj);
       scrollWrapper.appendChild(sankeyNode);
