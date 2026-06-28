@@ -35,6 +35,182 @@ export function normalizeGame(game) {
   };
 }
 
+export async function fetchLiveGameFeed(gamePk) {
+  try {
+    const url = `https://statsapi.mlb.com/api/v1.1/game/${gamePk}/feed/live`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("Feed request failed");
+    return await res.json();
+  } catch (err) {
+    console.warn(`Failed to fetch live game feed for ${gamePk}:`, err.message);
+    return null;
+  }
+}
+
+export function parseLiveFeedData(feed, teamId) {
+  const selectedTeamIdNum = parseInt(teamId, 10);
+  const awayTeamId = feed.gameData?.teams?.away?.id;
+  const homeTeamId = feed.gameData?.teams?.home?.id;
+  const isAway = selectedTeamIdNum === awayTeamId;
+
+  const stats = {
+    Hits: 0, Outs: 0, Walks: 0, HBP: 0,
+    Single: 0, Double: 0, Triple: 0, HomeRun: 0,
+    GroundOut: 0, Lineout: 0, Flyout: 0, SacFly: 0, PopOut: 0, Strikeout: 0, ThrownOut: 0, Unplayed: 0
+  };
+
+  const plays = [];
+  let playId = 1;
+
+  if (feed.liveData && feed.liveData.plays && feed.liveData.plays.allPlays) {
+    feed.liveData.plays.allPlays.forEach(p => {
+      if (!p.result || !p.about || !p.about.isComplete) return;
+
+      const isTeamBatting = p.about.isTopInning ? isAway : !isAway;
+      if (!isTeamBatting) return;
+
+      const batterName = p.matchup?.batter?.fullName || 'Unknown Batter';
+      const event = p.result.event || '';
+      const eventType = p.result.eventType || '';
+      const desc = p.result.description || '';
+      const descLower = desc.toLowerCase();
+
+      let coordX = null;
+      let coordY = null;
+      let launchSpeed = null;
+      let launchAngle = null;
+      let totalDistance = null;
+
+      if (p.playEvents) {
+        for (const ev of p.playEvents) {
+          if (ev.hitData) {
+            if (ev.hitData.coordinates) {
+              coordX = parseFloat(ev.hitData.coordinates.coordX);
+              coordY = parseFloat(ev.hitData.coordinates.coordY);
+            }
+            if (ev.hitData.launchSpeed) launchSpeed = parseFloat(ev.hitData.launchSpeed);
+            if (ev.hitData.launchAngle) launchAngle = parseFloat(ev.hitData.launchAngle);
+            if (ev.hitData.totalDistance) totalDistance = parseFloat(ev.hitData.totalDistance);
+            break;
+          }
+        }
+      }
+
+      let mappedEvent = '';
+      if (eventType === 'single') {
+        stats.Single++;
+        stats.Hits++;
+        mappedEvent = 'single';
+      } else if (eventType === 'double') {
+        stats.Double++;
+        stats.Hits++;
+        mappedEvent = 'double';
+      } else if (eventType === 'triple') {
+        stats.Triple++;
+        stats.Hits++;
+        mappedEvent = 'triple';
+      } else if (eventType === 'home_run') {
+        stats.HomeRun++;
+        stats.Hits++;
+        mappedEvent = 'hr';
+      } else if (p.result.isOut) {
+        stats.Outs++;
+        mappedEvent = 'out';
+        if (eventType?.includes('strikeout')) {
+          stats.Strikeout++;
+        } else if (descLower.includes('ground') || descLower.includes('force out') || descLower.includes('grounded')) {
+          stats.GroundOut++;
+        } else if (descLower.includes('line')) {
+          stats.Lineout++;
+        } else if (descLower.includes('flies') || descLower.includes('fly')) {
+          stats.Flyout++;
+        } else if (descLower.includes('sac') || eventType?.includes('sac')) {
+          stats.SacFly++;
+        } else if (descLower.includes('pop')) {
+          stats.PopOut++;
+        } else {
+          stats.ThrownOut++;
+        }
+      } else if (eventType === 'walk' || eventType === 'base_on_balls' || eventType === 'intentional_walk') {
+        stats.Walks++;
+        mappedEvent = 'walk';
+      } else if (eventType === 'hit_by_pitch') {
+        stats.HBP++;
+        mappedEvent = 'hbp';
+      } else {
+        stats.Unplayed++;
+        mappedEvent = 'walk';
+      }
+
+      if (mappedEvent === 'single' || mappedEvent === 'double' || mappedEvent === 'triple' || mappedEvent === 'hr' || mappedEvent === 'out') {
+        if (coordX === null || coordY === null || isNaN(coordX) || isNaN(coordY)) {
+          let seed = p.about.atBatIndex * 31 + teamId;
+          function lcg() {
+            seed = (1103515245 * seed + 12345) % 2147483648;
+            return seed / 2147483648;
+          }
+          let rMin = 10, rMax = 40, thetaMin = -43, thetaMax = 43;
+          if (mappedEvent === 'single') { rMin = 55; rMax = 110; thetaMin = -40; thetaMax = 40; }
+          else if (mappedEvent === 'double') { rMin = 95; rMax = 145; thetaMin = -42; thetaMax = 42; }
+          else if (mappedEvent === 'triple') { rMin = 125; rMax = 148; thetaMin = lcg() < 0.5 ? -43 : 33; thetaMax = thetaMin + 10; }
+          else if (mappedEvent === 'hr') { rMin = 148; rMax = 175; thetaMin = -45; thetaMax = 45; }
+          
+          const r = rMin + lcg() * (rMax - rMin);
+          const theta = thetaMin + lcg() * (thetaMax - thetaMin);
+          const rad = (theta - 90) * Math.PI / 180;
+          coordX = parseFloat((125 + r * Math.cos(rad)).toFixed(1));
+          coordY = parseFloat((205 + r * Math.sin(rad)).toFixed(1));
+        }
+
+        plays.push({
+          id: playId++,
+          batter: batterName,
+          event: mappedEvent,
+          desc: event + " (" + desc.split('.')[0] + ")",
+          speed: launchSpeed || (70 + Math.random() * 40),
+          angle: launchAngle !== null ? launchAngle : (5 + Math.random() * 40),
+          dist: totalDistance !== null ? Math.round(totalDistance) : null,
+          cx: coordX,
+          cy: coordY
+        });
+      }
+    });
+  }
+
+  const batterStats = {};
+  if (feed.liveData && feed.liveData.plays && feed.liveData.plays.allPlays) {
+    feed.liveData.plays.allPlays.forEach(p => {
+      if (!p.result || !p.about || !p.about.isComplete) return;
+      const isTeamBatting = p.about.isTopInning ? isAway : !isAway;
+      if (!isTeamBatting) return;
+
+      const batterName = p.matchup?.batter?.fullName;
+      if (!batterName) return;
+
+      if (!batterStats[batterName]) {
+        batterStats[batterName] = { H: 0, AB: 0, BB: 0, HBP: 0 };
+      }
+
+      const eventType = p.result.eventType;
+      if (eventType === 'single' || eventType === 'double' || eventType === 'triple' || eventType === 'home_run') {
+        batterStats[batterName].H++;
+        batterStats[batterName].AB++;
+      } else if (eventType === 'walk' || eventType === 'base_on_balls' || eventType === 'intentional_walk') {
+        batterStats[batterName].BB++;
+      } else if (eventType === 'hit_by_pitch') {
+        batterStats[batterName].HBP++;
+      } else if (p.result.isOut) {
+        const isSacFly = eventType === 'sac_fly' || (p.result.description && p.result.description.toLowerCase().includes('sac fly'));
+        if (!isSacFly) {
+          batterStats[batterName].AB++;
+        }
+      }
+    });
+  }
+
+  return { stats, plays, batterStats };
+}
+
 export function reconstructGameFromSeasonGame(g, activeTeam, state) {
   if (g.awayTeam && g.homeTeam) return g;
 
@@ -52,7 +228,7 @@ export function reconstructGameFromSeasonGame(g, activeTeam, state) {
   const homeTeam = isAway ? opponentTeam : activeTeam;
 
   return {
-    gamePk: (g.gamePk || g.gameNumber || 1000) + activeTeam.id,
+    gamePk: g.gamePk || ((g.gameNumber || 1000) + activeTeam.id),
     gameDate: g.dateStr,
     awayTeam,
     homeTeam,
@@ -95,8 +271,20 @@ export function getTeamRoster(teamId, state) {
   ];
 }
 
-export function getDeterministicSankeyStats(game, teamId) {
+export function getDeterministicSankeyStats(game, teamId, state) {
   const normGame = normalizeGame(game);
+  
+  if (state && state.gameFeeds && state.gameFeeds[normGame.gamePk]) {
+    try {
+      const parsed = parseLiveFeedData(state.gameFeeds[normGame.gamePk], teamId);
+      if (parsed && parsed.stats) {
+        return parsed.stats;
+      }
+    } catch (err) {
+      console.warn("Failed parsing live feed for Sankey stats:", err);
+    }
+  }
+
   const seed = (normGame.gamePk || 1000) + teamId;
   let s = seed;
   function lcgRandom() {
@@ -346,7 +534,19 @@ export function drawSankeySVG(stats, team) {
 
 export function getDeterministicSprayPlays(game, teamId, state) {
   const normGame = normalizeGame(game);
-  const stats = getDeterministicSankeyStats(normGame, teamId);
+  
+  if (state && state.gameFeeds && state.gameFeeds[normGame.gamePk]) {
+    try {
+      const parsed = parseLiveFeedData(state.gameFeeds[normGame.gamePk], teamId);
+      if (parsed && parsed.plays) {
+        return { plays: parsed.plays, batterStats: parsed.batterStats };
+      }
+    } catch (err) {
+      console.warn("Failed parsing live feed for spray plays:", err);
+    }
+  }
+
+  const stats = getDeterministicSankeyStats(normGame, teamId, state);
   const roster = getTeamRoster(teamId, state);
 
   const seed = (normGame.gamePk || 1000) + teamId + 99;
@@ -520,10 +720,25 @@ export function drawSprayFieldSVG(plays, activePlayId, clickCallback) {
 }
 
 export function openGameAnalyticsCenter(game, state, render) {
+  let updateVisContent;
   try {
     const normGame = normalizeGame(game);
     const existing = document.querySelector('.analytics-center-backdrop');
     if (existing) existing.remove();
+
+    const gamePk = normGame.gamePk;
+    if (gamePk && (!state.gameFeeds || !state.gameFeeds[gamePk])) {
+      if (!state.gameFeeds) state.gameFeeds = {};
+      fetchLiveGameFeed(gamePk).then(feed => {
+        if (feed) {
+          state.gameFeeds[gamePk] = feed;
+          const currentBackdrop = document.querySelector('.analytics-center-backdrop');
+          if (currentBackdrop && typeof updateVisContent === 'function') {
+            updateVisContent();
+          }
+        }
+      });
+    }
 
   const backdrop = document.createElement('div');
   backdrop.className = 'analytics-center-backdrop';
@@ -706,12 +921,12 @@ export function openGameAnalyticsCenter(game, state, render) {
   visContainer.style.cssText = 'flex: 1; display: flex; flex-direction: column; gap: 12px;';
   body.appendChild(visContainer);
 
-  const updateVisContent = () => {
+  updateVisContent = () => {
     visContainer.innerHTML = '';
     const teamObj = parseInt(selectedTeamId, 10) === parseInt(normGame.awayTeam.id, 10) ? normGame.awayTeam : normGame.homeTeam;
 
     if (selectedVis === 'sankey') {
-      const stats = getDeterministicSankeyStats(normGame, selectedTeamId);
+      const stats = getDeterministicSankeyStats(normGame, selectedTeamId, state);
       
       const scrollWrapper = document.createElement('div');
       scrollWrapper.style.cssText = 'width: 100%; max-height: 440px; overflow: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border-glass); border-radius: 12px; background: #f8fafc; padding: 12px; position: relative;';

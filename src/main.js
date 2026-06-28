@@ -673,6 +673,7 @@ function generateSeasonGames(teamId, wins, losses) {
         const dateStr = gameDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
         return {
+          gamePk: g.gamePk,
           gameNumber: idx + 1,
           dateStr,
           opponent: opponentData.name,
