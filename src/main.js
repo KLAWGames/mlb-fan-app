@@ -85,6 +85,9 @@ function generateSeasonHistory(teamId, wins, losses) {
   if (typeof fetchTeamSeasonSchedule === 'function') {
     fetchTeamSeasonSchedule(teamId);
   }
+  if (typeof fetchTeamRoster === 'function') {
+    fetchTeamRoster(teamId);
+  }
 
   // 2. If real API games are cached for this team, parse and use them!
   if (state.teamGames && state.teamGames[teamId]) {
@@ -597,10 +600,44 @@ async function fetchTeamSeasonSchedule(teamId) {
   }
 }
 
+async function fetchTeamRoster(teamId) {
+  if (state.teamRosters && state.teamRosters[teamId]) return;
+  if (!state.fetchingRosters) state.fetchingRosters = {};
+  if (state.fetchingRosters[teamId]) return; // already fetching!
+
+  state.fetchingRosters[teamId] = true;
+  try {
+    const res = await fetch(`https://statsapi.mlb.com/api/v1/teams/${teamId}/roster?rosterType=active&season=2026`);
+    if (!res.ok) throw new Error('API error');
+    const data = await res.json();
+    const batters = [];
+    if (data.roster) {
+      data.roster.forEach(item => {
+        if (item.person && item.person.fullName) {
+          const isPitcher = item.position && (item.position.abbreviation === 'P' || item.position.type === 'Pitcher');
+          if (!isPitcher) {
+            batters.push(item.person.fullName);
+          }
+        }
+      });
+    }
+    if (batters.length > 0) {
+      if (!state.teamRosters) state.teamRosters = {};
+      state.teamRosters[teamId] = batters;
+      render();
+    }
+  } catch (err) {
+    console.warn(`Failed to silently fetch roster for team ${teamId}:`, err.message);
+  } finally {
+    state.fetchingRosters[teamId] = false;
+  }
+}
+
 // Generate deterministic game-by-game results for a team
 function generateSeasonGames(teamId, wins, losses) {
   // Trigger silent fetch for this team's schedule if not already loaded
   fetchTeamSeasonSchedule(teamId);
+  fetchTeamRoster(teamId);
 
   // If real API games are cached for this team, parse and use them!
   if (state.teamGames && state.teamGames[teamId]) {

@@ -65,9 +65,15 @@ export function reconstructGameFromSeasonGame(g, activeTeam, state) {
   };
 }
 
-export function getTeamRoster(teamId) {
+export function getTeamRoster(teamId, state) {
+  const cleanId = parseInt(teamId, 10);
+  
+  if (state && state.teamRosters && state.teamRosters[cleanId] && state.teamRosters[cleanId].length > 0) {
+    return state.teamRosters[cleanId];
+  }
+
   const rosters = {
-    141: ['Vladimir Guerrero Jr.', 'Bo Bichette', 'George Springer', 'Daulton Varsho', 'Alejandro Kirk', 'Ernie Clement', 'Spencer Horwitz', 'Davis Schneider'],
+    141: ['Vladimir Guerrero Jr.', 'Andrés Giménez', 'George Springer', 'Daulton Varsho', 'Alejandro Kirk', 'Ernie Clement', 'Nathan Lukes', 'Yohendrick Piñango'],
     147: ['Aaron Judge', 'Juan Soto', 'Giancarlo Stanton', 'Anthony Volpe', 'Gleyber Torres', 'Alex Verdugo', 'Austin Wells', 'Ben Rice'],
     119: ['Shohei Ohtani', 'Mookie Betts', 'Freddie Freeman', 'Teoscar Hernández', 'Will Smith', 'Max Muncy', 'Gavin Lux', 'Andy Pages'],
     117: ['Yordan Alvarez', 'Jose Altuve', 'Alex Bregman', 'Kyle Tucker', 'Jeremy Peña', 'Yainer Diaz', 'Mauricio Dubón', 'Jon Singleton'],
@@ -81,7 +87,6 @@ export function getTeamRoster(teamId) {
     140: ['Marcus Semien', 'Corey Seager', 'Adolis García', 'Josh Jung', 'Jonah Heim', 'Nathaniel Lowe', 'Wyatt Langford', 'Leody Taveras']
   };
 
-  const cleanId = parseInt(teamId, 10);
   if (rosters[cleanId]) return rosters[cleanId];
 
   return [
@@ -339,10 +344,10 @@ export function drawSankeySVG(stats, team) {
   return svg;
 }
 
-export function getDeterministicSprayPlays(game, teamId) {
+export function getDeterministicSprayPlays(game, teamId, state) {
   const normGame = normalizeGame(game);
   const stats = getDeterministicSankeyStats(normGame, teamId);
-  const roster = getTeamRoster(teamId);
+  const roster = getTeamRoster(teamId, state);
 
   const seed = (normGame.gamePk || 1000) + teamId + 99;
   let s = seed;
@@ -757,7 +762,7 @@ export function openGameAnalyticsCenter(game, state, render) {
       visContainer.appendChild(helper);
 
     } else if (selectedVis === 'spray') {
-      const { plays, batterStats } = getDeterministicSprayPlays(normGame, selectedTeamId);
+      const { plays, batterStats } = getDeterministicSprayPlays(normGame, selectedTeamId, state);
       const uniqueBatters = Array.from(new Set(plays.map(p => p.batter))).sort();
       
       const batterSelectContainer = document.createElement('div');
