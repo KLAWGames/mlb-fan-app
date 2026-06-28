@@ -115,21 +115,24 @@ export function parseLiveFeedData(feed, teamId) {
         mappedEvent = 'hr';
       } else if (p.result.isOut) {
         stats.Outs++;
-        mappedEvent = 'out';
         if (eventType?.includes('strikeout')) {
           stats.Strikeout++;
-        } else if (descLower.includes('ground') || descLower.includes('force out') || descLower.includes('grounded')) {
-          stats.GroundOut++;
-        } else if (descLower.includes('line')) {
-          stats.Lineout++;
-        } else if (descLower.includes('flies') || descLower.includes('fly')) {
-          stats.Flyout++;
-        } else if (descLower.includes('sac') || eventType?.includes('sac')) {
-          stats.SacFly++;
-        } else if (descLower.includes('pop')) {
-          stats.PopOut++;
+          mappedEvent = 'strikeout-out';
         } else {
-          stats.ThrownOut++;
+          mappedEvent = 'out';
+          if (descLower.includes('ground') || descLower.includes('force out') || descLower.includes('grounded')) {
+            stats.GroundOut++;
+          } else if (descLower.includes('line')) {
+            stats.Lineout++;
+          } else if (descLower.includes('flies') || descLower.includes('fly')) {
+            stats.Flyout++;
+          } else if (descLower.includes('sac') || eventType?.includes('sac')) {
+            stats.SacFly++;
+          } else if (descLower.includes('pop')) {
+            stats.PopOut++;
+          } else {
+            stats.ThrownOut++;
+          }
         }
       } else if (eventType === 'walk' || eventType === 'base_on_balls' || eventType === 'intentional_walk') {
         stats.Walks++;
@@ -160,6 +163,23 @@ export function parseLiveFeedData(feed, teamId) {
           const rad = (theta - 90) * Math.PI / 180;
           coordX = parseFloat((125 + r * Math.cos(rad)).toFixed(1));
           coordY = parseFloat((205 + r * Math.sin(rad)).toFixed(1));
+        }
+        
+        const dx = coordX - 125;
+        const dy = coordY - 205;
+        const distFromHome = Math.hypot(dx, dy);
+        if (mappedEvent === 'hr') {
+          if (distFromHome < 146) {
+            const scale = 146 / (distFromHome || 1);
+            coordX = parseFloat((125 + dx * scale).toFixed(1));
+            coordY = parseFloat((205 + dy * scale).toFixed(1));
+          }
+        } else {
+          if (distFromHome > 142) {
+            const scale = 142 / (distFromHome || 1);
+            coordX = parseFloat((125 + dx * scale).toFixed(1));
+            coordY = parseFloat((205 + dy * scale).toFixed(1));
+          }
         }
 
         plays.push({
