@@ -150,19 +150,24 @@ export function parseLiveFeedData(feed, teamId) {
           stats.Strikeout++;
           mappedEvent = 'strikeout-out';
         } else {
-          mappedEvent = 'out';
           if (descLower.includes('ground') || descLower.includes('force out') || descLower.includes('grounded')) {
             stats.GroundOut++;
+            mappedEvent = 'ground';
           } else if (descLower.includes('line')) {
             stats.Lineout++;
+            mappedEvent = 'lineout';
           } else if (descLower.includes('flies') || descLower.includes('fly')) {
             stats.Flyout++;
+            mappedEvent = 'flyout';
           } else if (descLower.includes('sac') || eventType?.includes('sac')) {
             stats.SacFly++;
+            mappedEvent = 'sac';
           } else if (descLower.includes('pop')) {
             stats.PopOut++;
+            mappedEvent = 'pop';
           } else {
             stats.ThrownOut++;
+            mappedEvent = 'thrown';
           }
         }
       } else if (eventType === 'walk' || eventType === 'base_on_balls' || eventType === 'intentional_walk') {
@@ -175,11 +180,11 @@ export function parseLiveFeedData(feed, teamId) {
         if (didScore) stats.HBP_Runs++; else stats.HBP_LOB++;
       } else {
         stats.Unplayed++;
-        mappedEvent = 'walk';
+        mappedEvent = 'unplayed';
         if (didScore) stats.Walk_Runs++; else stats.Walk_LOB++;
       }
 
-      if (mappedEvent === 'single' || mappedEvent === 'double' || mappedEvent === 'triple' || mappedEvent === 'hr' || mappedEvent === 'out') {
+      if (['single', 'double', 'triple', 'hr', 'out', 'ground', 'lineout', 'flyout', 'sac', 'pop', 'thrown', 'unplayed'].includes(mappedEvent)) {
         if (coordX === null || coordY === null || isNaN(coordX) || isNaN(coordY)) {
           let seed = p.about.atBatIndex * 31 + teamId;
           function lcg() {
@@ -628,7 +633,11 @@ export function drawSankeySVG(stats, team, plays) {
   ];
 
   allNodes.forEach(n => {
-    const isInteractive = ['single', 'double', 'triple', 'hr', 'sw-walks', 'sh-hbp'].includes(n.id);
+    const isInteractive = [
+      'single', 'double', 'triple', 'hr',
+      'sw-walks', 'sh-hbp',
+      'ground', 'lineout', 'flyout', 'sac', 'pop', 'strikeout', 'thrown', 'unplayed'
+    ].includes(n.id);
     let nodeGroupHtml = '';
     
     if (isInteractive) {
@@ -710,7 +719,8 @@ function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
     'triple': 'triple',
     'hr': 'hr',
     'sw-walks': 'walk',
-    'sh-hbp': 'hbp'
+    'sh-hbp': 'hbp',
+    'strikeout': 'strikeout-out'
   };
   const targetType = playTypeMap[nodeType] || nodeType;
   const filteredPlays = (plays || []).filter(p => p.event === targetType);
@@ -837,22 +847,22 @@ export function getDeterministicSprayPlays(game, teamId, state) {
   }
 
   for (let i = 0; i < stats.GroundOut; i++) {
-    addPlay('out', 'Groundout', 18, 48, -42, 42, 70, 92, -20, 2, 5, 80);
+    addPlay('ground', 'Groundout', 18, 48, -42, 42, 70, 92, -20, 2, 5, 80);
   }
   for (let i = 0; i < stats.Lineout; i++) {
-    addPlay('out', 'Lineout', 45, 110, -40, 40, 90, 105, 5, 14, 150, 290);
+    addPlay('lineout', 'Lineout', 45, 110, -40, 40, 90, 105, 5, 14, 150, 290);
   }
   for (let i = 0; i < stats.Flyout; i++) {
-    addPlay('out', 'Flyout', 90, 145, -40, 40, 88, 98, 28, 45, 260, 360);
+    addPlay('flyout', 'Flyout', 90, 145, -40, 40, 88, 98, 28, 45, 260, 360);
   }
   for (let i = 0; i < stats.PopOut; i++) {
-    addPlay('out', 'Popout', 20, 60, -42, 42, 65, 82, 55, 80, 20, 120);
+    addPlay('pop', 'Popout', 20, 60, -42, 42, 65, 82, 55, 80, 20, 120);
   }
   for (let i = 0; i < stats.SacFly; i++) {
-    addPlay('out', 'Sac Fly', 115, 145, -35, 35, 90, 96, 25, 38, 280, 340);
+    addPlay('sac', 'Sac Fly', 115, 145, -35, 35, 90, 96, 25, 38, 280, 340);
   }
   for (let i = 0; i < stats.ThrownOut; i++) {
-    addPlay('out', 'Thrown Out', 12, 50, -43, 43, 60, 85, -30, 40, 2, 90);
+    addPlay('thrown', 'Thrown Out', 12, 50, -43, 43, 60, 85, -30, 40, 2, 90);
   }
 
   const batterStats = {};
@@ -868,7 +878,7 @@ export function getDeterministicSprayPlays(game, teamId, state) {
     if (p.event === 'single' || p.event === 'double' || p.event === 'triple' || p.event === 'hr') {
       b.H += 1;
       b.AB += 1;
-    } else if (p.event === 'out') {
+    } else if (['out', 'ground', 'lineout', 'flyout', 'sac', 'pop', 'thrown', 'unplayed'].includes(p.event)) {
       if (p.desc !== 'Sac Fly') {
         b.AB += 1;
       }
