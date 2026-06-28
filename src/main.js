@@ -947,6 +947,8 @@ function calculateTiebreakerRecords(tiedTeams) {
 
 // Initialize Application
 async function init() {
+  const startTime = Date.now();
+
   // Load tracked teams from localStorage
   const saved = localStorage.getItem('tracked_teams');
   if (saved) {
@@ -975,14 +977,20 @@ async function init() {
   // Load Data
   await loadData();
 
-  // Fade out splash screen
-  const splash = document.getElementById('app-splash-screen');
-  if (splash) {
-    splash.classList.add('fade-out');
-    setTimeout(() => {
-      splash.remove();
-    }, 500);
-  }
+  // Enforce a minimum display duration of 3 seconds to reinforce branding
+  const elapsed = Date.now() - startTime;
+  const remainingDelay = Math.max(0, 3000 - elapsed);
+
+  setTimeout(() => {
+    // Fade out splash screen
+    const splash = document.getElementById('app-splash-screen');
+    if (splash) {
+      splash.classList.add('fade-out');
+      setTimeout(() => {
+        splash.remove();
+      }, 500);
+    }
+  }, remainingDelay);
 
   // Start auto-refresh interval for live scores
   startAutoRefresh();
@@ -1936,7 +1944,7 @@ function toggleHamburgerMenu(open) {
     const header = document.createElement('div');
     header.className = 'drawer-header';
     const title = document.createElement('h3');
-    title.innerText = 'Fantabulous Menu';
+    title.innerText = 'Tracjectory Menu';
     const closeBtn = document.createElement('button');
     closeBtn.className = 'drawer-close-btn';
     closeBtn.innerHTML = '×';
@@ -3897,7 +3905,7 @@ function createCreditsVersionView() {
   appMetaText.style.fontSize = '13px';
   appMetaText.style.color = 'var(--text-secondary)';
   appMetaText.style.lineHeight = '1.6';
-  appMetaText.innerHTML = '<strong>Fantabulous Web App</strong><br>Version: v1.2.0<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
+  appMetaText.innerHTML = '<strong>Tracjectory Web App</strong><br>Version: v1.3.0<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
   creditsCard.appendChild(appMetaText);
 
   container.appendChild(creditsCard);
