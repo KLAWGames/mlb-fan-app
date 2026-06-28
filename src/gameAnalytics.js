@@ -691,6 +691,7 @@ export function drawSankeySVG(stats, team, plays) {
 function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
   const backdrop = document.querySelector('.analytics-center-backdrop');
   if (!backdrop) return;
+  const modal = backdrop.querySelector('.glass-card') || backdrop;
 
   const existing = document.querySelector('.sankey-details-overlay');
   if (existing) existing.remove();
@@ -702,23 +703,17 @@ function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
   overlay.className = 'sankey-details-overlay';
   overlay.style.cssText = `
     position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 90%;
-    max-width: 320px;
+    top: 0; left: 0; right: 0; bottom: 0;
     background: var(--bg-card);
-    border: 1px solid var(--border-glass-highlight);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border-radius: 14px;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
-    padding: 16px;
+    border-radius: 16px;
+    padding: 20px;
     z-index: 12000;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
     color: var(--text-primary);
     overscroll-behavior: contain;
+    animation: slideUpDetails 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   `;
 
   // Auto-restore page body scrolling when overlay details is closed
@@ -741,15 +736,15 @@ function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
   const filteredPlays = (plays || []).filter(p => p.event === targetType);
 
   const header = document.createElement('div');
-  header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-glass-highlight); padding-bottom: 8px;';
+  header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-glass-highlight); padding-bottom: 12px; margin-bottom: 4px;';
   
   const title = document.createElement('span');
-  title.style.cssText = 'font-size: 13px; font-weight: 800; font-family: var(--font-title); display: flex; align-items: center; gap: 6px;';
-  title.innerHTML = `<span style="display:inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${team.primaryColor || '#888888'};"></span> ${nodeLabel}`;
+  title.style.cssText = 'font-size: 15px; font-weight: 800; font-family: var(--font-title); display: flex; align-items: center; gap: 8px;';
+  title.innerHTML = `<span style="display:inline-block; width: 10px; height: 10px; border-radius: 50%; background: ${team.primaryColor || '#888888'};"></span> ${nodeLabel} Details`;
   
   const closeBtn = document.createElement('button');
   closeBtn.innerText = '×';
-  closeBtn.style.cssText = 'border: none; background: none; font-size: 20px; font-weight: 600; color: var(--text-secondary); cursor: pointer; padding: 0; line-height: 1;';
+  closeBtn.style.cssText = 'border: none; background: none; font-size: 24px; font-weight: 600; color: var(--text-secondary); cursor: pointer; padding: 0 4px; line-height: 1;';
   closeBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     overlay.remove();
@@ -761,7 +756,7 @@ function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
 
   const listContainer = document.createElement('div');
   listContainer.className = 'sankey-list-container';
-  listContainer.style.cssText = 'display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;';
+  listContainer.style.cssText = 'display: flex; flex-direction: column; gap: 8px; flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-bottom: 16px;';
 
   // Setup touch-redirection to scroll list container when swiping backdrop or margins
   let lastTouchY = 0;
@@ -792,14 +787,14 @@ function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
   if (filteredPlays.length > 0) {
     filteredPlays.forEach(p => {
       const item = document.createElement('div');
-      item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-glass); border-radius: 6px; font-size: 12px;';
+      item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-glass); border-radius: 8px; font-size: 12.5px;';
       
       const nameSpan = document.createElement('span');
       nameSpan.style.cssText = 'font-weight: 600;';
       nameSpan.innerText = p.batter;
 
       const inningSpan = document.createElement('span');
-      inningSpan.style.cssText = 'color: var(--text-secondary); font-size: 11px;';
+      inningSpan.style.cssText = 'color: var(--text-secondary); font-size: 11.5px;';
       inningSpan.innerText = `Inning ${p.inning || 'Unknown'}`;
 
       item.appendChild(nameSpan);
@@ -808,13 +803,13 @@ function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
     });
   } else {
     const emptyState = document.createElement('div');
-    emptyState.style.cssText = 'text-align: center; font-size: 11.5px; color: var(--text-secondary); padding: 12px; font-style: italic;';
+    emptyState.style.cssText = 'text-align: center; font-size: 12px; color: var(--text-secondary); padding: 16px; font-style: italic;';
     emptyState.innerText = `No ${nodeLabel.toLowerCase()} recorded.`;
     listContainer.appendChild(emptyState);
   }
 
   overlay.appendChild(listContainer);
-  backdrop.appendChild(overlay);
+  modal.appendChild(overlay);
 }
 
 export function getDeterministicSprayPlays(game, teamId, state) {

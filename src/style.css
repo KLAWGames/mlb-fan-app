@@ -1959,5 +1959,17 @@ header {
   letter-spacing: 0.02em;
 }
 
+/* Slide Up Animation for Sankey Details Overlay sub-panel */
+@keyframes slideUpDetails {
+  from {
+    transform: translateY(100%);
+    opacity: 0.8;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 
 
