@@ -695,6 +695,9 @@ function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
   const existing = document.querySelector('.sankey-details-overlay');
   if (existing) existing.remove();
 
+  // Scroll lock on page body
+  document.body.style.overflow = 'hidden';
+
   const overlay = document.createElement('div');
   overlay.className = 'sankey-details-overlay';
   overlay.style.cssText = `
@@ -717,6 +720,13 @@ function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
     color: var(--text-primary);
     overscroll-behavior: contain;
   `;
+
+  // Auto-restore page body scrolling when overlay details is closed
+  const originalRemove = overlay.remove;
+  overlay.remove = function() {
+    document.body.style.overflow = '';
+    originalRemove.call(this);
+  };
 
   const playTypeMap = {
     'single': 'single',
@@ -750,7 +760,34 @@ function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
   overlay.appendChild(header);
 
   const listContainer = document.createElement('div');
+  listContainer.className = 'sankey-list-container';
   listContainer.style.cssText = 'display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;';
+
+  // Setup touch-redirection to scroll list container when swiping backdrop or margins
+  let lastTouchY = 0;
+  overlay.addEventListener('touchstart', (e) => {
+    lastTouchY = e.touches[0].clientY;
+  }, { passive: true });
+
+  overlay.addEventListener('touchmove', (e) => {
+    const isListScroll = e.target.closest('.sankey-list-container');
+    const currentY = e.touches[0].clientY;
+    const deltaY = currentY - lastTouchY;
+    lastTouchY = currentY;
+
+    if (!isListScroll) {
+      // Redirect touchmove delta to the scroll container
+      listContainer.scrollTop -= deltaY;
+      if (e.cancelable) e.preventDefault();
+    } else {
+      // Prevent scroll leakage/bounce chaining at top and bottom boundaries
+      const isAtTop = listContainer.scrollTop === 0;
+      const isAtBottom = Math.ceil(listContainer.scrollTop + listContainer.clientHeight) >= listContainer.scrollHeight;
+      if ((isAtTop && deltaY > 0) || (isAtBottom && deltaY < 0)) {
+        if (e.cancelable) e.preventDefault();
+      }
+    }
+  }, { passive: false });
 
   if (filteredPlays.length > 0) {
     filteredPlays.forEach(p => {
