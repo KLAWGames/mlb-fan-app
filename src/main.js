@@ -3788,21 +3788,11 @@ function createTeamSelectView() {
   backHeader.style.gap = '12px';
   backHeader.style.marginBottom = '20px';
 
-  const backBtn = document.createElement('button');
-  backBtn.className = 'drawer-menu-item';
-  backBtn.style.cssText = 'font-size: 14px; font-weight: 700; color: var(--text-primary); background: var(--bg-card-hover); border: 1px solid var(--border-glass); border-radius: 6px; cursor: pointer; padding: 6px 12px; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; width: auto;';
-  backBtn.innerHTML = '← Back';
-  backBtn.addEventListener('click', () => {
-    state.activeView = state.previousMainView || 'dashboard';
-    render();
-  });
-
   const title = document.createElement('h2');
   title.className = 'setup-title';
   title.innerText = 'Configure Teams';
   title.style.margin = '0';
 
-  backHeader.appendChild(backBtn);
   backHeader.appendChild(title);
   container.appendChild(backHeader);
 
@@ -3840,6 +3830,16 @@ function createTeamSelectView() {
   // Helper to populate grid
   setTimeout(() => filterTeamsList(), 0);
 
+  // Large full-width back button at the bottom for easier touch target finger presses
+  const backBtn = document.createElement('button');
+  backBtn.style.cssText = 'width: 100%; margin-top: 24px; padding: 14px 16px; font-size: 14.5px; font-weight: 700; color: var(--text-primary); background: var(--bg-card-hover); border: 1px solid var(--border-glass-highlight); border-radius: 12px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; box-shadow: var(--shadow-sm);';
+  backBtn.innerHTML = '← Back';
+  backBtn.addEventListener('click', () => {
+    state.activeView = state.previousMainView || 'dashboard';
+    render();
+  });
+  container.appendChild(backBtn);
+
   return container;
 }
 
@@ -3855,20 +3855,11 @@ function createCreditsVersionView() {
   backHeader.style.gap = '12px';
   backHeader.style.marginBottom = '20px';
 
-  const backBtn = document.createElement('button');
-  backBtn.style.cssText = 'font-size: 14px; font-weight: 700; color: var(--text-primary); background: var(--bg-card-hover); border: 1px solid var(--border-glass); border-radius: 6px; cursor: pointer; padding: 6px 12px; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; width: auto;';
-  backBtn.innerHTML = '← Back';
-  backBtn.addEventListener('click', () => {
-    state.activeView = state.previousMainView || 'dashboard';
-    render();
-  });
-
   const title = document.createElement('h2');
   title.className = 'setup-title';
   title.innerText = 'Credits & Info';
   title.style.margin = '0';
 
-  backHeader.appendChild(backBtn);
   backHeader.appendChild(title);
   container.appendChild(backHeader);
 
@@ -3909,6 +3900,16 @@ function createCreditsVersionView() {
   creditsCard.appendChild(appMetaText);
 
   container.appendChild(creditsCard);
+
+  // Large full-width back button at the bottom for easier touch target finger presses
+  const backBtn = document.createElement('button');
+  backBtn.style.cssText = 'width: 100%; margin-top: 24px; padding: 14px 16px; font-size: 14.5px; font-weight: 700; color: var(--text-primary); background: var(--bg-card-hover); border: 1px solid var(--border-glass-highlight); border-radius: 12px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; box-shadow: var(--shadow-sm);';
+  backBtn.innerHTML = '← Back';
+  backBtn.addEventListener('click', () => {
+    state.activeView = state.previousMainView || 'dashboard';
+    render();
+  });
+  container.appendChild(backBtn);
 
   return container;
 }
