@@ -1141,11 +1141,10 @@ let confettiActive = false;
 let confettiCanvas = null;
 let confettiCtx = null;
 let confettiParticles = [];
+let animationMode = 'confetti'; // 'confetti' or 'rain'
 const confettiColors = ['#34d399', '#f87171', '#60a5fa', '#fbbf24', '#c084fc', '#f472b6', '#ffffff'];
 
-function startConfetti() {
-  if (confettiActive) return;
-  
+function initAnimationCanvas() {
   confettiCanvas = document.getElementById('confetti-canvas');
   if (!confettiCanvas) {
     confettiCanvas = document.createElement('canvas');
@@ -1163,6 +1162,12 @@ function startConfetti() {
   confettiActive = true;
   resizeConfettiCanvas();
   window.addEventListener('resize', resizeConfettiCanvas);
+}
+
+function startConfetti() {
+  if (confettiActive) return;
+  animationMode = 'confetti';
+  initAnimationCanvas();
 
   confettiParticles = [];
   const activeTeam = state.processedStandings?.teamsMap?.[state.activeTeamId] || teamsData[state.activeTeamId];
@@ -1186,7 +1191,29 @@ function startConfetti() {
   }
 
   confettiCtx = confettiCanvas.getContext('2d');
-  requestAnimationFrame(updateConfetti);
+  requestAnimationFrame(updateOverlayAnimation);
+}
+
+function startRainAnimation() {
+  if (confettiActive) return;
+  animationMode = 'rain';
+  initAnimationCanvas();
+
+  confettiParticles = [];
+  for (let i = 0; i < 100; i++) {
+    confettiParticles.push({
+      x: Math.random() * confettiCanvas.width,
+      y: Math.random() * -confettiCanvas.height - 30,
+      size: Math.random() * 10 + 12, // length of raindrop line
+      xSpeed: Math.random() * 0.4 - 0.2, // slight slanted wind angle
+      ySpeed: Math.random() * 5 + 9, // fast rain drop speed
+      color: 'rgba(147, 197, 253, 0.4)', // subtle blue gray droplet
+      opacity: Math.random() * 0.4 + 0.2
+    });
+  }
+
+  confettiCtx = confettiCanvas.getContext('2d');
+  requestAnimationFrame(updateOverlayAnimation);
 }
 
 function resizeConfettiCanvas() {
@@ -1196,7 +1223,7 @@ function resizeConfettiCanvas() {
   }
 }
 
-function updateConfetti() {
+function updateOverlayAnimation() {
   if (!confettiActive || !confettiCtx || !confettiCanvas) return;
 
   confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
@@ -1205,24 +1232,35 @@ function updateConfetti() {
   confettiParticles.forEach(p => {
     p.y += p.ySpeed;
     p.x += p.xSpeed;
-    p.rotation += p.rotationSpeed;
-    p.xSpeed += Math.sin(p.y / 30) * 0.05;
 
     if (p.y <= confettiCanvas.height) {
       activeCount++;
     }
 
     confettiCtx.save();
-    confettiCtx.translate(p.x, p.y);
-    confettiCtx.rotate((p.rotation * Math.PI) / 180);
     confettiCtx.globalAlpha = p.opacity;
-    confettiCtx.fillStyle = p.color;
-    confettiCtx.fillRect(-p.size / 2, -p.size, p.size, p.size * 2);
+
+    if (animationMode === 'confetti') {
+      p.rotation += p.rotationSpeed;
+      p.xSpeed += Math.sin(p.y / 30) * 0.05;
+      confettiCtx.translate(p.x, p.y);
+      confettiCtx.rotate((p.rotation * Math.PI) / 180);
+      confettiCtx.fillStyle = p.color;
+      confettiCtx.fillRect(-p.size / 2, -p.size, p.size, p.size * 2);
+    } else {
+      // Slanted raindrops
+      confettiCtx.strokeStyle = p.color;
+      confettiCtx.lineWidth = 1.2;
+      confettiCtx.beginPath();
+      confettiCtx.moveTo(p.x, p.y);
+      confettiCtx.lineTo(p.x + p.xSpeed * 2, p.y + p.size);
+      confettiCtx.stroke();
+    }
     confettiCtx.restore();
   });
 
   if (activeCount > 0 && confettiActive) {
-    requestAnimationFrame(updateConfetti);
+    requestAnimationFrame(updateOverlayAnimation);
   } else {
     stopConfetti();
   }
@@ -1363,9 +1401,7 @@ function showRecapModal(isAutoTrigger = false) {
         Yesterday's game was played on ${yesterdayLabel}.
       </div>
     `;
-    if (didTeamWin) {
-      startConfetti();
-    }
+
   } else {
     teamResultHtml = `
       <div style="font-size: 14px; font-weight: 600; color: var(--text-secondary);">
@@ -1461,9 +1497,7 @@ function showRecapModal(isAutoTrigger = false) {
   standingsCard.appendChild(standingsBody);
   body.appendChild(standingsCard);
 
-  if (hasGainedGround) {
-    startConfetti();
-  }
+
 
   // Visual Race Chart Card (Division or Wild Card depending on division leadership)
   let chartNode = null;
@@ -1630,6 +1664,13 @@ function showRecapModal(isAutoTrigger = false) {
   content.appendChild(body);
   backdrop.appendChild(content);
   document.body.appendChild(backdrop);
+
+  // Trigger appropriate animation based on yesterday's outcomes
+  if (didTeamWin || hasGainedGround) {
+    startConfetti();
+  } else if (teamGame && (!didTeamWin || divTrend < 0 || wcTrend < 0)) {
+    startRainAnimation();
+  }
 
   // Animate slide up
   backdrop.offsetWidth; // force reflow
