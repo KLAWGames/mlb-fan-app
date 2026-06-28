@@ -225,7 +225,8 @@ export function parseLiveFeedData(feed, teamId) {
           angle: launchAngle !== null ? launchAngle : (5 + Math.random() * 40),
           dist: totalDistance !== null ? Math.round(totalDistance) : null,
           cx: coordX,
-          cy: coordY
+          cy: coordY,
+          inning: p.about.inning
         });
       }
     });
@@ -434,7 +435,7 @@ export function getDeterministicSankeyStats(game, teamId, state) {
   };
 }
 
-export function drawSankeySVG(stats, team) {
+export function drawSankeySVG(stats, team, plays) {
   const svgWidth = 720;
   const svgHeight = 420;
   const padTop = 20;
@@ -627,15 +628,28 @@ export function drawSankeySVG(stats, team) {
   ];
 
   allNodes.forEach(n => {
-    nodesHtml += `<rect x="${n.x}" y="${n.y}" width="${nodeWidth}" height="${n.h}" rx="2" fill="${n.color}" opacity="0.9" />`;
+    const isInteractive = ['single', 'double', 'triple', 'hr', 'sw-walks', 'sh-hbp'].includes(n.id);
+    let nodeGroupHtml = '';
+    
+    if (isInteractive) {
+      nodeGroupHtml += `<g class="sankey-interactive-node" data-node-type="${n.id}" data-node-label="${n.label}" style="cursor: pointer;">`;
+      nodeGroupHtml += `<title>Click to view who hit these</title>`;
+    }
+    
+    nodeGroupHtml += `<rect x="${n.x}" y="${n.y}" width="${nodeWidth}" height="${n.h}" rx="2" fill="${n.color}" opacity="0.9" />`;
 
     if (n.id === 'atbats') {
-      nodesHtml += `<text x="${n.x - 6}" y="${n.y + n.h/2}" font-size="8px" font-weight="800" fill="var(--text-primary)" font-family="var(--font-title)" text-anchor="end" alignment-baseline="middle">${n.label} (${n.value})</text>`;
+      nodeGroupHtml += `<text x="${n.x - 6}" y="${n.y + n.h/2}" font-size="8px" font-weight="800" fill="var(--text-primary)" font-family="var(--font-title)" text-anchor="end" alignment-baseline="middle">${n.label} (${n.value})</text>`;
     } else if (n.id === 'hits' || n.id === 'outs' || n.id === 'walks' || n.id === 'hbp') {
-      nodesHtml += `<text x="${n.x - 6}" y="${n.y + n.h/2}" font-size="7.5px" font-weight="700" fill="var(--text-secondary)" font-family="var(--font-body)" text-anchor="end" alignment-baseline="middle">${n.label} (${n.value})</text>`;
+      nodeGroupHtml += `<text x="${n.x - 6}" y="${n.y + n.h/2}" font-size="7.5px" font-weight="700" fill="var(--text-secondary)" font-family="var(--font-body)" text-anchor="end" alignment-baseline="middle">${n.label} (${n.value})</text>`;
     } else {
-      nodesHtml += `<text x="${n.x + nodeWidth + 6}" y="${n.y + n.h/2}" font-size="7.5px" font-weight="600" fill="var(--text-secondary)" font-family="var(--font-body)" text-anchor="start" alignment-baseline="middle">${n.label} (${n.value})</text>`;
+      nodeGroupHtml += `<text x="${n.x + nodeWidth + 6}" y="${n.y + n.h/2}" font-size="7.5px" font-weight="600" fill="var(--text-secondary)" font-family="var(--font-body)" text-anchor="start" alignment-baseline="middle">${n.label} (${n.value})</text>`;
     }
+
+    if (isInteractive) {
+      nodeGroupHtml += `</g>`;
+    }
+    nodesHtml += nodeGroupHtml;
   });
 
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -648,7 +662,107 @@ export function drawSankeySVG(stats, team) {
     <g>${nodesHtml}</g>
   `;
 
+  const interactiveGroups = svg.querySelectorAll('.sankey-interactive-node');
+  interactiveGroups.forEach(g => {
+    g.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const nodeType = g.getAttribute('data-node-type');
+      const nodeLabel = g.getAttribute('data-node-label');
+      showNodeDetailsOverlay(nodeType, nodeLabel, plays, team);
+    });
+  });
+
   return svg;
+}
+
+function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
+  const backdrop = document.querySelector('.analytics-center-backdrop');
+  if (!backdrop) return;
+
+  const existing = document.querySelector('.sankey-details-overlay');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'sankey-details-overlay';
+  overlay.style.cssText = `
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 320px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-glass-highlight);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 14px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+    padding: 16px;
+    z-index: 12000;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    color: var(--text-primary);
+  `;
+
+  const playTypeMap = {
+    'single': 'single',
+    'double': 'double',
+    'triple': 'triple',
+    'hr': 'hr',
+    'sw-walks': 'walk',
+    'sh-hbp': 'hbp'
+  };
+  const targetType = playTypeMap[nodeType] || nodeType;
+  const filteredPlays = (plays || []).filter(p => p.event === targetType);
+
+  const header = document.createElement('div');
+  header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-glass-highlight); padding-bottom: 8px;';
+  
+  const title = document.createElement('span');
+  title.style.cssText = 'font-size: 13px; font-weight: 800; font-family: var(--font-title); display: flex; align-items: center; gap: 6px;';
+  title.innerHTML = `<span style="display:inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${team.primaryColor || '#888888'};"></span> ${nodeLabel}`;
+  
+  const closeBtn = document.createElement('button');
+  closeBtn.innerText = '×';
+  closeBtn.style.cssText = 'border: none; background: none; font-size: 20px; font-weight: 600; color: var(--text-secondary); cursor: pointer; padding: 0; line-height: 1;';
+  closeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    overlay.remove();
+  });
+
+  header.appendChild(title);
+  header.appendChild(closeBtn);
+  overlay.appendChild(header);
+
+  const listContainer = document.createElement('div');
+  listContainer.style.cssText = 'display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto;';
+
+  if (filteredPlays.length > 0) {
+    filteredPlays.forEach(p => {
+      const item = document.createElement('div');
+      item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-glass); border-radius: 6px; font-size: 12px;';
+      
+      const nameSpan = document.createElement('span');
+      nameSpan.style.cssText = 'font-weight: 600;';
+      nameSpan.innerText = p.batter;
+
+      const inningSpan = document.createElement('span');
+      inningSpan.style.cssText = 'color: var(--text-secondary); font-size: 11px;';
+      inningSpan.innerText = `Inning ${p.inning || 'Unknown'}`;
+
+      item.appendChild(nameSpan);
+      item.appendChild(inningSpan);
+      listContainer.appendChild(item);
+    });
+  } else {
+    const emptyState = document.createElement('div');
+    emptyState.style.cssText = 'text-align: center; font-size: 11.5px; color: var(--text-secondary); padding: 12px; font-style: italic;';
+    emptyState.innerText = `No ${nodeLabel.toLowerCase()} recorded.`;
+    listContainer.appendChild(emptyState);
+  }
+
+  overlay.appendChild(listContainer);
+  backdrop.appendChild(overlay);
 }
 
 export function getDeterministicSprayPlays(game, teamId, state) {
@@ -691,6 +805,7 @@ export function getDeterministicSprayPlays(game, teamId, state) {
     const angle = angleMin + lcgRandom() * (angleMax - angleMin);
     const dist = distMin ? Math.round(distMin + lcgRandom() * (distMax - distMin)) : null;
 
+    const inning = (playId % 9) + 1;
     plays.push({
       id: playId++,
       batter,
@@ -700,7 +815,8 @@ export function getDeterministicSprayPlays(game, teamId, state) {
       angle,
       dist,
       cx: parseFloat(cx.toFixed(1)),
-      cy: parseFloat(cy.toFixed(1))
+      cy: parseFloat(cy.toFixed(1)),
+      inning
     });
   }
 
@@ -763,18 +879,39 @@ export function getDeterministicSprayPlays(game, teamId, state) {
     const batter = roster[Math.floor(lcgRandom() * roster.length)];
     if (!batterStats[batter]) batterStats[batter] = { H: 0, AB: 0, BB: 0, HBP: 0 };
     batterStats[batter].AB += 1;
+    plays.push({
+      id: playId++,
+      batter,
+      event: 'strikeout-out',
+      desc: 'Strikeout',
+      cx: 125, cy: 205, inning: (playId % 9) + 1
+    });
   }
 
   for (let i = 0; i < stats.Walks; i++) {
     const batter = roster[Math.floor(lcgRandom() * roster.length)];
     if (!batterStats[batter]) batterStats[batter] = { H: 0, AB: 0, BB: 0, HBP: 0 };
     batterStats[batter].BB += 1;
+    plays.push({
+      id: playId++,
+      batter,
+      event: 'walk',
+      desc: 'Walk',
+      cx: 125, cy: 205, inning: (playId % 9) + 1
+    });
   }
 
   for (let i = 0; i < stats.HBP; i++) {
     const batter = roster[Math.floor(lcgRandom() * roster.length)];
     if (!batterStats[batter]) batterStats[batter] = { H: 0, AB: 0, BB: 0, HBP: 0 };
     batterStats[batter].HBP += 1;
+    plays.push({
+      id: playId++,
+      batter,
+      event: 'hbp',
+      desc: 'Hit By Pitch',
+      cx: 125, cy: 205, inning: (playId % 9) + 1
+    });
   }
 
   return { plays, batterStats };
@@ -1046,11 +1183,12 @@ export function openGameAnalyticsCenter(game, state, render) {
 
     if (selectedVis === 'sankey') {
       const stats = getDeterministicSankeyStats(normGame, selectedTeamId, state);
+      const { plays } = getDeterministicSprayPlays(normGame, selectedTeamId, state);
       
       const scrollWrapper = document.createElement('div');
       scrollWrapper.style.cssText = 'width: 100%; max-height: 440px; overflow: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border-glass); border-radius: 12px; background: #f8fafc; padding: 12px; position: relative;';
       
-      const sankeyNode = drawSankeySVG(stats, teamObj);
+      const sankeyNode = drawSankeySVG(stats, teamObj, plays);
       scrollWrapper.appendChild(sankeyNode);
       visContainer.appendChild(scrollWrapper);
 
