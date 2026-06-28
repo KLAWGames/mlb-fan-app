@@ -715,6 +715,7 @@ function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
     flex-direction: column;
     gap: 12px;
     color: var(--text-primary);
+    overscroll-behavior: contain;
   `;
 
   const playTypeMap = {
@@ -749,7 +750,7 @@ function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
   overlay.appendChild(header);
 
   const listContainer = document.createElement('div');
-  listContainer.style.cssText = 'display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto;';
+  listContainer.style.cssText = 'display: flex; flex-direction: column; gap: 6px; max-height: 200px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;';
 
   if (filteredPlays.length > 0) {
     filteredPlays.forEach(p => {
