@@ -1195,6 +1195,10 @@ export function openGameAnalyticsCenter(game, state, render) {
   body.appendChild(visContainer);
 
   updateVisContent = () => {
+    const existingOverlay = document.querySelector('.sankey-details-overlay');
+    if (existingOverlay) {
+      existingOverlay.remove();
+    }
     visContainer.innerHTML = '';
     const teamObj = parseInt(selectedTeamId, 10) === parseInt(normGame.awayTeam.id, 10) ? normGame.awayTeam : normGame.homeTeam;
 
