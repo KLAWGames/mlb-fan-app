@@ -56,11 +56,30 @@ export function parseLiveFeedData(feed, teamId) {
   const stats = {
     Hits: 0, Outs: 0, Walks: 0, HBP: 0,
     Single: 0, Double: 0, Triple: 0, HomeRun: 0,
-    GroundOut: 0, Lineout: 0, Flyout: 0, SacFly: 0, PopOut: 0, Strikeout: 0, ThrownOut: 0, Unplayed: 0
+    GroundOut: 0, Lineout: 0, Flyout: 0, SacFly: 0, PopOut: 0, Strikeout: 0, ThrownOut: 0, Unplayed: 0,
+    Single_Runs: 0, Single_LOB: 0,
+    Double_Runs: 0, Double_LOB: 0,
+    Triple_Runs: 0, Triple_LOB: 0,
+    HomeRun_Runs: 0,
+    Walk_Runs: 0, Walk_LOB: 0,
+    HBP_Runs: 0, HBP_LOB: 0
   };
 
   const plays = [];
   let playId = 1;
+
+  const scoringPlayerIds = new Set();
+  if (feed.liveData && feed.liveData.plays && feed.liveData.plays.allPlays) {
+    feed.liveData.plays.allPlays.forEach(p => {
+      if (p.runners) {
+        p.runners.forEach(r => {
+          if (r.movement && r.movement.end === 'score') {
+            scoringPlayerIds.add(r.details?.runner?.id);
+          }
+        });
+      }
+    });
+  }
 
   if (feed.liveData && feed.liveData.plays && feed.liveData.plays.allPlays) {
     feed.liveData.plays.allPlays.forEach(p => {
@@ -70,6 +89,9 @@ export function parseLiveFeedData(feed, teamId) {
       if (!isTeamBatting) return;
 
       const batterName = p.matchup?.batter?.fullName || 'Unknown Batter';
+      const batterId = p.matchup?.batter?.id;
+      const didScore = batterId ? scoringPlayerIds.has(batterId) : false;
+
       const event = p.result.event || '';
       const eventType = p.result.eventType || '';
       const desc = p.result.description || '';
@@ -101,18 +123,22 @@ export function parseLiveFeedData(feed, teamId) {
         stats.Single++;
         stats.Hits++;
         mappedEvent = 'single';
+        if (didScore) stats.Single_Runs++; else stats.Single_LOB++;
       } else if (eventType === 'double') {
         stats.Double++;
         stats.Hits++;
         mappedEvent = 'double';
+        if (didScore) stats.Double_Runs++; else stats.Double_LOB++;
       } else if (eventType === 'triple') {
         stats.Triple++;
         stats.Hits++;
         mappedEvent = 'triple';
+        if (didScore) stats.Triple_Runs++; else stats.Triple_LOB++;
       } else if (eventType === 'home_run') {
         stats.HomeRun++;
         stats.Hits++;
         mappedEvent = 'hr';
+        stats.HomeRun_Runs++;
       } else if (p.result.isOut) {
         stats.Outs++;
         if (eventType?.includes('strikeout')) {
@@ -137,12 +163,15 @@ export function parseLiveFeedData(feed, teamId) {
       } else if (eventType === 'walk' || eventType === 'base_on_balls' || eventType === 'intentional_walk') {
         stats.Walks++;
         mappedEvent = 'walk';
+        if (didScore) stats.Walk_Runs++; else stats.Walk_LOB++;
       } else if (eventType === 'hit_by_pitch') {
         stats.HBP++;
         mappedEvent = 'hbp';
+        if (didScore) stats.HBP_Runs++; else stats.HBP_LOB++;
       } else {
         stats.Unplayed++;
         mappedEvent = 'walk';
+        if (didScore) stats.Walk_Runs++; else stats.Walk_LOB++;
       }
 
       if (mappedEvent === 'single' || mappedEvent === 'double' || mappedEvent === 'triple' || mappedEvent === 'hr' || mappedEvent === 'out') {
@@ -370,15 +399,38 @@ export function getDeterministicSankeyStats(game, teamId, state) {
     GroundOut += remainingOuts;
   }
 
+  const Single_Runs = Math.round(Single * 0.25);
+  const Single_LOB = Single - Single_Runs;
+
+  const Double_Runs = Math.round(Double * 0.40);
+  const Double_LOB = Double - Double_Runs;
+
+  const Triple_Runs = Math.round(Triple * 0.60);
+  const Triple_LOB = Triple - Triple_Runs;
+
+  const HomeRun_Runs = HomeRun;
+
+  const Walk_Runs = Math.round(Walks * 0.20);
+  const Walk_LOB = Walks - Walk_Runs;
+
+  const HBP_Runs = Math.round(HBP * 0.20);
+  const HBP_LOB = HBP - HBP_Runs;
+
   return {
     Outs, Hits, Walks, HBP,
     Single, Double, Triple, HomeRun,
-    GroundOut, Lineout, Flyout, SacFly, PopOut, Strikeout, ThrownOut, Unplayed
+    GroundOut, Lineout, Flyout, SacFly, PopOut, Strikeout, ThrownOut, Unplayed,
+    Single_Runs, Single_LOB,
+    Double_Runs, Double_LOB,
+    Triple_Runs, Triple_LOB,
+    HomeRun_Runs,
+    Walk_Runs, Walk_LOB,
+    HBP_Runs, HBP_LOB
   };
 }
 
 export function drawSankeySVG(stats, team) {
-  const svgWidth = 540;
+  const svgWidth = 720;
   const svgHeight = 420;
   const padTop = 20;
   const padBottom = 20;
@@ -387,7 +439,13 @@ export function drawSankeySVG(stats, team) {
   const {
     Outs, Hits, Walks, HBP,
     Single, Double, Triple, HomeRun,
-    GroundOut, Lineout, Flyout, SacFly, PopOut, Strikeout, ThrownOut, Unplayed
+    GroundOut, Lineout, Flyout, SacFly, PopOut, Strikeout, ThrownOut, Unplayed,
+    Single_Runs = 0, Single_LOB = 0,
+    Double_Runs = 0, Double_LOB = 0,
+    Triple_Runs = 0, Triple_LOB = 0,
+    HomeRun_Runs = 0,
+    Walk_Runs = 0, Walk_LOB = 0,
+    HBP_Runs = 0, HBP_LOB = 0
   } = stats;
 
   const AtBats = Outs + Hits + Walks + HBP;
@@ -396,6 +454,7 @@ export function drawSankeySVG(stats, team) {
   const col1_x = 35;
   const col2_x = 220;
   const col3_x = 420;
+  const col4_x = 600;
 
   let defsHtml = '';
   let nodesHtml = '';
@@ -475,14 +534,7 @@ export function drawSankeySVG(stats, team) {
     currY += h + gapY;
   }
 
-  const allNodes = [
-    node_atbats,
-    node_hits, node_outs, node_walks, node_hbp,
-    ...nodes_subhits,
-    ...nodes_subouts,
-    ...(Walks > 0 ? [node_subwalks] : []),
-    ...(HBP > 0 ? [node_subhbp] : [])
-  ];
+
 
   function drawFlow(src, dest, val, color1, color2) {
     if (val <= 0) return;
@@ -527,6 +579,58 @@ export function drawSankeySVG(stats, team) {
     drawFlow(node_hbp, node_subhbp, HBP, node_hbp.color, node_subhbp.color);
   }
 
+  // --- COLUMN 4: RUNS & LOB ---
+  const Runs_Val = Single_Runs + Double_Runs + Triple_Runs + HomeRun_Runs + Walk_Runs + HBP_Runs;
+  const LOB_Val = Single_LOB + Double_LOB + Triple_LOB + Walk_LOB + HBP_LOB;
+
+  const h_runs = Runs_Val * scaleY;
+  const h_lob = LOB_Val * scaleY;
+  const totalH_col4 = h_runs + h_lob + (Runs_Val > 0 && LOB_Val > 0 ? gapY : 0);
+  const startY_col4 = padTop + (svgHeight - padTop - padBottom - totalH_col4) / 2;
+
+  const node_runs = { id: 'runs', label: 'Runs Scored', value: Runs_Val, x: col4_x, y: startY_col4, h: h_runs, color: '#f59e0b', sourceOffset: 0, targetOffset: 0 };
+  const node_lob = { id: 'lob', label: 'Left On Base / Out', value: LOB_Val, x: col4_x, y: startY_col4 + h_runs + (Runs_Val > 0 && LOB_Val > 0 ? gapY : 0), h: h_lob, color: '#64748b', sourceOffset: 0, targetOffset: 0 };
+
+  const node_single = nodes_subhits.find(n => n.id === 'single');
+  const node_double = nodes_subhits.find(n => n.id === 'double');
+  const node_triple = nodes_subhits.find(n => n.id === 'triple');
+  const node_hr = nodes_subhits.find(n => n.id === 'hr');
+
+  if (node_single) {
+    if (Single_Runs > 0 && Runs_Val > 0) drawFlow(node_single, node_runs, Single_Runs, node_single.color, node_runs.color);
+    if (Single_LOB > 0 && LOB_Val > 0) drawFlow(node_single, node_lob, Single_LOB, node_single.color, node_lob.color);
+  }
+  if (node_double) {
+    if (Double_Runs > 0 && Runs_Val > 0) drawFlow(node_double, node_runs, Double_Runs, node_double.color, node_runs.color);
+    if (Double_LOB > 0 && LOB_Val > 0) drawFlow(node_double, node_lob, Double_LOB, node_double.color, node_lob.color);
+  }
+  if (node_triple) {
+    if (Triple_Runs > 0 && Runs_Val > 0) drawFlow(node_triple, node_runs, Triple_Runs, node_triple.color, node_runs.color);
+    if (Triple_LOB > 0 && LOB_Val > 0) drawFlow(node_triple, node_lob, Triple_LOB, node_triple.color, node_lob.color);
+  }
+  if (node_hr) {
+    if (HomeRun_Runs > 0 && Runs_Val > 0) drawFlow(node_hr, node_runs, HomeRun_Runs, node_hr.color, node_runs.color);
+  }
+  if (node_subwalks) {
+    if (Walk_Runs > 0 && Runs_Val > 0) drawFlow(node_subwalks, node_runs, Walk_Runs, node_subwalks.color, node_runs.color);
+    if (Walk_LOB > 0 && LOB_Val > 0) drawFlow(node_subwalks, node_lob, Walk_LOB, node_subwalks.color, node_lob.color);
+  }
+  if (node_subhbp) {
+    if (HBP_Runs > 0 && Runs_Val > 0) drawFlow(node_subhbp, node_runs, HBP_Runs, node_subhbp.color, node_runs.color);
+    if (HBP_LOB > 0 && LOB_Val > 0) drawFlow(node_subhbp, node_lob, HBP_LOB, node_subhbp.color, node_lob.color);
+  }
+
+  const allNodes = [
+    node_atbats,
+    node_hits, node_outs, node_walks, node_hbp,
+    ...nodes_subhits,
+    ...nodes_subouts,
+    ...(Walks > 0 ? [node_subwalks] : []),
+    ...(HBP > 0 ? [node_subhbp] : []),
+    ...(Runs_Val > 0 ? [node_runs] : []),
+    ...(LOB_Val > 0 ? [node_lob] : [])
+  ];
+
   allNodes.forEach(n => {
     nodesHtml += `<rect x="${n.x}" y="${n.y}" width="${nodeWidth}" height="${n.h}" rx="2" fill="${n.color}" opacity="0.9" />`;
 
@@ -541,7 +645,7 @@ export function drawSankeySVG(stats, team) {
 
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
-  svg.style.cssText = 'width: 500px; min-width: 500px; height: auto; display: block; overflow: visible;';
+  svg.style.cssText = 'width: 680px; min-width: 680px; height: auto; display: block; overflow: visible;';
   
   svg.innerHTML = `
     <defs>${defsHtml}</defs>
@@ -779,7 +883,7 @@ export function openGameAnalyticsCenter(game, state, render) {
   modal.className = 'glass-card';
   modal.style.cssText = `
     width: 100%;
-    max-width: 520px;
+    max-width: 740px;
     max-height: 90vh;
     background: var(--bg-card);
     border: 1px solid var(--border-glass-highlight);
