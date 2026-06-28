@@ -1200,15 +1200,15 @@ function startRainAnimation() {
   initAnimationCanvas();
 
   confettiParticles = [];
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < 140; i++) {
     confettiParticles.push({
       x: Math.random() * confettiCanvas.width,
       y: Math.random() * -confettiCanvas.height - 30,
-      size: Math.random() * 10 + 12, // length of raindrop line
+      size: Math.random() * 8 + 14, // longer raindrop line
       xSpeed: Math.random() * 0.4 - 0.2, // slight slanted wind angle
-      ySpeed: Math.random() * 5 + 9, // fast rain drop speed
-      color: 'rgba(147, 197, 253, 0.4)', // subtle blue gray droplet
-      opacity: Math.random() * 0.4 + 0.2
+      ySpeed: Math.random() * 6 + 10, // fast rain drop speed
+      color: 'rgba(186, 230, 253, 0.75)', // brighter visible sky blue gray droplet
+      opacity: Math.random() * 0.3 + 0.65 // much higher visibility opacity
     });
   }
 
@@ -1250,7 +1250,7 @@ function updateOverlayAnimation() {
     } else {
       // Slanted raindrops
       confettiCtx.strokeStyle = p.color;
-      confettiCtx.lineWidth = 1.2;
+      confettiCtx.lineWidth = 1.6;
       confettiCtx.beginPath();
       confettiCtx.moveTo(p.x, p.y);
       confettiCtx.lineTo(p.x + p.xSpeed * 2, p.y + p.size);
