@@ -1007,12 +1007,15 @@ function setupPullToRefresh() {
   const resistance = 0.35; // drag resistance multiplier
 
   document.addEventListener('touchstart', (e) => {
-    // Ignore PTR touches on UI controls like edge navigation trigger, header buttons, or overlay popups
-    if (e.target.closest('.floating-menu-trigger') || 
+    // Ignore PTR touches on UI controls like buttons, links, header buttons, or overlay popups
+    if (e.target.closest('button') ||
+        e.target.closest('a') ||
+        e.target.closest('.floating-menu-trigger') || 
         e.target.closest('.header-top') ||
         e.target.closest('.recap-backdrop') || 
         e.target.closest('.recap-content') ||
-        e.target.closest('.hamburger-drawer')) {
+        e.target.closest('.hamburger-drawer') ||
+        e.target.closest('.banner-detail-strip')) {
       return;
     }
     // Only track if we are scrolled to the very top of the window
