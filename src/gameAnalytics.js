@@ -184,7 +184,8 @@ export function parseLiveFeedData(feed, teamId) {
         if (didScore) stats.Walk_Runs++; else stats.Walk_LOB++;
       }
 
-      if (['single', 'double', 'triple', 'hr', 'out', 'ground', 'lineout', 'flyout', 'sac', 'pop', 'thrown', 'unplayed'].includes(mappedEvent)) {
+      const isFieldPlay = ['single', 'double', 'triple', 'hr', 'ground', 'lineout', 'flyout', 'sac', 'pop', 'thrown', 'unplayed'].includes(mappedEvent);
+      if (isFieldPlay) {
         if (coordX === null || coordY === null || isNaN(coordX) || isNaN(coordY)) {
           let seed = p.about.atBatIndex * 31 + teamId;
           function lcg() {
@@ -220,20 +221,23 @@ export function parseLiveFeedData(feed, teamId) {
             coordY = parseFloat((205 + dy * scale).toFixed(1));
           }
         }
-
-        plays.push({
-          id: playId++,
-          batter: batterName,
-          event: mappedEvent,
-          desc: event + " (" + desc.split('.')[0] + ")",
-          speed: launchSpeed || (70 + Math.random() * 40),
-          angle: launchAngle !== null ? launchAngle : (5 + Math.random() * 40),
-          dist: totalDistance !== null ? Math.round(totalDistance) : null,
-          cx: coordX,
-          cy: coordY,
-          inning: p.about.inning
-        });
+      } else {
+        coordX = 125;
+        coordY = 205;
       }
+
+      plays.push({
+        id: playId++,
+        batter: batterName,
+        event: mappedEvent,
+        desc: event + " (" + desc.split('.')[0] + ")",
+        speed: launchSpeed || (70 + Math.random() * 40),
+        angle: launchAngle !== null ? launchAngle : (5 + Math.random() * 40),
+        dist: totalDistance !== null ? Math.round(totalDistance) : null,
+        cx: coordX,
+        cy: coordY,
+        inning: p.about.inning
+      });
     });
   }
 
@@ -952,6 +956,9 @@ export function drawSprayFieldSVG(plays, activePlayId, clickCallback) {
   const playsGroup = svg.querySelector('.plays-group');
 
   plays.forEach(play => {
+    if (['walk', 'hbp', 'strikeout-out'].includes(play.event)) {
+      return;
+    }
     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     circle.setAttribute('cx', play.cx);
     circle.setAttribute('cy', play.cy);
