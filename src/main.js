@@ -975,6 +975,15 @@ async function init() {
   // Load Data
   await loadData();
 
+  // Fade out splash screen
+  const splash = document.getElementById('app-splash-screen');
+  if (splash) {
+    splash.classList.add('fade-out');
+    setTimeout(() => {
+      splash.remove();
+    }, 500);
+  }
+
   // Start auto-refresh interval for live scores
   startAutoRefresh();
 }

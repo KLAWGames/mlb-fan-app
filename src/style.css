@@ -1931,3 +1931,104 @@ header {
 
 
 
+
+/* Splash Screen Styles */
+.splash-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 999999;
+  opacity: 1;
+  transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+
+.splash-screen.fade-out {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+  max-width: 280px;
+  width: 90%;
+}
+
+.splash-logo {
+  font-family: var(--font-title);
+  font-size: 42px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  margin: 0;
+  background: linear-gradient(135deg, #38bdf8 0%, #3b82f6 50%, #1d4ed8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 8px rgba(56, 189, 248, 0.3));
+  animation: pulseLogo 2s infinite ease-in-out;
+}
+
+.splash-season {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-gold);
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  margin-top: -4px;
+  opacity: 0.95;
+  text-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
+}
+
+.splash-loader-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 12px;
+}
+
+.splash-loader-progress {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, #38bdf8, #3b82f6);
+  border-radius: 2px;
+  transform: translateX(-100%);
+  animation: loadingProgress 3.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.splash-status {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  margin-top: 4px;
+  animation: fadeInStatus 1.5s infinite alternate;
+}
+
+@keyframes pulseLogo {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+@keyframes loadingProgress {
+  0% { transform: translateX(-100%); }
+  25% { transform: translateX(-70%); }
+  50% { transform: translateX(-40%); }
+  75% { transform: translateX(-15%); }
+  100% { transform: translateX(0%); }
+}
+
+@keyframes fadeInStatus {
+  from { opacity: 0.5; }
+  to { opacity: 1; }
+}
