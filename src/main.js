@@ -1318,6 +1318,10 @@ function showRecapModal(isAutoTrigger = false) {
   
   if (!teamToday || !teamYesterday) return;
 
+  // Hide floating hamburger menu button when recap is open
+  const trigger = document.querySelector('.floating-menu-trigger');
+  if (trigger) trigger.style.display = 'none';
+
   // Safely compute formatted label for yesterday's date
   const parts = state.selectedDate.split('-');
   const todayDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0);
@@ -1328,15 +1332,22 @@ function showRecapModal(isAutoTrigger = false) {
   // Create backdrop
   const backdrop = document.createElement('div');
   backdrop.className = 'recap-backdrop';
+
+  function closeRecap() {
+    backdrop.classList.remove('show');
+    setTimeout(() => {
+      if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+      stopConfetti();
+      // Restore floating hamburger menu trigger button
+      const t = document.querySelector('.floating-menu-trigger');
+      if (t) t.style.display = 'flex';
+    }, 300);
+  }
   
   // Close recap modal when clicking outside content (on backdrop)
   backdrop.addEventListener('click', (e) => {
     if (e.target === backdrop) {
-      backdrop.classList.remove('show');
-      setTimeout(() => {
-        if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
-        stopConfetti();
-      }, 300);
+      closeRecap();
     }
   });
   
@@ -1354,11 +1365,7 @@ function showRecapModal(isAutoTrigger = false) {
   closeBtn.className = 'recap-close-btn';
   closeBtn.innerHTML = '×';
   closeBtn.addEventListener('click', () => {
-    backdrop.classList.remove('show');
-    setTimeout(() => {
-      if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
-      stopConfetti();
-    }, 300);
+    closeRecap();
   });
   
   header.appendChild(title);
