@@ -241,13 +241,35 @@ export function parseLiveFeedData(feed, teamId) {
         });
       }
 
+      let drivenInBy = null;
+      if (didScore && ['single', 'double', 'triple', 'walk', 'hbp', 'error'].includes(mappedEvent) && batterId) {
+        const allPlays = feed.liveData?.plays?.allPlays;
+        const currentIdx = allPlays ? allPlays.indexOf(p) : -1;
+        if (currentIdx !== -1) {
+          const scoringPlay = allPlays.slice(currentIdx + 1).find(p2 => {
+            if (!p2.runners) return false;
+            if (p2.about?.inning !== p.about?.inning || p2.about?.isTopInning !== p.about?.isTopInning) return false;
+            return p2.runners.some(r => r.details?.runner?.id === batterId && r.movement && r.movement.end === 'score');
+          });
+          if (scoringPlay) {
+            const driverName = scoringPlay.matchup?.batter?.fullName || 'Unknown Player';
+            let driverEvent = scoringPlay.result?.event || scoringPlay.result?.eventType || 'play';
+            driverEvent = driverEvent.toLowerCase().replace('_', ' ');
+            drivenInBy = { batter: driverName, event: driverEvent };
+          }
+        }
+      }
+
       plays.push({
         id: playId++,
         batter: batterName,
+        batterId,
         event: mappedEvent,
         desc: event + " (" + desc.split('.')[0] + ")",
         description: desc,
         runsOnPlay,
+        drivenInBy,
+        scored: didScore,
         speed: launchSpeed || (70 + Math.random() * 40),
         angle: launchAngle !== null ? launchAngle : (5 + Math.random() * 40),
         dist: totalDistance !== null ? Math.round(totalDistance) : null,
@@ -883,9 +905,9 @@ export function drawSankeySVG(stats, team, plays) {
     } else if (n.id === 'hits' || n.id === 'outs' || n.id === 'walks' || n.id === 'hbp' || n.id === 'errors') {
       nodeGroupHtml += `<text x="${n.x - 6}" y="${n.y + n.h/2}" font-size="7.5px" font-weight="700" fill="var(--text-secondary)" font-family="var(--font-body)" text-anchor="end" alignment-baseline="middle">${n.label} (${n.value})</text>`;
     } else if (isInteractive) {
-      const labelText = `${n.label} (${n.value})`;
-      const labelWidth = Math.max(50, labelText.length * 5.2 + 10);
-      nodeGroupHtml += `<rect x="${n.x + nodeWidth + 5}" y="${n.y + n.h/2 - 7}" width="${labelWidth}" height="14" rx="4" fill="rgba(255, 255, 255, 0.08)" stroke="rgba(255, 255, 255, 0.15)" stroke-width="0.75" class="sankey-btn-bg" style="transition: all 0.2s;" />`;
+      const labelText = `⊕ ${n.label} (${n.value})`;
+      const labelWidth = Math.max(58, labelText.length * 5.2 + 10);
+      nodeGroupHtml += `<rect x="${n.x + nodeWidth + 5}" y="${n.y + n.h/2 - 7.5}" width="${labelWidth}" height="15" rx="4.5" fill="rgba(255, 255, 255, 0.14)" stroke="rgba(255, 255, 255, 0.28)" stroke-width="0.75" class="sankey-btn-bg" style="transition: all 0.2s;" />`;
       nodeGroupHtml += `<text x="${n.x + nodeWidth + 5 + labelWidth/2}" y="${n.y + n.h/2}" font-size="7px" font-weight="700" fill="var(--text-primary)" font-family="var(--font-title)" text-anchor="middle" alignment-baseline="middle" style="pointer-events: none;">${labelText}</text>`;
     } else {
       nodeGroupHtml += `<text x="${n.x + nodeWidth + 6}" y="${n.y + n.h/2}" font-size="7.5px" font-weight="600" fill="var(--text-secondary)" font-family="var(--font-body)" text-anchor="start" alignment-baseline="middle">${n.label} (${n.value})</text>`;
@@ -1038,6 +1060,13 @@ function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
         leftCol.appendChild(descSpan);
       }
       
+      if (p.drivenInBy) {
+        const driverSpan = document.createElement('span');
+        driverSpan.style.cssText = 'font-size: 11px; color: #10b981; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; margin-top: 2px;';
+        driverSpan.innerHTML = `➔ Later driven in by a ${p.drivenInBy.event} from ${p.drivenInBy.batter}`;
+        leftCol.appendChild(driverSpan);
+      }
+      
       const rightCol = document.createElement('div');
       rightCol.style.cssText = 'display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0;';
 
@@ -1166,7 +1195,7 @@ export function getDeterministicSprayPlays(game, teamId, state) {
     }
   }
 
-  function addPlay(event, desc, runsOnPlay, rMin, rMax, thetaMin, thetaMax, speedMin, speedMax, angleMin, angleMax, distMin, distMax) {
+  function addPlay(event, desc, runsOnPlay, scored, rMin, rMax, thetaMin, thetaMax, speedMin, speedMax, angleMin, angleMax, distMin, distMax) {
     const r = rMin + lcgRandom() * (rMax - rMin);
     const theta = thetaMin + lcgRandom() * (thetaMax - thetaMin);
     
@@ -1186,6 +1215,7 @@ export function getDeterministicSprayPlays(game, teamId, state) {
       event,
       desc,
       runsOnPlay: runsOnPlay || 0,
+      scored: scored || false,
       speed,
       angle,
       dist,
@@ -1196,22 +1226,22 @@ export function getDeterministicSprayPlays(game, teamId, state) {
   }
 
   for (let i = 0; i < stats.Single; i++) {
-    addPlay('single', 'Single', runAllocations.single[i], 55, 110, -40, 40, 85, 102, 6, 18, 210, 280);
+    addPlay('single', 'Single', runAllocations.single[i], i < stats.Single_Runs, 55, 110, -40, 40, 85, 102, 6, 18, 210, 280);
   }
   for (let i = 0; i < stats.Double; i++) {
-    addPlay('double', 'Double', runAllocations.double[i], 95, 145, -42, 42, 92, 108, 14, 25, 290, 360);
+    addPlay('double', 'Double', runAllocations.double[i], i < stats.Double_Runs, 95, 145, -42, 42, 92, 108, 14, 25, 290, 360);
   }
   for (let i = 0; i < stats.Triple; i++) {
     const side = lcgRandom() < 0.5 ? -1 : 1;
     const thetaMin = side < 0 ? -43 : 33;
     const thetaMax = side < 0 ? -33 : 43;
-    addPlay('triple', 'Triple', runAllocations.triple[i], 125, 148, thetaMin, thetaMax, 96, 110, 18, 28, 340, 390);
+    addPlay('triple', 'Triple', runAllocations.triple[i], i < stats.Triple_Runs, 125, 148, thetaMin, thetaMax, 96, 110, 18, 28, 340, 390);
   }
   for (let i = 0; i < stats.HomeRun; i++) {
-    addPlay('hr', 'Home Run', runAllocations.hr[i], 153, 168, -42, 42, 100, 116, 22, 34, 370, 460);
+    addPlay('hr', 'Home Run', runAllocations.hr[i], true, 153, 168, -42, 42, 100, 116, 22, 34, 370, 460);
   }
   for (let i = 0; i < (stats.Errors || 0); i++) {
-    addPlay('error', 'Reached on Error', runAllocations.error[i], 20, 60, -42, 42, 70, 95, -15, 20, 20, 110);
+    addPlay('error', 'Reached on Error', runAllocations.error[i], i < stats.Errors_Runs, 20, 60, -42, 42, 70, 95, -15, 20, 20, 110);
   }
 
   for (let i = 0; i < stats.GroundOut; i++) {
@@ -1294,6 +1324,21 @@ export function getDeterministicSprayPlays(game, teamId, state) {
       cx: 125, cy: 205, inning: (playId % 9) + 1
     });
   }
+
+  // Generate simulated drivenInBy for plays with p.scored === true (except hr)
+  plays.forEach((p, idx) => {
+    if (p.scored && p.event !== 'hr') {
+      const driverPlay = plays.slice(idx + 1).find(p2 => p2.runsOnPlay > 0);
+      if (driverPlay) {
+        p.drivenInBy = { batter: driverPlay.batter, event: driverPlay.event };
+      } else {
+        const randomDriver = roster[Math.floor(lcgRandom() * roster.length)];
+        const driverEvents = ['single', 'double', 'hr', 'walk'];
+        const randomEvent = driverEvents[Math.floor(lcgRandom() * driverEvents.length)];
+        p.drivenInBy = { batter: randomDriver, event: randomEvent };
+      }
+    }
+  });
 
   return { plays, batterStats };
 }
