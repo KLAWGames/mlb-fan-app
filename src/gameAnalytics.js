@@ -54,7 +54,7 @@ export function parseLiveFeedData(feed, teamId) {
   const isAway = selectedTeamIdNum === awayTeamId;
 
   const stats = {
-    Hits: 0, Outs: 0, Walks: 0, HBP: 0,
+    Hits: 0, Outs: 0, Walks: 0, HBP: 0, Errors: 0,
     Single: 0, Double: 0, Triple: 0, HomeRun: 0,
     GroundOut: 0, Lineout: 0, Flyout: 0, SacFly: 0, PopOut: 0, Strikeout: 0, ThrownOut: 0, Unplayed: 0,
     Single_Runs: 0, Single_LOB: 0,
@@ -62,7 +62,8 @@ export function parseLiveFeedData(feed, teamId) {
     Triple_Runs: 0, Triple_LOB: 0,
     HomeRun_Runs: 0,
     Walk_Runs: 0, Walk_LOB: 0,
-    HBP_Runs: 0, HBP_LOB: 0
+    HBP_Runs: 0, HBP_LOB: 0,
+    Errors_Runs: 0, Errors_LOB: 0
   };
 
   const plays = [];
@@ -178,13 +179,17 @@ export function parseLiveFeedData(feed, teamId) {
         stats.HBP++;
         mappedEvent = 'hbp';
         if (didScore) stats.HBP_Runs++; else stats.HBP_LOB++;
+      } else if (eventType === 'field_error' || eventType?.includes('error') || descLower.includes('error')) {
+        stats.Errors++;
+        mappedEvent = 'error';
+        if (didScore) stats.Errors_Runs++; else stats.Errors_LOB++;
       } else {
         stats.Unplayed++;
         mappedEvent = 'unplayed';
         if (didScore) stats.Walk_Runs++; else stats.Walk_LOB++;
       }
 
-      const isFieldPlay = ['single', 'double', 'triple', 'hr', 'ground', 'lineout', 'flyout', 'sac', 'pop', 'thrown', 'unplayed'].includes(mappedEvent);
+      const isFieldPlay = ['single', 'double', 'triple', 'hr', 'ground', 'lineout', 'flyout', 'sac', 'pop', 'thrown', 'error', 'unplayed'].includes(mappedEvent);
       if (isFieldPlay) {
         if (coordX === null || coordY === null || isNaN(coordX) || isNaN(coordY)) {
           let seed = p.about.atBatIndex * 31 + teamId;
@@ -197,6 +202,7 @@ export function parseLiveFeedData(feed, teamId) {
           else if (mappedEvent === 'double') { rMin = 95; rMax = 145; thetaMin = -42; thetaMax = 42; }
           else if (mappedEvent === 'triple') { rMin = 125; rMax = 148; thetaMin = lcg() < 0.5 ? -43 : 33; thetaMax = thetaMin + 10; }
           else if (mappedEvent === 'hr') { rMin = 148; rMax = 175; thetaMin = -45; thetaMax = 45; }
+          else if (mappedEvent === 'error') { rMin = 15; rMax = 55; thetaMin = -42; thetaMax = 42; }
           
           const r = rMin + lcg() * (rMax - rMin);
           const theta = thetaMin + lcg() * (thetaMax - thetaMin);
@@ -226,11 +232,22 @@ export function parseLiveFeedData(feed, teamId) {
         coordY = 205;
       }
 
+      let runsOnPlay = 0;
+      if (p.runners) {
+        p.runners.forEach(r => {
+          if (r.movement && r.movement.end === 'score') {
+            runsOnPlay++;
+          }
+        });
+      }
+
       plays.push({
         id: playId++,
         batter: batterName,
         event: mappedEvent,
         desc: event + " (" + desc.split('.')[0] + ")",
+        description: desc,
+        runsOnPlay,
         speed: launchSpeed || (70 + Math.random() * 40),
         angle: launchAngle !== null ? launchAngle : (5 + Math.random() * 40),
         dist: totalDistance !== null ? Math.round(totalDistance) : null,
@@ -368,6 +385,36 @@ export function parseLiveFeedData(feed, teamId) {
     }
   }
 
+  // Reconcile Outs to always be multiples of 3 for completed (Final) games
+  const isFinal = feed.gameData?.status?.statusCode === 'F' || feed.gameData?.status?.detailedState === 'Final';
+  if (isFinal) {
+    const totalInnings = feed.liveData?.linescore?.currentInning || 9;
+    const homeWon = (feed.liveData?.linescore?.teams?.home?.runs || 0) > (feed.liveData?.linescore?.teams?.away?.runs || 0);
+    const targetOuts = isAway 
+      ? 3 * totalInnings 
+      : (homeWon ? 3 * (totalInnings - 1) : 3 * totalInnings);
+      
+    const diff = targetOuts - stats.Outs;
+    if (diff > 0) {
+      stats.GroundOut += diff;
+      stats.Outs = targetOuts;
+    } else if (diff < 0) {
+      let toSubtract = Math.abs(diff);
+      const outCats = ['GroundOut', 'Flyout', 'Strikeout', 'Lineout', 'PopOut', 'ThrownOut'];
+      for (const cat of outCats) {
+        if (stats[cat] >= toSubtract) {
+          stats[cat] -= toSubtract;
+          toSubtract = 0;
+          break;
+        } else {
+          toSubtract -= stats[cat];
+          stats[cat] = 0;
+        }
+      }
+      stats.Outs = targetOuts;
+    }
+  }
+
   return { stats, plays, batterStats };
 }
 
@@ -463,13 +510,18 @@ export function getDeterministicSankeyStats(game, teamId, state) {
   const Walks = Math.floor(lcgRandom() * 5) + 1;
   const HBP = lcgRandom() < 0.25 ? 1 : 0;
 
+  const Errors = lcgRandom() < 0.35 ? 1 : 0;
+  const Errors_Runs = Math.min(Errors, lcgRandom() < 0.2 ? 1 : 0);
+  const Errors_LOB = Errors - Errors_Runs;
+
+  const linescore = normGame.linescore || {};
+  const inning = linescore.currentInning || 9;
+  const homeWon = isAway ? (teamScore < oppScore) : (teamScore > oppScore);
+
   let Outs = 27;
   if (isFinal) {
-    Outs = isHomeWinner ? 24 : 27;
+    Outs = isAway ? 3 * inning : (homeWon ? 3 * (inning - 1) : 3 * inning);
   } else {
-    const linescore = normGame.linescore || {};
-    const inning = linescore.currentInning || 5;
-    const isTop = linescore.isTopInning !== false;
     let halfInningsCompleted = isAway ? (inning * 2 - 2) : (inning * 2 - 1);
     Outs = Math.max(3, Math.round(halfInningsCompleted * 1.5) + Math.floor(lcgRandom() * 3));
   }
@@ -528,7 +580,7 @@ export function getDeterministicSankeyStats(game, teamId, state) {
   const HBP_LOB = HBP - HBP_Runs;
 
   const statsObj = {
-    Outs, Hits, Walks, HBP,
+    Outs, Hits, Walks, HBP, Errors,
     Single, Double, Triple, HomeRun,
     GroundOut, Lineout, Flyout, SacFly, PopOut, Strikeout, ThrownOut, Unplayed,
     Single_Runs, Single_LOB,
@@ -536,11 +588,12 @@ export function getDeterministicSankeyStats(game, teamId, state) {
     Triple_Runs, Triple_LOB,
     HomeRun_Runs,
     Walk_Runs, Walk_LOB,
-    HBP_Runs, HBP_LOB
+    HBP_Runs, HBP_LOB,
+    Errors_Runs, Errors_LOB
   };
 
   // Reconcile simulated runs with actual team score
-  let currentRunsSum = statsObj.Single_Runs + statsObj.Double_Runs + statsObj.Triple_Runs + statsObj.HomeRun_Runs + statsObj.Walk_Runs + statsObj.HBP_Runs;
+  let currentRunsSum = statsObj.Single_Runs + statsObj.Double_Runs + statsObj.Triple_Runs + statsObj.HomeRun_Runs + statsObj.Walk_Runs + statsObj.HBP_Runs + statsObj.Errors_Runs;
 
   if (currentRunsSum < teamScore) {
     let diff = teamScore - currentRunsSum;
@@ -549,7 +602,8 @@ export function getDeterministicSankeyStats(game, teamId, state) {
       { runKey: 'Double_Runs', lobKey: 'Double_LOB' },
       { runKey: 'Single_Runs', lobKey: 'Single_LOB' },
       { runKey: 'Walk_Runs', lobKey: 'Walk_LOB' },
-      { runKey: 'HBP_Runs', lobKey: 'HBP_LOB' }
+      { runKey: 'HBP_Runs', lobKey: 'HBP_LOB' },
+      { runKey: 'Errors_Runs', lobKey: 'Errors_LOB' }
     ];
 
     for (const cat of onBaseCategories) {
@@ -576,7 +630,8 @@ export function getDeterministicSankeyStats(game, teamId, state) {
       { runKey: 'Single_Runs', lobKey: 'Single_LOB' },
       { runKey: 'Double_Runs', lobKey: 'Double_LOB' },
       { runKey: 'Triple_Runs', lobKey: 'Triple_LOB' },
-      { runKey: 'HBP_Runs', lobKey: 'HBP_LOB' }
+      { runKey: 'HBP_Runs', lobKey: 'HBP_LOB' },
+      { runKey: 'Errors_Runs', lobKey: 'Errors_LOB' }
     ];
 
     for (const cat of runCategories) {
@@ -602,7 +657,7 @@ export function drawSankeySVG(stats, team, plays) {
   const nodeWidth = 14;
 
   const {
-    Outs, Hits, Walks, HBP,
+    Outs, Hits, Walks, HBP, Errors = 0,
     Single, Double, Triple, HomeRun,
     GroundOut, Lineout, Flyout, SacFly, PopOut, Strikeout, ThrownOut, Unplayed,
     Single_Runs = 0,
@@ -610,10 +665,11 @@ export function drawSankeySVG(stats, team, plays) {
     Triple_Runs = 0,
     HomeRun_Runs = 0,
     Walk_Runs = 0,
-    HBP_Runs = 0
+    HBP_Runs = 0,
+    Errors_Runs = 0
   } = stats;
 
-  const AtBats = Outs + Hits + Walks + HBP;
+  const AtBats = Outs + Hits + Walks + HBP + Errors;
   const scaleY = Math.min(6.5, (svgHeight - padTop - padBottom - 110) / AtBats);
   const gapY = 12;
   const col1_x = 35;
@@ -627,24 +683,27 @@ export function drawSankeySVG(stats, team, plays) {
 
   const h_atbats = AtBats * scaleY;
   const y_atbats = padTop + (svgHeight - padTop - padBottom - h_atbats) / 2;
-  const node_atbats = { id: 'atbats', label: 'At Bats', value: AtBats, x: col1_x, y: y_atbats, h: h_atbats, color: '#94a3b8', sourceOffset: 0, targetOffset: 0 };
+  const node_atbats = { id: 'atbats', label: 'Plate Appearances', value: AtBats, x: col1_x, y: y_atbats, h: h_atbats, color: '#94a3b8', sourceOffset: 0, targetOffset: 0 };
 
   const h_hits = Hits * scaleY;
   const h_outs = Outs * scaleY;
   const h_walks = Walks * scaleY;
   const h_hbp = HBP * scaleY;
-  const totalH_col2 = h_hits + h_outs + h_walks + h_hbp + 3 * gapY;
+  const h_errors = Errors * scaleY;
+  const totalH_col2 = h_hits + h_outs + h_walks + h_hbp + h_errors + 4 * gapY;
   const startY_col2 = padTop + (svgHeight - padTop - padBottom - totalH_col2) / 2;
 
   const y_hits = startY_col2;
   const y_outs = y_hits + h_hits + gapY;
   const y_walks = y_outs + h_outs + gapY;
   const y_hbp = y_walks + h_walks + gapY;
+  const y_errors = y_hbp + h_hbp + gapY;
 
   const node_hits = { id: 'hits', label: 'Hits', value: Hits, x: col2_x, y: y_hits, h: h_hits, color: '#10b981', sourceOffset: 0, targetOffset: 0 };
   const node_outs = { id: 'outs', label: 'Outs', value: Outs, x: col2_x, y: y_outs, h: h_outs, color: '#ec4899', sourceOffset: 0, targetOffset: 0 };
   const node_walks = { id: 'walks', label: 'Walks', value: Walks, x: col2_x, y: y_walks, h: h_walks, color: '#3b82f6', sourceOffset: 0, targetOffset: 0 };
   const node_hbp = { id: 'hbp', label: 'HBP', value: HBP, x: col2_x, y: y_hbp, h: h_hbp, color: '#f59e0b', sourceOffset: 0, targetOffset: 0 };
+  const node_errors = { id: 'errors', label: 'Errors', value: Errors, x: col2_x, y: y_errors, h: h_errors, color: '#a855f7', sourceOffset: 0, targetOffset: 0 };
 
   const subHits = [
     { id: 'single', label: 'Single', value: Single, color: 'rgba(16, 185, 129, 0.85)' },
@@ -664,7 +723,11 @@ export function drawSankeySVG(stats, team, plays) {
     { id: 'unplayed', label: 'Unplayed', value: Unplayed }
   ].filter(n => n.value > 0);
 
-  const activeCol3NodesCount = subHits.length + subOuts.length + (Walks > 0 ? 1 : 0) + (HBP > 0 ? 1 : 0);
+  const subErrors = [
+    { id: 'field_error', label: 'Reached on Error', value: Errors, color: 'rgba(168, 85, 247, 0.85)' }
+  ].filter(n => n.value > 0);
+
+  const activeCol3NodesCount = subHits.length + subOuts.length + subErrors.length + (Walks > 0 ? 1 : 0) + (HBP > 0 ? 1 : 0);
   const totalGapsCol3 = (activeCol3NodesCount - 1) * gapY;
   const totalHCol3 = AtBats * scaleY;
   const neededHeightCol3 = totalHCol3 + totalGapsCol3;
@@ -699,7 +762,12 @@ export function drawSankeySVG(stats, team, plays) {
     currY += h + gapY;
   }
 
-
+  const nodes_suberrors = subErrors.map(se => {
+    const h = se.value * scaleY;
+    const n = { ...se, x: col3_x, y: currY, h, color: se.color, sourceOffset: 0, targetOffset: 0 };
+    currY += h + gapY;
+    return n;
+  });
 
   function drawFlow(src, dest, val, color1, color2) {
     if (val <= 0) return;
@@ -730,6 +798,7 @@ export function drawSankeySVG(stats, team, plays) {
   drawFlow(node_atbats, node_outs, Outs, node_atbats.color, node_outs.color);
   drawFlow(node_atbats, node_walks, Walks, node_atbats.color, node_walks.color);
   drawFlow(node_atbats, node_hbp, HBP, node_atbats.color, node_hbp.color);
+  drawFlow(node_atbats, node_errors, Errors, node_atbats.color, node_errors.color);
 
   nodes_subhits.forEach(n => {
     drawFlow(node_hits, n, n.value, node_hits.color, n.color);
@@ -743,9 +812,12 @@ export function drawSankeySVG(stats, team, plays) {
   if (HBP > 0) {
     drawFlow(node_hbp, node_subhbp, HBP, node_hbp.color, node_subhbp.color);
   }
+  nodes_suberrors.forEach(n => {
+    drawFlow(node_errors, n, n.value, node_errors.color, n.color);
+  });
 
   // --- COLUMN 4: RUNS ---
-  const Runs_Val = Single_Runs + Double_Runs + Triple_Runs + HomeRun_Runs + Walk_Runs + HBP_Runs;
+  const Runs_Val = Single_Runs + Double_Runs + Triple_Runs + HomeRun_Runs + Walk_Runs + HBP_Runs + Errors_Runs;
 
   const h_runs = Runs_Val * scaleY;
   const startY_col4 = padTop + (svgHeight - padTop - padBottom - h_runs) / 2;
@@ -756,6 +828,7 @@ export function drawSankeySVG(stats, team, plays) {
   const node_double = nodes_subhits.find(n => n.id === 'double');
   const node_triple = nodes_subhits.find(n => n.id === 'triple');
   const node_hr = nodes_subhits.find(n => n.id === 'hr');
+  const node_field_error = nodes_suberrors.find(n => n.id === 'field_error');
 
   if (node_single) {
     if (Single_Runs > 0 && Runs_Val > 0) drawFlow(node_single, node_runs, Single_Runs, node_single.color, node_runs.color);
@@ -775,12 +848,16 @@ export function drawSankeySVG(stats, team, plays) {
   if (node_subhbp) {
     if (HBP_Runs > 0 && Runs_Val > 0) drawFlow(node_subhbp, node_runs, HBP_Runs, node_subhbp.color, node_runs.color);
   }
+  if (node_field_error) {
+    if (Errors_Runs > 0 && Runs_Val > 0) drawFlow(node_field_error, node_runs, Errors_Runs, node_field_error.color, node_runs.color);
+  }
 
   const allNodes = [
     node_atbats,
-    node_hits, node_outs, node_walks, node_hbp,
+    node_hits, node_outs, node_walks, node_hbp, node_errors,
     ...nodes_subhits,
     ...nodes_subouts,
+    ...nodes_suberrors,
     ...(Walks > 0 ? [node_subwalks] : []),
     ...(HBP > 0 ? [node_subhbp] : []),
     ...(Runs_Val > 0 ? [node_runs] : [])
@@ -789,7 +866,7 @@ export function drawSankeySVG(stats, team, plays) {
   allNodes.forEach(n => {
     const isInteractive = [
       'single', 'double', 'triple', 'hr',
-      'sw-walks', 'sh-hbp',
+      'sw-walks', 'sh-hbp', 'field_error',
       'ground', 'lineout', 'flyout', 'sac', 'pop', 'strikeout', 'thrown', 'unplayed'
     ].includes(n.id);
     let nodeGroupHtml = '';
@@ -803,8 +880,13 @@ export function drawSankeySVG(stats, team, plays) {
 
     if (n.id === 'atbats') {
       nodeGroupHtml += `<text x="${n.x - 6}" y="${n.y + n.h/2}" font-size="8px" font-weight="800" fill="var(--text-primary)" font-family="var(--font-title)" text-anchor="end" alignment-baseline="middle">${n.label} (${n.value})</text>`;
-    } else if (n.id === 'hits' || n.id === 'outs' || n.id === 'walks' || n.id === 'hbp') {
+    } else if (n.id === 'hits' || n.id === 'outs' || n.id === 'walks' || n.id === 'hbp' || n.id === 'errors') {
       nodeGroupHtml += `<text x="${n.x - 6}" y="${n.y + n.h/2}" font-size="7.5px" font-weight="700" fill="var(--text-secondary)" font-family="var(--font-body)" text-anchor="end" alignment-baseline="middle">${n.label} (${n.value})</text>`;
+    } else if (isInteractive) {
+      const labelText = `${n.label} (${n.value})`;
+      const labelWidth = Math.max(50, labelText.length * 5.2 + 10);
+      nodeGroupHtml += `<rect x="${n.x + nodeWidth + 5}" y="${n.y + n.h/2 - 7}" width="${labelWidth}" height="14" rx="4" fill="rgba(255, 255, 255, 0.08)" stroke="rgba(255, 255, 255, 0.15)" stroke-width="0.75" class="sankey-btn-bg" style="transition: all 0.2s;" />`;
+      nodeGroupHtml += `<text x="${n.x + nodeWidth + 5 + labelWidth/2}" y="${n.y + n.h/2}" font-size="7px" font-weight="700" fill="var(--text-primary)" font-family="var(--font-title)" text-anchor="middle" alignment-baseline="middle" style="pointer-events: none;">${labelText}</text>`;
     } else {
       nodeGroupHtml += `<text x="${n.x + nodeWidth + 6}" y="${n.y + n.h/2}" font-size="7.5px" font-weight="600" fill="var(--text-secondary)" font-family="var(--font-body)" text-anchor="start" alignment-baseline="middle">${n.label} (${n.value})</text>`;
     }
@@ -880,6 +962,7 @@ function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
     'hr': 'hr',
     'sw-walks': 'walk',
     'sh-hbp': 'hbp',
+    'field_error': 'error',
     'strikeout': 'strikeout-out'
   };
   const targetType = playTypeMap[nodeType] || nodeType;
@@ -937,18 +1020,56 @@ function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
   if (filteredPlays.length > 0) {
     filteredPlays.forEach(p => {
       const item = document.createElement('div');
-      item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-glass); border-radius: 8px; font-size: 12.5px;';
+      item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-glass); border-radius: 8px; font-size: 12.5px; gap: 12px;';
+      
+      const leftCol = document.createElement('div');
+      leftCol.style.cssText = 'display: flex; flex-direction: column; gap: 2px; text-align: left;';
       
       const nameSpan = document.createElement('span');
       nameSpan.style.cssText = 'font-weight: 600;';
       nameSpan.innerText = p.batter;
+      leftCol.appendChild(nameSpan);
+
+      const playDescText = p.description || p.desc || '';
+      if (playDescText) {
+        const descSpan = document.createElement('span');
+        descSpan.style.cssText = 'font-size: 11px; color: var(--text-secondary); white-space: normal; word-break: break-word;';
+        descSpan.innerText = playDescText;
+        leftCol.appendChild(descSpan);
+      }
+      
+      const rightCol = document.createElement('div');
+      rightCol.style.cssText = 'display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0;';
 
       const inningSpan = document.createElement('span');
       inningSpan.style.cssText = 'color: var(--text-secondary); font-size: 11.5px;';
       inningSpan.innerText = `Inning ${p.inning || 'Unknown'}`;
+      rightCol.appendChild(inningSpan);
 
-      item.appendChild(nameSpan);
-      item.appendChild(inningSpan);
+      // Show RBI badge if play has runsOnPlay / RBIs
+      if (p.runsOnPlay > 0) {
+        const rbiBadge = document.createElement('span');
+        rbiBadge.style.cssText = 'background: rgba(245, 158, 11, 0.15); color: #f59e0b; font-weight: 700; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-family: var(--font-title); border: 1px solid rgba(245, 158, 11, 0.3); text-transform: uppercase;';
+        
+        let text = `${p.runsOnPlay} Run`;
+        if (p.runsOnPlay > 1) {
+          text = `${p.runsOnPlay} Runs`;
+        }
+        if (targetType === 'hr') {
+          if (p.runsOnPlay === 1) text = 'Solo HR';
+          else if (p.runsOnPlay === 4) text = 'Grand Slam';
+          else text = `${p.runsOnPlay}-Run HR`;
+        } else {
+          // e.g. "2-Run Double", "1-Run Single"
+          const eventCapitalized = targetType.charAt(0).toUpperCase() + targetType.slice(1);
+          text = `${p.runsOnPlay}-Run ${eventCapitalized}`;
+        }
+        rbiBadge.innerText = text;
+        rightCol.appendChild(rbiBadge);
+      }
+
+      item.appendChild(leftCol);
+      item.appendChild(rightCol);
       listContainer.appendChild(item);
     });
   } else {
@@ -989,7 +1110,63 @@ export function getDeterministicSprayPlays(game, teamId, state) {
   const plays = [];
   let playId = 1;
 
-  function addPlay(event, desc, rMin, rMax, thetaMin, thetaMax, speedMin, speedMax, angleMin, angleMax, distMin, distMax) {
+  const runAllocations = {
+    single: Array(stats.Single).fill(0),
+    double: Array(stats.Double).fill(0),
+    triple: Array(stats.Triple).fill(0),
+    hr: Array(stats.HomeRun).fill(1),
+    walk: Array(stats.Walks).fill(0),
+    hbp: Array(stats.HBP).fill(0),
+    error: Array(stats.Errors || 0).fill(0)
+  };
+
+  // Distribute Single runs
+  for (let i = 0; i < (stats.Single_Runs || 0); i++) {
+    if (runAllocations.single[i % stats.Single] !== undefined) {
+      runAllocations.single[i % stats.Single]++;
+    }
+  }
+  // Distribute Double runs
+  for (let i = 0; i < (stats.Double_Runs || 0); i++) {
+    if (runAllocations.double[i % stats.Double] !== undefined) {
+      runAllocations.double[i % stats.Double]++;
+    }
+  }
+  // Distribute Triple runs
+  for (let i = 0; i < (stats.Triple_Runs || 0); i++) {
+    if (runAllocations.triple[i % stats.Triple] !== undefined) {
+      runAllocations.triple[i % stats.Triple]++;
+    }
+  }
+  // Distribute HR runs (exclude 1 base batter run)
+  let extraHrRuns = (stats.HomeRun_Runs || 0) - stats.HomeRun;
+  for (let i = 0; i < extraHrRuns; i++) {
+    if (runAllocations.hr[i % stats.HomeRun] !== undefined && runAllocations.hr[i % stats.HomeRun] < 4) {
+      runAllocations.hr[i % stats.HomeRun]++;
+    }
+  }
+  // Distribute Walk runs
+  for (let i = 0; i < (stats.Walk_Runs || 0); i++) {
+    if (runAllocations.walk[i % stats.Walks] !== undefined) {
+      runAllocations.walk[i % stats.Walks]++;
+    }
+  }
+  // Distribute HBP runs
+  for (let i = 0; i < (stats.HBP_Runs || 0); i++) {
+    if (runAllocations.hbp[i % stats.HBP] !== undefined) {
+      runAllocations.hbp[i % stats.HBP]++;
+    }
+  }
+  // Distribute Error runs
+  if (stats.Errors_Runs && stats.Errors) {
+    for (let i = 0; i < stats.Errors_Runs; i++) {
+      if (runAllocations.error[i % stats.Errors] !== undefined) {
+        runAllocations.error[i % stats.Errors]++;
+      }
+    }
+  }
+
+  function addPlay(event, desc, runsOnPlay, rMin, rMax, thetaMin, thetaMax, speedMin, speedMax, angleMin, angleMax, distMin, distMax) {
     const r = rMin + lcgRandom() * (rMax - rMin);
     const theta = thetaMin + lcgRandom() * (thetaMax - thetaMin);
     
@@ -1008,6 +1185,7 @@ export function getDeterministicSprayPlays(game, teamId, state) {
       batter,
       event,
       desc,
+      runsOnPlay: runsOnPlay || 0,
       speed,
       angle,
       dist,
@@ -1018,38 +1196,41 @@ export function getDeterministicSprayPlays(game, teamId, state) {
   }
 
   for (let i = 0; i < stats.Single; i++) {
-    addPlay('single', 'Single', 55, 110, -40, 40, 85, 102, 6, 18, 210, 280);
+    addPlay('single', 'Single', runAllocations.single[i], 55, 110, -40, 40, 85, 102, 6, 18, 210, 280);
   }
   for (let i = 0; i < stats.Double; i++) {
-    addPlay('double', 'Double', 95, 145, -42, 42, 92, 108, 14, 25, 290, 360);
+    addPlay('double', 'Double', runAllocations.double[i], 95, 145, -42, 42, 92, 108, 14, 25, 290, 360);
   }
   for (let i = 0; i < stats.Triple; i++) {
     const side = lcgRandom() < 0.5 ? -1 : 1;
     const thetaMin = side < 0 ? -43 : 33;
     const thetaMax = side < 0 ? -33 : 43;
-    addPlay('triple', 'Triple', 125, 148, thetaMin, thetaMax, 96, 110, 18, 28, 340, 390);
+    addPlay('triple', 'Triple', runAllocations.triple[i], 125, 148, thetaMin, thetaMax, 96, 110, 18, 28, 340, 390);
   }
   for (let i = 0; i < stats.HomeRun; i++) {
-    addPlay('hr', 'Home Run', 153, 168, -42, 42, 100, 116, 22, 34, 370, 460);
+    addPlay('hr', 'Home Run', runAllocations.hr[i], 153, 168, -42, 42, 100, 116, 22, 34, 370, 460);
+  }
+  for (let i = 0; i < (stats.Errors || 0); i++) {
+    addPlay('error', 'Reached on Error', runAllocations.error[i], 20, 60, -42, 42, 70, 95, -15, 20, 20, 110);
   }
 
   for (let i = 0; i < stats.GroundOut; i++) {
-    addPlay('ground', 'Groundout', 18, 48, -42, 42, 70, 92, -20, 2, 5, 80);
+    addPlay('ground', 'Groundout', 0, 18, 48, -42, 42, 70, 92, -20, 2, 5, 80);
   }
   for (let i = 0; i < stats.Lineout; i++) {
-    addPlay('lineout', 'Lineout', 45, 110, -40, 40, 90, 105, 5, 14, 150, 290);
+    addPlay('lineout', 'Lineout', 0, 45, 110, -40, 40, 90, 105, 5, 14, 150, 290);
   }
   for (let i = 0; i < stats.Flyout; i++) {
-    addPlay('flyout', 'Flyout', 90, 145, -40, 40, 88, 98, 28, 45, 260, 360);
+    addPlay('flyout', 'Flyout', 0, 90, 145, -40, 40, 88, 98, 28, 45, 260, 360);
   }
   for (let i = 0; i < stats.PopOut; i++) {
-    addPlay('pop', 'Popout', 20, 60, -42, 42, 65, 82, 55, 80, 20, 120);
+    addPlay('pop', 'Popout', 0, 20, 60, -42, 42, 65, 82, 55, 80, 20, 120);
   }
   for (let i = 0; i < stats.SacFly; i++) {
-    addPlay('sac', 'Sac Fly', 115, 145, -35, 35, 90, 96, 25, 38, 280, 340);
+    addPlay('sac', 'Sac Fly', 0, 115, 145, -35, 35, 90, 96, 25, 38, 280, 340);
   }
   for (let i = 0; i < stats.ThrownOut; i++) {
-    addPlay('thrown', 'Thrown Out', 12, 50, -43, 43, 60, 85, -30, 40, 2, 90);
+    addPlay('thrown', 'Thrown Out', 0, 12, 50, -43, 43, 60, 85, -30, 40, 2, 90);
   }
 
   const batterStats = {};
@@ -1065,7 +1246,7 @@ export function getDeterministicSprayPlays(game, teamId, state) {
     if (p.event === 'single' || p.event === 'double' || p.event === 'triple' || p.event === 'hr') {
       b.H += 1;
       b.AB += 1;
-    } else if (['out', 'ground', 'lineout', 'flyout', 'sac', 'pop', 'thrown', 'unplayed'].includes(p.event)) {
+    } else if (['out', 'ground', 'lineout', 'flyout', 'sac', 'pop', 'thrown', 'error', 'unplayed'].includes(p.event)) {
       if (p.desc !== 'Sac Fly') {
         b.AB += 1;
       }
@@ -1081,6 +1262,7 @@ export function getDeterministicSprayPlays(game, teamId, state) {
       batter,
       event: 'strikeout-out',
       desc: 'Strikeout',
+      runsOnPlay: 0,
       cx: 125, cy: 205, inning: (playId % 9) + 1
     });
   }
@@ -1094,6 +1276,7 @@ export function getDeterministicSprayPlays(game, teamId, state) {
       batter,
       event: 'walk',
       desc: 'Walk',
+      runsOnPlay: runAllocations.walk[i] || 0,
       cx: 125, cy: 205, inning: (playId % 9) + 1
     });
   }
@@ -1107,6 +1290,7 @@ export function getDeterministicSprayPlays(game, teamId, state) {
       batter,
       event: 'hbp',
       desc: 'Hit By Pitch',
+      runsOnPlay: runAllocations.hbp[i] || 0,
       cx: 125, cy: 205, inning: (playId % 9) + 1
     });
   }
@@ -1267,16 +1451,76 @@ export function openGameAnalyticsCenter(game, state, render) {
     </div>
   `;
   
+  const headerRight = document.createElement('div');
+  headerRight.style.cssText = 'display: flex; align-items: center; gap: 10px;';
+
+  const refreshBtn = document.createElement('button');
+  refreshBtn.style.cssText = `
+    background: rgba(255, 255, 255, 0.08); border: 1px solid var(--border-glass-highlight);
+    color: var(--text-primary); border-radius: 6px; cursor: pointer; padding: 4px 8px;
+    font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;
+    font-family: var(--font-title); transition: all 0.2s; outline: none;
+  `;
+  refreshBtn.innerHTML = '↻ Refresh';
+  refreshBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    refreshBtn.disabled = true;
+    refreshBtn.style.opacity = '0.5';
+    refreshBtn.innerHTML = '⚙️ Loading...';
+    try {
+      const feed = await fetchLiveGameFeed(gamePk);
+      if (feed) {
+        state.gameFeeds[gamePk] = feed;
+        const linescore = feed.liveData?.linescore || {};
+        const isLive = feed.liveData?.plays?.currentPlay ? true : false;
+        const isFinal = feed.gameData?.status?.statusCode === 'F' || feed.gameData?.status?.detailedState === 'Final';
+        
+        let updatedStatus = feed.gameData?.status?.detailedState || 'Scheduled';
+        if (feed.liveData?.plays?.currentPlay) {
+          const inning = linescore.currentInning || 5;
+          const isTop = linescore.isTopInning !== false;
+          updatedStatus = `Live • ${isTop ? 'Top' : 'Bot'} of ${inning}`;
+        } else if (isFinal) {
+          updatedStatus = 'Final';
+        }
+        
+        const scoreText = (isLive || isFinal) ? `${linescore.teams?.away?.runs || 0} - ${linescore.teams?.home?.runs || 0}` : 'vs';
+        titleContainer.innerHTML = `
+          <div style="font-size: 10px; color: var(--text-secondary); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;">
+            ${updatedStatus}
+          </div>
+          <div style="font-size: 14px; font-weight: 800; font-family: var(--font-title); color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+            <span>${normGame.awayTeam.abbreviation}</span>
+            <span style="color: var(--color-gold); font-size: 13px;">${scoreText}</span>
+            <span>${normGame.homeTeam.abbreviation}</span>
+          </div>
+        `;
+        if (typeof updateVisContent === 'function') {
+          updateVisContent();
+        }
+      }
+    } catch (err) {
+      console.error("Failed to refresh visuals overlay:", err);
+    } finally {
+      refreshBtn.disabled = false;
+      refreshBtn.style.opacity = '1';
+      refreshBtn.innerHTML = '↻ Refresh';
+    }
+  });
+
   const closeBtn = document.createElement('button');
   closeBtn.style.cssText = `
     background: none; border: none; color: var(--text-secondary);
-    font-size: 20px; font-weight: 300; cursor: pointer; padding: 4px; line-height: 1;
+    font-size: 20px; font-weight: 300; cursor: pointer; padding: 4px; line-height: 1; outline: none;
   `;
   closeBtn.innerHTML = '×';
   closeBtn.addEventListener('click', () => backdrop.remove());
-  
+
+  headerRight.appendChild(refreshBtn);
+  headerRight.appendChild(closeBtn);
+
   header.appendChild(titleContainer);
-  header.appendChild(closeBtn);
+  header.appendChild(headerRight);
   modal.appendChild(header);
 
   const body = document.createElement('div');

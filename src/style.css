@@ -2081,3 +2081,13 @@ header {
   from { opacity: 0.5; }
   to { opacity: 1; }
 }
+
+/* Sankey Interactive Capsule Buttons */
+.sankey-interactive-node:hover .sankey-btn-bg {
+  fill: rgba(255, 255, 255, 0.22) !important;
+  stroke: rgba(255, 255, 255, 0.4) !important;
+}
+
+.sankey-interactive-node:active {
+  opacity: 0.8;
+}
