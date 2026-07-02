@@ -1944,7 +1944,7 @@ function toggleHamburgerMenu(open) {
     const header = document.createElement('div');
     header.className = 'drawer-header';
     const title = document.createElement('h3');
-    title.innerText = 'Tracjectory Menu';
+    title.innerText = 'Trajectory Menu';
     const closeBtn = document.createElement('button');
     closeBtn.className = 'drawer-close-btn';
     closeBtn.innerHTML = '×';
@@ -2405,7 +2405,19 @@ function createDashboardView() {
     render();
   });
   
+  // Help/Info Button (Explains run differential)
+  const helpBtn = document.createElement('button');
+  helpBtn.className = 'banner-help-btn';
+  helpBtn.setAttribute('title', 'What is Run Differential?');
+  helpBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
+  
+  helpBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showRunDiffHelpModal();
+  });
+  
   banner.appendChild(zoomBtn);
+  banner.appendChild(helpBtn);
 
   // --- Row 1: Team Info & Stats Ticker ---
   const headerRow = document.createElement('div');
@@ -3656,6 +3668,62 @@ function createDashboardView() {
   return container;
 }
 
+// Modal popup explaining MLB Run Differential metrics and the spark-bar chart
+function showRunDiffHelpModal() {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'recap-backdrop show';
+  backdrop.style.zIndex = '100000';
+  
+  const modal = document.createElement('div');
+  modal.className = 'glass-card';
+  modal.style.cssText = 'width: 90%; max-width: 420px; background: var(--bg-card); border: 1px solid var(--border-glass-highlight); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 16px; color: var(--text-primary); animation: slideUpDetails 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; position: relative; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);';
+  
+  const closeBtn = document.createElement('button');
+  closeBtn.innerText = '×';
+  closeBtn.style.cssText = 'position: absolute; top: 12px; right: 16px; border: none; background: none; font-size: 26px; font-weight: 300; color: var(--text-secondary); cursor: pointer; padding: 4px; line-height: 1; outline: none;';
+  closeBtn.addEventListener('click', () => backdrop.remove());
+  modal.appendChild(closeBtn);
+
+  const title = document.createElement('h3');
+  title.innerText = '📊 Run Differential Guide';
+  title.style.cssText = 'font-family: var(--font-title); font-size: 18px; margin: 0; padding-right: 24px; color: var(--color-gold); font-weight: 800;';
+  modal.appendChild(title);
+
+  const content = document.createElement('div');
+  content.style.cssText = 'display: flex; flex-direction: column; gap: 14px; font-size: 13px; line-height: 1.55; color: var(--text-secondary);';
+  content.innerHTML = `
+    <div>
+      <strong style="color: var(--text-primary); font-size: 13.5px; display: block; margin-bottom: 2px;">What is Run Differential?</strong>
+      <p style="margin: 0;">Run differential is the difference between runs scored (RS) and runs allowed (RA). It is calculated as: <br><code style="display:inline-block; margin-top:4px; padding: 2px 6px; background: rgba(255,255,255,0.06); border-radius: 4px;">Runs Scored − Runs Allowed</code></p>
+    </div>
+    <div>
+      <strong style="color: var(--text-primary); font-size: 13.5px; display: block; margin-bottom: 2px;">Reading the Spark-Bar Chart:</strong>
+      <ul style="margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 6px;">
+        <li><span style="color: #34d399; font-weight: 700;">Green bars (upwards)</span> represent games won. Taller bars indicate blowout victories.</li>
+        <li><span style="color: #f87171; font-weight: 700;">Red bars (downwards)</span> represent games lost. Longer bars indicate tough blowout defeats.</li>
+        <li>Tap any bar to see that specific game's detailed summary, standings priority, and play-by-play visual analytics!</li>
+      </ul>
+    </div>
+    <div>
+      <strong style="color: var(--text-primary); font-size: 13.5px; display: block; margin-bottom: 2px;">Why does it matter?</strong>
+      <p style="margin: 0;">In baseball analytics, run differential is a highly predictive metric. It shows a team's true skill by stripping away the luck of close one-run outcomes. Teams with positive differentials are structurally strong and likely to win consistently over a 162-game season.</p>
+    </div>
+  `;
+  modal.appendChild(content);
+
+  const okBtn = document.createElement('button');
+  okBtn.innerText = 'Got it';
+  okBtn.style.cssText = 'width: 100%; padding: 12px; font-size: 13px; font-weight: 700; color: #ffffff; background: var(--team-primary, #3b82f6); border: none; border-radius: 10px; cursor: pointer; transition: opacity 0.2s; outline: none; margin-top: 8px; font-family: var(--font-title);';
+  okBtn.addEventListener('click', () => backdrop.remove());
+  modal.appendChild(okBtn);
+
+  backdrop.appendChild(modal);
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) backdrop.remove();
+  });
+  document.body.appendChild(backdrop);
+}
+
 // Standings View
 function createStandingsView() {
   const container = document.createElement('div');
@@ -3896,7 +3964,7 @@ function createCreditsVersionView() {
   appMetaText.style.fontSize = '13px';
   appMetaText.style.color = 'var(--text-secondary)';
   appMetaText.style.lineHeight = '1.6';
-  appMetaText.innerHTML = '<strong>Tracjectory Web App</strong><br>Version: v1.3.0<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
+  appMetaText.innerHTML = '<strong>Trajectory Web App</strong><br>Version: v1.3.0<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
   creditsCard.appendChild(appMetaText);
 
   container.appendChild(creditsCard);
