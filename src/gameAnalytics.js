@@ -907,7 +907,7 @@ export function drawSankeySVG(stats, team, plays) {
     } else if (isInteractive) {
       const labelText = `⊕ ${n.label} (${n.value})`;
       const labelWidth = Math.max(58, labelText.length * 5.2 + 10);
-      nodeGroupHtml += `<rect x="${n.x + nodeWidth + 5}" y="${n.y + n.h/2 - 7.5}" width="${labelWidth}" height="15" rx="4.5" fill="rgba(255, 255, 255, 0.14)" stroke="rgba(255, 255, 255, 0.28)" stroke-width="0.75" class="sankey-btn-bg" style="transition: all 0.2s;" />`;
+      nodeGroupHtml += `<rect x="${n.x + nodeWidth + 5}" y="${n.y + n.h/2 - 7.5}" width="${labelWidth}" height="15" rx="4.5" fill="rgba(226, 232, 240, 0.22)" stroke="rgba(226, 232, 240, 0.45)" stroke-width="0.75" class="sankey-btn-bg" style="transition: all 0.2s;" />`;
       nodeGroupHtml += `<text x="${n.x + nodeWidth + 5 + labelWidth/2}" y="${n.y + n.h/2}" font-size="7px" font-weight="700" fill="var(--text-primary)" font-family="var(--font-title)" text-anchor="middle" alignment-baseline="middle" style="pointer-events: none;">${labelText}</text>`;
     } else {
       nodeGroupHtml += `<text x="${n.x + nodeWidth + 6}" y="${n.y + n.h/2}" font-size="7.5px" font-weight="600" fill="var(--text-secondary)" font-family="var(--font-body)" text-anchor="start" alignment-baseline="middle">${n.label} (${n.value})</text>`;
