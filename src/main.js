@@ -2636,14 +2636,15 @@ const MOCK_PITCHERS_BY_TEAM = {
   137: { fullName: "Logan Webb", wins: 12, losses: 9, era: "3.22" } // Giants
 };
 
-async function fetchPitcherStats(pitcherId) {
+async function fetchPitcherStats(pitcherId, year) {
   if (!state.pitcherStatsCache) {
     state.pitcherStatsCache = {};
   }
-  if (state.pitcherStatsCache[pitcherId]) return;
-  state.pitcherStatsCache[pitcherId] = { loading: true };
+  const cacheKey = `${pitcherId}_${year}`;
+  if (state.pitcherStatsCache[cacheKey]) return;
+  state.pitcherStatsCache[cacheKey] = { loading: true };
   try {
-    const res = await fetch(`https://statsapi.mlb.com/api/v1/people/${pitcherId}?hydrate=stats(group=[pitching],type=[season])`);
+    const res = await fetch(`https://statsapi.mlb.com/api/v1/people/${pitcherId}?hydrate=stats(group=[pitching],type=[season],season=${year})`);
     const data = await res.json();
     if (data.people && data.people[0]) {
       const p = data.people[0];
@@ -2657,7 +2658,7 @@ async function fetchPitcherStats(pitcherId) {
           era: split.era !== undefined ? parseFloat(split.era).toFixed(2) : '-.--'
         };
       }
-      state.pitcherStatsCache[pitcherId] = {
+      state.pitcherStatsCache[cacheKey] = {
         loading: false,
         fullName: p.fullName,
         wins: statInfo.wins,
@@ -2665,11 +2666,11 @@ async function fetchPitcherStats(pitcherId) {
         era: statInfo.era
       };
     } else {
-      state.pitcherStatsCache[pitcherId] = { error: true };
+      state.pitcherStatsCache[cacheKey] = { error: true };
     }
   } catch (err) {
     console.error("Failed to fetch pitcher stats:", err);
-    state.pitcherStatsCache[pitcherId] = { error: true };
+    state.pitcherStatsCache[cacheKey] = { error: true };
   }
   render();
 }
@@ -2962,14 +2963,18 @@ function createGameCard(item, isNeutral) {
         state.pitcherStatsCache = {};
       }
 
-      const cacheAway = state.pitcherStatsCache[realAwayPitcher.id];
-      const cacheHome = state.pitcherStatsCache[realHomePitcher.id];
+      const gameYear = state.selectedDate ? state.selectedDate.split('-')[0] : new Date().getFullYear();
+      const cacheKeyAway = `${realAwayPitcher.id}_${gameYear}`;
+      const cacheKeyHome = `${realHomePitcher.id}_${gameYear}`;
+
+      const cacheAway = state.pitcherStatsCache[cacheKeyAway];
+      const cacheHome = state.pitcherStatsCache[cacheKeyHome];
 
       if (cacheAway && !cacheAway.loading && !cacheAway.error) {
         awayPitcherData = cacheAway;
       } else {
         if (!cacheAway) {
-          fetchPitcherStats(realAwayPitcher.id);
+          fetchPitcherStats(realAwayPitcher.id, gameYear);
         }
       }
 
@@ -2977,7 +2982,7 @@ function createGameCard(item, isNeutral) {
         homePitcherData = cacheHome;
       } else {
         if (!cacheHome) {
-          fetchPitcherStats(realHomePitcher.id);
+          fetchPitcherStats(realHomePitcher.id, gameYear);
         }
       }
     } else if (item.gamePk >= 1000) {
