@@ -4820,6 +4820,13 @@ document.addEventListener('touchend', (e) => {
 
 // --- HOME RUN CHASE SECTION ---
 
+function getOffsetDateStr(dateStr, offsetDays) {
+  const parts = dateStr.split('-');
+  const date = new Date(parts[0], parts[1] - 1, parts[2]);
+  date.setDate(date.getDate() + offsetDays);
+  return formatLocalDate(date);
+}
+
 // Fetch schedule and parallel boxscores to count HRs for a given date
 async function getDailyHRStats(dateStr) {
   const cacheKey = `hr_count_v1_${dateStr}`;
@@ -4904,8 +4911,8 @@ async function getDailyHRStats(dateStr) {
 let todayPlayerHRsMap = {};
 
 // Load player HR counts hit today
-async function loadTodayPlayerHRs() {
-  const todayDate = getBaseballDate(0);
+async function loadTodayPlayerHRs(dateStr) {
+  const todayDate = dateStr || state.selectedDate;
   try {
     const res = await fetch(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${todayDate}&endDate=${todayDate}`);
     if (!res.ok) return {};
@@ -5045,12 +5052,7 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
 
   leaders.forEach((leader, idx) => {
     const pId = leader.person?.id;
-    let todayHRs = 0;
-    if (Object.keys(todayPlayerHRsMap).length > 0) {
-      todayHRs = todayPlayerHRsMap[pId] || 0;
-    } else {
-      todayHRs = MOCK_TODAY_PLAYER_HRS[pId] || 0;
-    }
+    const todayHRs = todayPlayerHRsMap[pId] || 0;
     
     const totalHR = parseInt(leader.value, 10);
     const yesterdayHR = totalHR - todayHRs;
@@ -5333,6 +5335,15 @@ function createHRRaceView() {
   container.className = 'setup-container';
   container.style.cssText = 'display: flex; flex-direction: column; gap: 20px; padding-bottom: 24px;';
 
+  const selectedYear = state.selectedDate.split('-')[0];
+  const yesterdayDate = getOffsetDateStr(state.selectedDate, -1);
+  const todayDate = state.selectedDate;
+
+  const fmtMD = (dStr) => {
+    const parts = dStr.split('-');
+    return `${parseInt(parts[1], 10)}/${parseInt(parts[2], 10)}`;
+  };
+
   const title = document.createElement('h2');
   title.className = 'setup-title';
   title.innerText = 'Home Run Chase';
@@ -5341,7 +5352,7 @@ function createHRRaceView() {
 
   const subtitle = document.createElement('p');
   subtitle.style.cssText = 'font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; margin: 0; margin-top: -12px; margin-bottom: 4px;';
-  subtitle.innerText = 'Real-time leaderboard and daily stats for the 2026 MLB Home Run Chase.';
+  subtitle.innerText = `Real-time leaderboard and daily stats for the ${selectedYear} MLB Home Run Chase.`;
   container.appendChild(subtitle);
 
   const statsCard = document.createElement('div');
@@ -5353,7 +5364,7 @@ function createHRRaceView() {
   
   const yesterdayLabel = document.createElement('span');
   yesterdayLabel.style.cssText = 'font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;';
-  yesterdayLabel.innerText = 'Hit Yesterday';
+  yesterdayLabel.innerText = `Hit ${fmtMD(yesterdayDate)}`;
   
   const yesterdayVal = document.createElement('span');
   yesterdayVal.style.cssText = 'font-size: 32px; font-weight: 800; color: var(--color-gold); font-family: var(--font-title);';
@@ -5368,7 +5379,7 @@ function createHRRaceView() {
   
   const todayLabel = document.createElement('span');
   todayLabel.style.cssText = 'font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;';
-  todayLabel.innerText = 'Hit Today';
+  todayLabel.innerText = `Hit ${fmtMD(todayDate)}`;
   
   const todayVal = document.createElement('span');
   todayVal.style.cssText = 'font-size: 32px; font-weight: 800; color: var(--color-win); font-family: var(--font-title);';
@@ -5383,9 +5394,6 @@ function createHRRaceView() {
   statsCard.appendChild(todayCol);
 
   container.appendChild(statsCard);
-
-  const yesterdayDate = getBaseballDate(-1);
-  const todayDate = getBaseballDate(0);
   
   getDailyHRStats(yesterdayDate).then(data => {
     yesterdayVal.innerText = data.count;
@@ -5439,10 +5447,10 @@ function createHRRaceView() {
   teamCard.appendChild(teamSpinner);
   container.appendChild(teamCard);
 
-  const mlbLeadersUrl = 'https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=homeRuns&season=2026&statType=season&limit=20';
-  const teamLeadersUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=homeRuns&season=2026&statType=season&limit=3&teamId=${state.activeTeamId}`;
+  const mlbLeadersUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=homeRuns&season=${selectedYear}&statType=season&limit=20`;
+  const teamLeadersUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=homeRuns&season=${selectedYear}&statType=season&limit=3&teamId=${state.activeTeamId}`;
 
-  loadTodayPlayerHRs().finally(() => {
+  loadTodayPlayerHRs(state.selectedDate).finally(() => {
     fetch(mlbLeadersUrl)
       .then(res => {
         if (!res.ok) throw new Error('API failure');
