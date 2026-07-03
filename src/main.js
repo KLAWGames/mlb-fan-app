@@ -2151,18 +2151,18 @@ function updateHeaderContent(header) {
 
   const topRow = document.createElement('div');
   topRow.className = 'header-top';
+  topRow.style.minHeight = '0px';
 
-  const logo = document.createElement('div');
-  logo.className = 'app-logo';
-  logo.innerText = 'Trajectory';
-  topRow.appendChild(logo);
-
-  const rightControls = document.createElement('div');
-  rightControls.style.cssText = 'display: flex; align-items: center; gap: 8px; position: absolute; right: 0;';
-
-  if (state.activeView === 'scores') {
+  if (state.activeView === 'settings') {
+    topRow.style.minHeight = '44px';
+    const logo = document.createElement('div');
+    logo.className = 'app-logo';
+    logo.innerText = 'Trajectory';
+    topRow.appendChild(logo);
+  } else if (state.activeView === 'scores') {
+    topRow.style.minHeight = '44px';
     const dateNav = document.createElement('div');
-    dateNav.style.cssText = 'display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.08); border: 1px solid var(--border-glass-highlight); padding: 4px 8px; border-radius: 8px;';
+    dateNav.style.cssText = 'display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.08); border: 1px solid var(--border-glass-highlight); padding: 4px 8px; border-radius: 8px; margin: 0 auto;';
     
     const prevDayBtn = document.createElement('button');
     prevDayBtn.style.cssText = 'background: none; border: none; color: var(--text-primary); cursor: pointer; font-size: 14px; padding: 2px 6px; font-weight: 700; outline: none; transition: opacity 0.2s;';
@@ -2210,8 +2210,9 @@ function updateHeaderContent(header) {
     dateNav.appendChild(prevDayBtn);
     dateNav.appendChild(datePicker);
     dateNav.appendChild(nextDayBtn);
-    rightControls.appendChild(dateNav);
-    topRow.appendChild(rightControls);
+    topRow.appendChild(dateNav);
+  } else {
+    topRow.style.marginBottom = '0px';
   }
 
   header.appendChild(topRow);

@@ -2118,16 +2118,16 @@ header {
   width: 100%;
   max-width: 500px;
   height: 64px;
-  background: rgba(15, 23, 42, 0.76);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.85); /* Light translucent mode background */
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(0, 0, 0, 0.08); /* Darker border for light mode contrast */
   display: flex;
   justify-content: space-around;
   align-items: center;
   z-index: 999;
   padding-bottom: env(safe-area-inset-bottom);
-  box-shadow: 0 -4px 20px -2px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 -4px 20px -2px rgba(0, 0, 0, 0.08); /* Lighter shadow for clean aesthetic */
   transition: background 0.3s ease, border-color 0.3s ease;
 }
 
@@ -2140,13 +2140,13 @@ header {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  color: var(--text-secondary);
+  color: #475569; /* Slate 600 for contrast in light mode */
   border: none;
   background: none;
   cursor: pointer;
   font-family: var(--font-main);
   font-size: 10.5px;
-  font-weight: 500;
+  font-weight: 600; /* slightly heavier for clear readability */
   outline: none;
   transition: color 0.2s ease, transform 0.1s ease;
   padding: 4px 0;
@@ -2161,13 +2161,13 @@ header {
 }
 
 .footer-nav-item.active {
-  color: var(--color-gold);
-  font-weight: 700;
+  color: var(--team-primary, #3b82f6); /* Active team primary color is highly premium! */
+  font-weight: 800;
 }
 
 .footer-nav-item.active .footer-nav-icon {
   transform: scale(1.1);
-  filter: drop-shadow(0 2px 6px rgba(245, 158, 11, 0.3));
+  filter: drop-shadow(0 2px 6px rgba(var(--team-primary-rgb, 59, 130, 246), 0.25));
 }
 
 .footer-nav-icon.team-badge {
