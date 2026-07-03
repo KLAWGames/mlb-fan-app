@@ -966,7 +966,7 @@ function getActiveSankeyNodes(plays) {
   return possibleNodes.filter(node => presentKeys.has(node.eventKey));
 }
 
-function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
+function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team, isTransition = false) {
   const backdrop = document.querySelector('.analytics-center-backdrop');
   if (!backdrop) return;
   const modal = backdrop.querySelector('.glass-card') || backdrop;
@@ -1080,7 +1080,7 @@ function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
       overlay.style.opacity = '0';
       
       setTimeout(() => {
-        showNodeDetailsOverlay(targetNode.id, targetNode.label, plays, team);
+        showNodeDetailsOverlay(targetNode.id, targetNode.label, plays, team, true);
       }, 180);
     }
   }, { passive: true });
@@ -1175,6 +1175,53 @@ function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
   }
 
   overlay.appendChild(listContainer);
+
+  if (!isTransition) {
+    const swipeHint = document.createElement('div');
+    swipeHint.className = 'sankey-swipe-hint';
+    swipeHint.style.cssText = `
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      padding: 10px 18px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      z-index: 13000;
+      pointer-events: none;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: opacity 0.4s ease;
+    `;
+    
+    swipeHint.innerHTML = `
+      <div style="display:flex; align-items:center; gap:8px; font-size:16px;">
+        <span style="opacity:0.5; color:#f8fafc;">◀</span>
+        <span class="swipe-hand" style="font-size:20px; display:inline-block; animation: swipeHandMove 1.5s ease-in-out infinite;">☝️</span>
+        <span style="opacity:0.5; color:#f8fafc;">▶</span>
+      </div>
+      <span style="font-size: 10.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; font-family: var(--font-title);">Swipe Left / Right</span>
+    `;
+    
+    overlay.appendChild(swipeHint);
+    
+    const dismissTimeout = setTimeout(() => {
+      swipeHint.style.opacity = '0';
+      setTimeout(() => swipeHint.remove(), 400);
+    }, 1800);
+
+    overlay.addEventListener('touchstart', () => {
+      clearTimeout(dismissTimeout);
+      swipeHint.remove();
+    }, { once: true, passive: true });
+  }
+
   modal.appendChild(overlay);
 }
 
