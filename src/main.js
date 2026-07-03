@@ -3145,6 +3145,13 @@ function createDashboardView() {
     const activeTeamGameCard = createGameCard(activeTeamMatchup, false);
     activeTeamGameCard.style.marginTop = '14px';
     container.appendChild(activeTeamGameCard);
+  } else {
+    const activeTeamName = state.processedStandings?.teamsMap?.[state.activeTeamId]?.shortName || teamsData[state.activeTeamId]?.shortName || 'Tracked Team';
+    const noGameCard = document.createElement('div');
+    noGameCard.className = 'glass-card';
+    noGameCard.style.cssText = 'margin-top: 14px; padding: 16px; text-align: center; color: var(--text-secondary); font-size: 13px; font-weight: 600; border: 1px solid var(--border-glass-highlight);';
+    noGameCard.innerText = `⚾ ${activeTeamName} does not play today.`;
+    container.appendChild(noGameCard);
   }
 
   // Yesterday's Standings Recap Trigger Button (only visible when looking at today's data)
@@ -3670,6 +3677,43 @@ function createDashboardView() {
 
     magicAccordion.appendChild(accordionContent);
     container.appendChild(magicAccordion);
+  }
+
+  // 3. Games That Matter Today (Rival matchups that impact standings)
+  const rivalGamesThatMatter = analysis.filter(g =>
+    g.priority > 0 &&
+    g.awayTeam.id !== state.activeTeamId &&
+    g.homeTeam.id !== state.activeTeamId
+  );
+
+  const sectionHeader = document.createElement('div');
+  sectionHeader.style.display = 'flex';
+  sectionHeader.style.justifyContent = 'space-between';
+  sectionHeader.style.alignItems = 'center';
+  sectionHeader.style.marginTop = '20px';
+  sectionHeader.style.marginBottom = '12px';
+
+  const sectionTitle = document.createElement('h3');
+  sectionTitle.className = 'section-title';
+  sectionTitle.innerText = 'Games That Matter Today';
+  sectionTitle.style.marginBottom = '0';
+  sectionHeader.appendChild(sectionTitle);
+
+  container.appendChild(sectionHeader);
+
+  if (rivalGamesThatMatter.length === 0) {
+    const noGamesMsg = document.createElement('p');
+    noGamesMsg.style.fontSize = '13px';
+    noGamesMsg.style.color = 'var(--text-secondary)';
+    noGamesMsg.style.textAlign = 'center';
+    noGamesMsg.style.padding = '20px 0';
+    noGamesMsg.innerText = 'No rival matchups directly impacting your standing today.';
+    container.appendChild(noGamesMsg);
+  } else {
+    const sortedRivalGames = sortGames(rivalGamesThatMatter);
+    sortedRivalGames.forEach(g => {
+      container.appendChild(createGameCard(g, false));
+    });
   }
 
   return container;
