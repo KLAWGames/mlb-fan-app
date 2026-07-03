@@ -4827,6 +4827,46 @@ function getOffsetDateStr(dateStr, offsetDays) {
   return formatLocalDate(date);
 }
 
+async function fetchHRMapForDate(dateStr) {
+  try {
+    const res = await fetch(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${dateStr}&endDate=${dateStr}`);
+    if (!res.ok) return {};
+    const data = await res.json();
+    const games = data.dates?.[0]?.games || [];
+    const activeGames = games.filter(g => {
+      const state = g.status?.statusCode;
+      return state !== 'DI' && state !== 'DR' && state !== 'P';
+    });
+    
+    const hrMap = {};
+    await Promise.all(activeGames.map(async (game) => {
+      const statusCode = game.status?.statusCode;
+      if (statusCode === 'S' || statusCode === 'P' || statusCode === 'I') return;
+      try {
+        const boxRes = await fetch(`https://statsapi.mlb.com/api/v1/game/${game.gamePk}/boxscore`);
+        if (!boxRes.ok) return;
+        const boxData = await boxRes.json();
+        const processTeam = (teamData) => {
+          if (!teamData?.players) return;
+          for (const key in teamData.players) {
+            const p = teamData.players[key];
+            const pId = p.person?.id;
+            const hr = p.stats?.batting?.homeRuns || 0;
+            if (pId && hr > 0) {
+              hrMap[pId] = (hrMap[pId] || 0) + hr;
+            }
+          }
+        };
+        processTeam(boxData.teams?.away);
+        processTeam(boxData.teams?.home);
+      } catch (e) {}
+    }));
+    return hrMap;
+  } catch (e) {
+    return {};
+  }
+}
+
 // Fetch schedule and parallel boxscores to count HRs for a given date
 async function getDailyHRStats(dateStr) {
   const cacheKey = `hr_count_v1_${dateStr}`;
@@ -4963,7 +5003,7 @@ async function loadTodayPlayerHRs(dateStr) {
 }
 
 // Render top 20 MLB leaders as a visual horizontal bar graph with season record chase
-function renderMLBLeadersGraph(leaders, card, spinner) {
+function renderMLBLeadersGraph(leaders, card, spinner, yesterdayPlayerHRsMap = {}, todayPlayerHRsMap = {}) {
   if (spinner) spinner.remove();
 
   const existingGraph = card.querySelector('.hr-leaders-graph-container');
@@ -5053,9 +5093,10 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
   leaders.forEach((leader, idx) => {
     const pId = leader.person?.id;
     const todayHRs = todayPlayerHRsMap[pId] || 0;
+    const yesterdayHRs = yesterdayPlayerHRsMap[pId] || 0;
     
     const totalHR = parseInt(leader.value, 10);
-    const yesterdayHR = totalHR - todayHRs;
+    const baseHR = totalHR - todayHRs - yesterdayHRs;
     
     const teamId = leader.team?.id;
     const staticTeam = teamsData[teamId] || {};
@@ -5097,23 +5138,29 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
     const barOuter = document.createElement('div');
     barOuter.style.cssText = 'flex: 1; height: 16px; background: rgba(255,255,255,0.06); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-glass); display: flex; transition: all 0.3s;';
 
-    // Base segment (Yesterday)
+    // Base segment (Day before yesterday)
     const baseBar = document.createElement('div');
-    const baseWidth = (yesterdayHR / maxScaleHR) * 100;
+    const baseWidth = (baseHR / maxScaleHR) * 100;
     baseBar.style.cssText = `height: 100%; width: 0%; background: ${teamColor}; border-radius: 6px 0 0 6px; transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);`;
     barOuter.appendChild(baseBar);
+
+    // Yesterday's added segment
+    const yesterdayBar = document.createElement('div');
+    const yesterdayAddedWidth = (yesterdayHRs / maxScaleHR) * 100;
+    yesterdayBar.style.cssText = `height: 100%; width: 0%; background: #eab308; transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 1.5s ease; box-shadow: 0 0 8px rgba(234, 179, 8, 0.4);`;
+    barOuter.appendChild(yesterdayBar);
 
     // Today's added segment
     const todayBar = document.createElement('div');
     const todayAddedWidth = (todayHRs / maxScaleHR) * 100;
-    todayBar.style.cssText = `height: 100%; width: 0%; background: #ff5a00; border-radius: 0 6px 6px 0; transition: width 6.0s cubic-bezier(0.16, 1, 0.3, 1), background-color 2.0s ease; box-shadow: 0 0 8px rgba(255, 90, 0, 0.4);`;
+    todayBar.style.cssText = `height: 100%; width: 0%; background: #ff5a00; border-radius: 0 6px 6px 0; transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 1.5s ease; box-shadow: 0 0 8px rgba(255, 90, 0, 0.4);`;
     barOuter.appendChild(todayBar);
 
     barCol.appendChild(barOuter);
 
     const valueSpan = document.createElement('span');
     valueSpan.style.cssText = 'font-size: 13px; font-weight: 800; color: var(--text-primary); width: 22px; text-align: right; font-family: var(--font-title);';
-    valueSpan.innerText = yesterdayHR;
+    valueSpan.innerText = baseHR;
     barCol.appendChild(valueSpan);
 
     row.appendChild(barCol);
@@ -5124,14 +5171,18 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
     }, 50);
 
     animRows.push({
+      yesterdayBar,
+      yesterdayAddedWidth,
       todayBar,
       todayAddedWidth,
       valueSpan,
-      yesterdayHR,
+      baseHR,
+      yesterdayHRs,
+      todayHRs,
       totalHR,
       teamColor,
-      hasChange: todayHRs > 0,
-      todayHRs,
+      hasYesterdayChange: yesterdayHRs > 0,
+      hasTodayChange: todayHRs > 0,
       baseWidth,
       barOuter,
       barCol,
@@ -5143,28 +5194,31 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
 
   animBtn.addEventListener('click', () => {
     if (isAnimated) {
-      // Reset state transition-less
       animRows.forEach(row => {
-        if (row.hasChange) {
-          // Clear any active bubble intervals
+        if (row.hasYesterdayChange || row.hasTodayChange) {
           if (row.bubbleInterval) {
             clearInterval(row.bubbleInterval);
             row.bubbleInterval = null;
           }
           
+          row.yesterdayBar.style.transition = 'none';
+          row.yesterdayBar.style.width = '0%';
+          row.yesterdayBar.style.backgroundColor = '#eab308';
+          row.yesterdayBar.style.boxShadow = '0 0 8px rgba(234, 179, 8, 0.4)';
+
           row.todayBar.style.transition = 'none';
           row.todayBar.style.width = '0%';
           row.todayBar.style.backgroundColor = '#ff5a00';
           row.todayBar.style.boxShadow = '0 0 8px rgba(255, 90, 0, 0.4)';
-          row.valueSpan.innerText = row.yesterdayHR;
+          row.valueSpan.innerText = row.baseHR;
         }
       });
-      // Reflow
       void animBtn.offsetHeight;
       
       animRows.forEach(row => {
-        if (row.hasChange) {
-          row.todayBar.style.transition = 'width 6.0s cubic-bezier(0.16, 1, 0.3, 1), background-color 2.0s ease';
+        if (row.hasYesterdayChange || row.hasTodayChange) {
+          row.yesterdayBar.style.transition = 'width 1.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 1.5s ease';
+          row.todayBar.style.transition = 'width 1.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 1.5s ease';
         }
       });
     }
@@ -5175,88 +5229,152 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
     animBtn.style.borderColor = 'rgba(16, 185, 129, 0.3)';
     animBtn.innerHTML = `⚡ Animating...`;
 
+    // 1. Yesterday's Animation Phase
     animRows.forEach((row, idx) => {
-      if (row.hasChange) {
+      if (row.hasYesterdayChange || row.hasTodayChange) {
         row.barOuter.classList.add('pulse-new-hr');
         
-        // Spawn first floating +1 / +X bubble immediately
         let spawnCount = 0;
-        const spawnBubble = () => {
+        const spawnYesterdayBubble = () => {
+          if (!row.hasYesterdayChange) return;
           const bubble = document.createElement('span');
           bubble.className = 'float-up-fade';
           bubble.style.cssText = `
             position: absolute;
-            left: calc(${row.baseWidth + row.todayAddedWidth / 2}% - 16px);
+            left: calc(${row.baseWidth + row.yesterdayAddedWidth / 2}% - 16px);
             top: -8px;
-            background: #ff5a00;
+            background: #eab308;
             color: #ffffff;
             font-size: 9px;
             font-weight: 800;
             padding: 2px 6px;
             border-radius: 6px;
-            box-shadow: 0 0 6px rgba(255, 90, 0, 0.6);
+            box-shadow: 0 0 6px rgba(234, 179, 8, 0.6);
             pointer-events: none;
             z-index: 10;
             font-family: var(--font-title);
             white-space: nowrap;
           `;
           if (spawnCount % 2 === 0) {
-            bubble.innerText = `+${row.todayHRs}`;
+            bubble.innerText = `Yesterday +${row.yesterdayHRs}`;
           } else {
-            bubble.innerText = `${row.yesterdayHR} > ${row.totalHR}`;
+            bubble.innerText = `${row.baseHR} > ${row.baseHR + row.yesterdayHRs}`;
           }
           spawnCount++;
           row.barCol.appendChild(bubble);
-          setTimeout(() => bubble.remove(), 1400);
+          setTimeout(() => bubble.remove(), 1200);
         };
 
-        spawnBubble();
-        
-        // Loop bubble spawning every 1.5 seconds during the 8 seconds
-        row.bubbleInterval = setInterval(spawnBubble, 1500);
-
-        setTimeout(() => {
-          row.todayBar.style.width = `${row.todayAddedWidth}%`;
+        if (row.hasYesterdayChange) {
+          spawnYesterdayBubble();
+          row.bubbleInterval = setInterval(spawnYesterdayBubble, 1200);
           
-          // Spread counting up over 5.5 seconds
-          const delayPerHR = 5500 / row.todayHRs;
-          let count = row.yesterdayHR;
-          const interval = setInterval(() => {
-            if (count >= row.totalHR) {
-              clearInterval(interval);
-            } else {
-              count++;
-              row.valueSpan.innerText = count;
-            }
-          }, delayPerHR);
-        }, idx * 40);
-
-        // Lock in change to team color after 6.5 seconds
-        setTimeout(() => {
-          row.todayBar.style.backgroundColor = row.teamColor;
-          row.todayBar.style.boxShadow = 'none';
-        }, 6500);
-
-        // Stop pulsing and clear bubbles loop at 8 seconds
-        setTimeout(() => {
-          row.barOuter.classList.remove('pulse-new-hr');
-          if (row.bubbleInterval) {
-            clearInterval(row.bubbleInterval);
-            row.bubbleInterval = null;
-          }
-        }, 8000);
+          setTimeout(() => {
+            row.yesterdayBar.style.width = `${row.yesterdayAddedWidth}%`;
+            
+            let count = row.baseHR;
+            const target = row.baseHR + row.yesterdayHRs;
+            const delayPerHR = 1000 / Math.max(1, row.yesterdayHRs);
+            const interval = setInterval(() => {
+              if (count >= target) {
+                clearInterval(interval);
+              } else {
+                count++;
+                row.valueSpan.innerText = count;
+              }
+            }, delayPerHR);
+          }, idx * 30);
+        }
       }
     });
 
-    // Complete state toggle at 8 seconds
+    // 2. Today's Animation Phase
     setTimeout(() => {
+      animRows.forEach((row, idx) => {
+        if (row.bubbleInterval) {
+          clearInterval(row.bubbleInterval);
+          row.bubbleInterval = null;
+        }
+
+        if (row.hasTodayChange) {
+          let spawnCount = 0;
+          const spawnTodayBubble = () => {
+            const bubble = document.createElement('span');
+            bubble.className = 'float-up-fade';
+            bubble.style.cssText = `
+              position: absolute;
+              left: calc(${row.baseWidth + row.yesterdayAddedWidth + row.todayAddedWidth / 2}% - 16px);
+              top: -8px;
+              background: #ff5a00;
+              color: #ffffff;
+              font-size: 9px;
+              font-weight: 800;
+              padding: 2px 6px;
+              border-radius: 6px;
+              box-shadow: 0 0 6px rgba(255, 90, 0, 0.6);
+              pointer-events: none;
+              z-index: 10;
+              font-family: var(--font-title);
+              white-space: nowrap;
+            `;
+            if (spawnCount % 2 === 0) {
+              bubble.innerText = `Today +${row.todayHRs}`;
+            } else {
+              bubble.innerText = `${row.baseHR + row.yesterdayHRs} > ${row.totalHR}`;
+            }
+            spawnCount++;
+            row.barCol.appendChild(bubble);
+            setTimeout(() => bubble.remove(), 1200);
+          };
+
+          spawnTodayBubble();
+          row.bubbleInterval = setInterval(spawnTodayBubble, 1200);
+
+          setTimeout(() => {
+            row.todayBar.style.width = `${row.todayAddedWidth}%`;
+            
+            let count = row.baseHR + row.yesterdayHRs;
+            const delayPerHR = 1000 / Math.max(1, row.todayHRs);
+            const interval = setInterval(() => {
+              if (count >= row.totalHR) {
+                clearInterval(interval);
+              } else {
+                count++;
+                row.valueSpan.innerText = count;
+              }
+            }, delayPerHR);
+          }, idx * 30);
+        } else {
+          row.valueSpan.innerText = row.baseHR + row.yesterdayHRs;
+        }
+      });
+    }, 1500);
+
+    // 3. Finalize
+    setTimeout(() => {
+      animRows.forEach(row => {
+        if (row.bubbleInterval) {
+          clearInterval(row.bubbleInterval);
+          row.bubbleInterval = null;
+        }
+        row.barOuter.classList.remove('pulse-new-hr');
+        if (row.hasYesterdayChange) {
+          row.yesterdayBar.style.backgroundColor = row.teamColor;
+          row.yesterdayBar.style.boxShadow = 'none';
+        }
+        if (row.hasTodayChange) {
+          row.todayBar.style.backgroundColor = row.teamColor;
+          row.todayBar.style.boxShadow = 'none';
+        }
+      });
+
       isAnimated = true;
       animBtn.disabled = false;
       animBtn.style.background = 'rgba(255, 90, 0, 0.1)';
       animBtn.style.color = '#ff5a00';
       animBtn.style.borderColor = 'rgba(255, 90, 0, 0.35)';
       animBtn.innerHTML = `🔄 Replay Animation`;
-    }, 8000);
+    }, 3200);
   });
 
   card.appendChild(graphContainer);
@@ -5450,7 +5568,23 @@ function createHRRaceView() {
   const mlbLeadersUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=homeRuns&season=${selectedYear}&statType=season&limit=20`;
   const teamLeadersUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=homeRuns&season=${selectedYear}&statType=season&limit=3&teamId=${state.activeTeamId}`;
 
-  loadTodayPlayerHRs(state.selectedDate).finally(() => {
+  Promise.all([
+    fetchHRMapForDate(yesterdayDate),
+    fetchHRMapForDate(todayDate)
+  ]).then(([yesterdayMap, todayMap]) => {
+    fetch(mlbLeadersUrl)
+      .then(res => {
+        if (!res.ok) throw new Error('API failure');
+        return res.json();
+      })
+      .then(data => {
+        const leadersList = data.leagueLeaders?.[0]?.leaders || [];
+        renderMLBLeadersGraph(leadersList.length > 0 ? leadersList : MOCK_HR_LEADERS, leadersCard, leadersSpinner, yesterdayMap, todayMap);
+      })
+      .catch(() => {
+        renderMLBLeadersGraph(MOCK_HR_LEADERS, leadersCard, leadersSpinner, yesterdayMap, todayMap);
+      });
+  }).catch(() => {
     fetch(mlbLeadersUrl)
       .then(res => {
         if (!res.ok) throw new Error('API failure');
