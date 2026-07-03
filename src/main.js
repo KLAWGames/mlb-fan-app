@@ -4900,7 +4900,7 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
     // Today's added segment
     const todayBar = document.createElement('div');
     const todayAddedWidth = (todayHRs / maxScaleHR) * 100;
-    todayBar.style.cssText = `height: 100%; width: 0%; background: #ff5a00; border-radius: 0 6px 6px 0; transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.8s ease; box-shadow: 0 0 8px rgba(255, 90, 0, 0.4);`;
+    todayBar.style.cssText = `height: 100%; width: 0%; background: #ff5a00; border-radius: 0 6px 6px 0; transition: width 6.0s cubic-bezier(0.16, 1, 0.3, 1), background-color 2.0s ease; box-shadow: 0 0 8px rgba(255, 90, 0, 0.4);`;
     barOuter.appendChild(todayBar);
 
     barCol.appendChild(barOuter);
@@ -4928,7 +4928,8 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
       todayHRs,
       baseWidth,
       barOuter,
-      barCol
+      barCol,
+      bubbleInterval: null
     });
   });
 
@@ -4939,6 +4940,12 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
       // Reset state transition-less
       animRows.forEach(row => {
         if (row.hasChange) {
+          // Clear any active bubble intervals
+          if (row.bubbleInterval) {
+            clearInterval(row.bubbleInterval);
+            row.bubbleInterval = null;
+          }
+          
           row.todayBar.style.transition = 'none';
           row.todayBar.style.width = '0%';
           row.todayBar.style.backgroundColor = '#ff5a00';
@@ -4951,7 +4958,7 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
       
       animRows.forEach(row => {
         if (row.hasChange) {
-          row.todayBar.style.transition = 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.8s ease';
+          row.todayBar.style.transition = 'width 6.0s cubic-bezier(0.16, 1, 0.3, 1), background-color 2.0s ease';
         }
       });
     }
@@ -4966,31 +4973,40 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
       if (row.hasChange) {
         row.barOuter.classList.add('pulse-new-hr');
         
-        // Spawn animating +1 / +X bubble
-        const bubble = document.createElement('span');
-        bubble.className = 'float-up-fade';
-        bubble.style.cssText = `
-          position: absolute;
-          left: calc(${row.baseWidth + row.todayAddedWidth / 2}% - 12px);
-          top: -8px;
-          background: #ff5a00;
-          color: #ffffff;
-          font-size: 9px;
-          font-weight: 800;
-          padding: 2px 5px;
-          border-radius: 6px;
-          box-shadow: 0 0 6px rgba(255, 90, 0, 0.6);
-          pointer-events: none;
-          z-index: 10;
-          font-family: var(--font-title);
-        `;
-        bubble.innerText = `+${row.todayHRs}`;
-        row.barCol.appendChild(bubble);
-        setTimeout(() => bubble.remove(), 1400);
+        // Spawn first floating +1 / +X bubble immediately
+        const spawnBubble = () => {
+          const bubble = document.createElement('span');
+          bubble.className = 'float-up-fade';
+          bubble.style.cssText = `
+            position: absolute;
+            left: calc(${row.baseWidth + row.todayAddedWidth / 2}% - 12px);
+            top: -8px;
+            background: #ff5a00;
+            color: #ffffff;
+            font-size: 9px;
+            font-weight: 800;
+            padding: 2px 5px;
+            border-radius: 6px;
+            box-shadow: 0 0 6px rgba(255, 90, 0, 0.6);
+            pointer-events: none;
+            z-index: 10;
+            font-family: var(--font-title);
+          `;
+          bubble.innerText = `+${row.todayHRs}`;
+          row.barCol.appendChild(bubble);
+          setTimeout(() => bubble.remove(), 1400);
+        };
+
+        spawnBubble();
+        
+        // Loop bubble spawning every 1.5 seconds during the 8 seconds
+        row.bubbleInterval = setInterval(spawnBubble, 1500);
 
         setTimeout(() => {
           row.todayBar.style.width = `${row.todayAddedWidth}%`;
           
+          // Spread counting up over 5.5 seconds
+          const delayPerHR = 5500 / row.todayHRs;
           let count = row.yesterdayHR;
           const interval = setInterval(() => {
             if (count >= row.totalHR) {
@@ -4999,20 +5015,27 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
               count++;
               row.valueSpan.innerText = count;
             }
-          }, 300);
+          }, delayPerHR);
         }, idx * 40);
 
+        // Lock in change to team color after 6.5 seconds
         setTimeout(() => {
           row.todayBar.style.backgroundColor = row.teamColor;
           row.todayBar.style.boxShadow = 'none';
-        }, 1600);
+        }, 6500);
 
+        // Stop pulsing and clear bubbles loop at 8 seconds
         setTimeout(() => {
           row.barOuter.classList.remove('pulse-new-hr');
-        }, 2500);
+          if (row.bubbleInterval) {
+            clearInterval(row.bubbleInterval);
+            row.bubbleInterval = null;
+          }
+        }, 8000);
       }
     });
 
+    // Complete state toggle at 8 seconds
     setTimeout(() => {
       isAnimated = true;
       animBtn.disabled = false;
@@ -5020,7 +5043,7 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
       animBtn.style.color = '#ff5a00';
       animBtn.style.borderColor = 'rgba(255, 90, 0, 0.35)';
       animBtn.innerHTML = `🔄 Replay Animation`;
-    }, 1800);
+    }, 8000);
   });
 
   card.appendChild(graphContainer);
