@@ -1859,7 +1859,8 @@ export function openGameAnalyticsCenter(game, state, render) {
         
         const pSummary = document.createElement('span');
         pSummary.style.cssText = 'font-size: 11px; font-weight: 700; color: var(--text-secondary); background: rgba(0,0,0,0.05); padding: 2px 8px; border-radius: 12px;';
-        pSummary.innerText = `${pm.totalPitches} Pitches • ${pm.innings.length} Innings`;
+        const irStr = pm.inheritedRunners > 0 ? ` • ${pm.inheritedRunnersScored}/${pm.inheritedRunners} IR` : '';
+        pSummary.innerText = `${pm.totalPitches} Pitches • ${pm.innings.length} IP • ${pm.earnedRuns} ER${irStr}`;
         
         pHeader.appendChild(pName);
         pHeader.appendChild(pSummary);
@@ -2065,6 +2066,19 @@ export function parsePitcherLiveFeedData(feed, teamId) {
   const homeTeamId = feed.gameData?.teams?.home?.id;
   const isAway = selectedTeamIdNum === awayTeamId;
 
+  const boxscore = feed.liveData?.boxscore;
+  const findBoxscoreStats = (pid) => {
+    if (!boxscore || !boxscore.teams) return null;
+    const playerKey = `ID${pid}`;
+    if (boxscore.teams.away?.players?.[playerKey]?.stats?.pitching) {
+      return boxscore.teams.away.players[playerKey].stats.pitching;
+    }
+    if (boxscore.teams.home?.players?.[playerKey]?.stats?.pitching) {
+      return boxscore.teams.home.players[playerKey].stats.pitching;
+    }
+    return null;
+  };
+
   const inningScorers = {};
   if (feed.liveData && feed.liveData.plays && feed.liveData.plays.allPlays) {
     feed.liveData.plays.allPlays.forEach(p => {
@@ -2161,6 +2175,15 @@ export function parsePitcherLiveFeedData(feed, teamId) {
       let eventKey = 'out';
       let isRunScoring = didScore;
 
+      let runsOnPlay = 0;
+      if (p.runners) {
+        p.runners.forEach(r => {
+          if (r.movement && r.movement.end === 'score') {
+            runsOnPlay++;
+          }
+        });
+      }
+
       if (eventType.includes('strikeout')) {
         innData.outcomes.Strikeout_Pitches += pitches;
         innData.destinations.Strikeout_LOB_Pitches += pitches;
@@ -2225,6 +2248,7 @@ export function parsePitcherLiveFeedData(feed, teamId) {
         desc: p.result.description || `${eventLabel} in ${p.about.inning} Inning`,
         inning: p.about.inning,
         runs: isRunScoring ? 1 : 0,
+        runsOnPlay,
         batter: batterName,
         pitcher: pitcherName
       });
@@ -2234,11 +2258,15 @@ export function parsePitcherLiveFeedData(feed, teamId) {
   return pitcherOrder.map(pid => {
     const pm = pitcherMap[pid];
     const inningsList = Object.keys(pm.inningsMap).map(inn => pm.inningsMap[inn]).sort((a, b) => a.inning - b.inning);
+    const boxStats = findBoxscoreStats(pm.pitcherId);
     return {
       pitcherId: pm.pitcherId,
       pitcherName: pm.pitcherName,
       totalPitches: pm.totalPitches,
-      innings: inningsList
+      innings: inningsList,
+      earnedRuns: boxStats ? (boxStats.earnedRuns !== undefined ? boxStats.earnedRuns : boxStats.runs) : 0,
+      inheritedRunners: boxStats ? (boxStats.inheritedRunners || 0) : 0,
+      inheritedRunnersScored: boxStats ? (boxStats.inheritedRunnersScored || 0) : 0
     };
   });
 }
@@ -2286,6 +2314,9 @@ export function getDeterministicPitcherSankeyStats(normGame, teamId, state) {
   const starterIP = 5 + Math.floor(lcgRandom() * 2);
 
   const starterStats = generateMockPitcherStats(starterId, starterName, starterRuns, 1, starterIP, lcgRandom);
+  starterStats.earnedRuns = starterRuns;
+  starterStats.inheritedRunners = 0;
+  starterStats.inheritedRunnersScored = 0;
   pitchers.push(starterStats);
 
   let remainingRuns = runsGivenUp - starterRuns;
@@ -2293,12 +2324,18 @@ export function getDeterministicPitcherSankeyStats(normGame, teamId, state) {
   const relieverName = `${starterName.split(' ')[0]} Reliever`;
   const relieverRuns = Math.min(remainingRuns, Math.floor(lcgRandom() * (remainingRuns + 1)));
   const relieverStats = generateMockPitcherStats(relieverId, relieverName, relieverRuns, starterIP + 1, starterIP + 2, lcgRandom);
+  relieverStats.earnedRuns = relieverRuns;
+  relieverStats.inheritedRunners = lcgRandom() < 0.3 ? Math.floor(lcgRandom() * 3) : 0;
+  relieverStats.inheritedRunnersScored = relieverStats.inheritedRunners > 0 ? Math.min(relieverStats.inheritedRunners, Math.floor(lcgRandom() * (relieverStats.inheritedRunners + 1))) : 0;
   pitchers.push(relieverStats);
 
   remainingRuns -= relieverRuns;
   const closerId = starterId + 2;
   const closerName = `${starterName.split(' ')[0]} Closer`;
   const closerStats = generateMockPitcherStats(closerId, closerName, remainingRuns, starterIP + 3, starterIP + 3, lcgRandom);
+  closerStats.earnedRuns = remainingRuns;
+  closerStats.inheritedRunners = lcgRandom() < 0.3 ? Math.floor(lcgRandom() * 3) : 0;
+  closerStats.inheritedRunnersScored = closerStats.inheritedRunners > 0 ? Math.min(closerStats.inheritedRunners, Math.floor(lcgRandom() * (closerStats.inheritedRunners + 1))) : 0;
   pitchers.push(closerStats);
 
   return pitchers;
@@ -2372,16 +2409,19 @@ function generateMockPitcherStats(id, name, runs, startInn, endInn, lcg) {
         desc: `${name} gives up a Solo Home Run in the ${inn} inning.`,
         inning: inn,
         runs: 1,
+        runsOnPlay: 1,
         batter: "Opponent Hitter",
         pitcher: name
       });
     }
     if (singlesCount > 0) {
+      const runsOnSingle = Math.max(0, innRuns - (HomeRun_Pitches > 0 ? 1 : 0));
       plays.push({
         event: 'single',
         desc: `Opponent Hitter singles off ${name}.`,
         inning: inn,
-        runs: 0,
+        runs: runsOnSingle > 0 ? 1 : 0,
+        runsOnPlay: runsOnSingle,
         batter: "Opponent Hitter",
         pitcher: name
       });
@@ -2391,6 +2431,7 @@ function generateMockPitcherStats(id, name, runs, startInn, endInn, lcg) {
       desc: `${name} strikes out Opponent Hitter.`,
       inning: inn,
       runs: 0,
+      runsOnPlay: 0,
       batter: "Opponent Hitter",
       pitcher: name
     });
@@ -2399,6 +2440,7 @@ function generateMockPitcherStats(id, name, runs, startInn, endInn, lcg) {
       desc: `Opponent Hitter ground out to short.`,
       inning: inn,
       runs: 0,
+      runsOnPlay: 0,
       batter: "Opponent Hitter",
       pitcher: name
     });
@@ -2502,10 +2544,11 @@ export function drawPitcherSankeySVG(pm, teamObj) {
   pm.innings.forEach((inn, idx) => {
     const y_base = idx * segmentH + padTop;
     const innVal = inn.pitches;
+    const inningRuns = inn.plays ? inn.plays.reduce((acc, p) => acc + (p.runsOnPlay || 0), 0) : 0;
 
     const h_inning = innVal * globalScaleY;
     const y_inning = y_base + (segmentH - padTop - padBottom - h_inning) / 2;
-    const node_inning = { id: `inn_${inn.inning}`, label: `${inn.inning}${getOrdinalSuffix(inn.inning)} Inn`, value: innVal, x: col2_x, y: y_inning, h: h_inning, color: '#cbd5e1', sourceOffset: 0, targetOffset: 0 };
+    const node_inning = { id: `inn_${inn.inning}`, label: `${inn.inning}${getOrdinalSuffix(inn.inning)} Inn (${inningRuns} R)`, value: innVal, x: col2_x, y: y_inning, h: h_inning, color: '#cbd5e1', sourceOffset: 0, targetOffset: 0 };
     allNodes.push(node_inning);
 
     const h_pitches = innVal * globalScaleY;
