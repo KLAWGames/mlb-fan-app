@@ -1865,14 +1865,12 @@ export function openGameAnalyticsCenter(game, state, render) {
         pHeader.appendChild(pSummary);
         pCard.appendChild(pHeader);
 
-        pm.innings.forEach(inn => {
-          const svgScroll = document.createElement('div');
-          svgScroll.style.cssText = 'width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 6px; border-bottom: 1px dashed rgba(0,0,0,0.04); padding-bottom: 8px;';
-          
-          const svgNode = drawInningSankeySVG(pm.pitcherName, inn, teamObj);
-          svgScroll.appendChild(svgNode);
-          pCard.appendChild(svgScroll);
-        });
+        const svgScroll = document.createElement('div');
+        svgScroll.style.cssText = 'width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 6px;';
+        
+        const svgNode = drawPitcherSankeySVG(pm, teamObj);
+        svgScroll.appendChild(svgNode);
+        pCard.appendChild(svgScroll);
         
         scrollWrapper.appendChild(pCard);
       });
@@ -2440,24 +2438,25 @@ function generateMockPitcherStats(id, name, runs, startInn, endInn, lcg) {
   };
 }
 
-export function drawInningSankeySVG(pitcherName, inn, teamObj) {
+export function drawPitcherSankeySVG(pm, teamObj) {
   const svgWidth = 720;
-  const svgHeight = 180;
+  const segmentH = 120;
+  const totalSvgH = pm.innings.length * segmentH;
   const padTop = 15;
   const padBottom = 15;
   const nodeWidth = 14;
 
-  const totalPitches = inn.pitches;
+  const totalPitches = pm.totalPitches;
   if (totalPitches <= 0) {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('viewBox', '0 0 720 50');
+    svg.setAttribute('viewBox', '0 0 720 80');
     svg.style.cssText = 'width: 100%; height: auto;';
-    svg.innerHTML = `<text x="360" y="25" text-anchor="middle" fill="var(--text-muted)">No pitches recorded in this inning</text>`;
+    svg.innerHTML = `<text x="360" y="40" text-anchor="middle" fill="var(--text-muted)">No pitches recorded</text>`;
     return svg;
   }
 
-  const maxAllocatedH = svgHeight - padTop - padBottom - 40;
-  const scaleY = maxAllocatedH / totalPitches;
+  const maxInningPitches = Math.max(...pm.innings.map(inn => inn.pitches), 1);
+  const globalScaleY = 65 / maxInningPitches;
 
   const col1_x = 105;
   const col2_x = 235;
@@ -2469,9 +2468,9 @@ export function drawInningSankeySVG(pitcherName, inn, teamObj) {
   let nodesHtml = '';
   let linksHtml = '';
 
-  function drawFlow(src, dest, val, color1, color2) {
+  function drawFlow(src, dest, val, color1, color2, innNumber) {
     if (val <= 0) return;
-    const h = val * scaleY;
+    const h = val * globalScaleY;
     const x1 = src.x + nodeWidth;
     const y1 = src.y + src.sourceOffset;
     const x2 = dest.x;
@@ -2483,7 +2482,7 @@ export function drawInningSankeySVG(pitcherName, inn, teamObj) {
     const cpX = x1 + (x2 - x1) / 2;
     const d = `M ${x1} ${y1} C ${cpX} ${y1}, ${cpX} ${y2}, ${x2} ${y2} L ${x2} ${y2 + h} C ${cpX} ${y2 + h}, ${cpX} ${y1 + h}, ${x1} ${y1 + h} Z`;
 
-    const gradId = `pflow-${src.id}-${dest.id}-i${inn.inning}`;
+    const gradId = `pflow-${src.id}-${dest.id}-i${innNumber}`;
     defsHtml += `
       <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="0%">
         <stop offset="0%" stop-color="${color1}" stop-opacity="0.3" />
@@ -2494,111 +2493,118 @@ export function drawInningSankeySVG(pitcherName, inn, teamObj) {
     linksHtml += `<path d="${d}" fill="url(#${gradId})" />`;
   }
 
-  const h_pitcher = totalPitches * scaleY;
-  const y_pitcher = padTop + (svgHeight - padTop - padBottom - h_pitcher) / 2;
-  const node_pitcher = { id: 'pitcher', label: pitcherName, value: totalPitches, x: col1_x, y: y_pitcher, h: h_pitcher, color: teamObj.primaryColor || '#94a3b8', sourceOffset: 0, targetOffset: 0 };
+  const h_pitcher = totalPitches * globalScaleY;
+  const y_pitcher = (totalSvgH - h_pitcher) / 2;
+  const node_pitcher = { id: 'pitcher', label: pm.pitcherName, value: totalPitches, x: col1_x, y: y_pitcher, h: h_pitcher, color: teamObj.primaryColor || '#94a3b8', sourceOffset: 0, targetOffset: 0 };
 
-  const h_inning = totalPitches * scaleY;
-  const y_inning = padTop + (svgHeight - padTop - padBottom - h_inning) / 2;
-  const node_inning = { id: `inn_${inn.inning}`, label: `${inn.inning}${getOrdinalSuffix(inn.inning)} Inn`, value: totalPitches, x: col2_x, y: y_inning, h: h_inning, color: '#cbd5e1', sourceOffset: 0, targetOffset: 0 };
+  const allNodes = [node_pitcher];
 
-  const h_pitches = totalPitches * scaleY;
-  const y_pitches = padTop + (svgHeight - padTop - padBottom - h_pitches) / 2;
-  const node_pitches = { id: 'pitches', label: `${totalPitches} Pitches`, value: totalPitches, x: col3_x, y: y_pitches, h: h_pitches, color: '#64748b', sourceOffset: 0, targetOffset: 0 };
+  pm.innings.forEach((inn, idx) => {
+    const y_base = idx * segmentH + padTop;
+    const innVal = inn.pitches;
 
-  const gapY_col4 = 6;
-  const rawOutcomes = [
-    { id: 'strikeout', label: 'Strikeout', value: inn.outcomes.Strikeout_Pitches, color: '#ec4899' },
-    { id: 'sw-walks', label: 'Walk', value: inn.outcomes.Walk_Pitches, color: '#3b82f6' },
-    { id: 'sh-hbp', label: 'HBP', value: inn.outcomes.HBP_Pitches, color: '#f59e0b' },
-    { id: 'single', label: 'Single', value: inn.outcomes.Single_Pitches, color: '#10b981' },
-    { id: 'double', label: 'Double', value: inn.outcomes.Double_Pitches, color: '#10b981' },
-    { id: 'triple', label: 'Triple', value: inn.outcomes.Triple_Pitches, color: '#10b981' },
-    { id: 'hr', label: 'Home Run', value: inn.outcomes.HomeRun_Pitches, color: '#e11d48' },
-    { id: 'out', label: 'Out', value: inn.outcomes.Outs_Pitches, color: '#94a3b8' }
-  ].filter(o => o.value > 0);
+    const h_inning = innVal * globalScaleY;
+    const y_inning = y_base + (segmentH - padTop - padBottom - h_inning) / 2;
+    const node_inning = { id: `inn_${inn.inning}`, label: `${inn.inning}${getOrdinalSuffix(inn.inning)} Inn`, value: innVal, x: col2_x, y: y_inning, h: h_inning, color: '#cbd5e1', sourceOffset: 0, targetOffset: 0 };
+    allNodes.push(node_inning);
 
-  const totalH_col4 = rawOutcomes.reduce((acc, o) => acc + o.value * scaleY, 0) + (rawOutcomes.length - 1) * gapY_col4;
-  let currentY_col4 = padTop + (svgHeight - padTop - padBottom - totalH_col4) / 2;
+    const h_pitches = innVal * globalScaleY;
+    const y_pitches = y_base + (segmentH - padTop - padBottom - h_pitches) / 2;
+    const node_pitches = { id: `pitches_${inn.inning}`, label: `${innVal} Pitches`, value: innVal, x: col3_x, y: y_pitches, h: h_pitches, color: '#64748b', sourceOffset: 0, targetOffset: 0 };
+    allNodes.push(node_pitches);
 
-  const node_outcomes = rawOutcomes.map(o => {
-    const h = o.value * scaleY;
-    const node = {
-      ...o,
-      x: col4_x,
-      y: currentY_col4,
-      h,
-      sourceOffset: 0,
-      targetOffset: 0
-    };
-    currentY_col4 += h + gapY_col4;
-    return node;
+    const gapY_col4 = 4;
+    const rawOutcomes = [
+      { id: `strikeout_${inn.inning}`, type: 'strikeout', label: 'Strikeout', value: inn.outcomes.Strikeout_Pitches, color: '#ec4899' },
+      { id: `walk_${inn.inning}`, type: 'sw-walks', label: 'Walk', value: inn.outcomes.Walk_Pitches, color: '#3b82f6' },
+      { id: `hbp_${inn.inning}`, type: 'sh-hbp', label: 'HBP', value: inn.outcomes.HBP_Pitches, color: '#f59e0b' },
+      { id: `single_${inn.inning}`, type: 'single', label: 'Single', value: inn.outcomes.Single_Pitches, color: '#10b981' },
+      { id: `double_${inn.inning}`, type: 'double', label: 'Double', value: inn.outcomes.Double_Pitches, color: '#10b981' },
+      { id: `triple_${inn.inning}`, type: 'triple', label: 'Triple', value: inn.outcomes.Triple_Pitches, color: '#10b981' },
+      { id: `hr_${inn.inning}`, type: 'hr', label: 'Home Run', value: inn.outcomes.HomeRun_Pitches, color: '#e11d48' },
+      { id: `out_${inn.inning}`, type: 'out', label: 'Out', value: inn.outcomes.Outs_Pitches, color: '#94a3b8' }
+    ].filter(o => o.value > 0);
+
+    const totalH_col4 = rawOutcomes.reduce((acc, o) => acc + o.value * globalScaleY, 0) + (rawOutcomes.length - 1) * gapY_col4;
+    let currentY_col4 = y_base + (segmentH - padTop - padBottom - totalH_col4) / 2;
+
+    const node_outcomes = rawOutcomes.map(o => {
+      const h = o.value * globalScaleY;
+      const node = {
+        ...o,
+        x: col4_x,
+        y: currentY_col4,
+        h,
+        sourceOffset: 0,
+        targetOffset: 0
+      };
+      currentY_col4 += h + gapY_col4;
+      allNodes.push(node);
+      return node;
+    });
+
+    const runsVal = inn.destinations.Walk_Runs_Pitches + inn.destinations.Single_Runs_Pitches + inn.destinations.Double_Runs_Pitches + inn.destinations.Triple_Runs_Pitches + inn.destinations.HBP_Runs_Pitches + inn.destinations.HomeRun_Runs_Pitches + inn.destinations.Outs_Runs_Pitches;
+    const lobVal = innVal - runsVal;
+
+    const gapY_col5 = 10;
+    const h_runs = runsVal * globalScaleY;
+    const h_lob = lobVal * globalScaleY;
+    const totalH_col5 = h_runs + h_lob + (runsVal > 0 && lobVal > 0 ? gapY_col5 : 0);
+    const startY_col5 = y_base + (segmentH - padTop - padBottom - totalH_col5) / 2;
+
+    const node_runs = { id: `runs_${inn.inning}`, label: 'Runs Given Up', value: runsVal, x: col5_x, y: startY_col5, h: h_runs, color: '#ef4444', sourceOffset: 0, targetOffset: 0 };
+    const node_lob = { id: `lob_${inn.inning}`, label: 'Stranded / Out', value: lobVal, x: col5_x, y: startY_col5 + h_runs + (runsVal > 0 ? gapY_col5 : 0), h: h_lob, color: '#10b981', sourceOffset: 0, targetOffset: 0 };
+
+    if (runsVal > 0) allNodes.push(node_runs);
+    if (lobVal > 0) allNodes.push(node_lob);
+
+    drawFlow(node_pitcher, node_inning, innVal, node_pitcher.color, node_inning.color, inn.inning);
+    drawFlow(node_inning, node_pitches, innVal, node_inning.color, node_pitches.color, inn.inning);
+
+    node_outcomes.forEach(n => {
+      drawFlow(node_pitches, n, n.value, node_pitches.color, n.color, inn.inning);
+    });
+
+    node_outcomes.forEach(n => {
+      if (n.type === 'strikeout') {
+        drawFlow(n, node_lob, inn.destinations.Strikeout_LOB_Pitches, n.color, node_lob.color, inn.inning);
+      } else if (n.type === 'sw-walks') {
+        if (inn.destinations.Walk_Runs_Pitches > 0) drawFlow(n, node_runs, inn.destinations.Walk_Runs_Pitches, n.color, node_runs.color, inn.inning);
+        if (inn.destinations.Walk_LOB_Pitches > 0) drawFlow(n, node_lob, inn.destinations.Walk_LOB_Pitches, n.color, node_lob.color, inn.inning);
+      } else if (n.type === 'sh-hbp') {
+        if (inn.destinations.HBP_Runs_Pitches > 0) drawFlow(n, node_runs, inn.destinations.HBP_Runs_Pitches, n.color, node_runs.color, inn.inning);
+        if (inn.destinations.HBP_LOB_Pitches > 0) drawFlow(n, node_lob, inn.destinations.HBP_LOB_Pitches, n.color, node_lob.color, inn.inning);
+      } else if (n.type === 'single') {
+        if (inn.destinations.Single_Runs_Pitches > 0) drawFlow(n, node_runs, inn.destinations.Single_Runs_Pitches, n.color, node_runs.color, inn.inning);
+        if (inn.destinations.Single_LOB_Pitches > 0) drawFlow(n, node_lob, inn.destinations.Single_LOB_Pitches, n.color, node_lob.color, inn.inning);
+      } else if (n.type === 'double') {
+        if (inn.destinations.Double_Runs_Pitches > 0) drawFlow(n, node_runs, inn.destinations.Double_Runs_Pitches, n.color, node_runs.color, inn.inning);
+        if (inn.destinations.Double_LOB_Pitches > 0) drawFlow(n, node_lob, inn.destinations.Double_LOB_Pitches, n.color, node_lob.color, inn.inning);
+      } else if (n.type === 'triple') {
+        if (inn.destinations.Triple_Runs_Pitches > 0) drawFlow(n, node_runs, inn.destinations.Triple_Runs_Pitches, n.color, node_runs.color, inn.inning);
+        if (inn.destinations.Triple_LOB_Pitches > 0) drawFlow(n, node_lob, inn.destinations.Triple_LOB_Pitches, n.color, node_lob.color, inn.inning);
+      } else if (n.type === 'hr') {
+        drawFlow(n, node_runs, inn.destinations.HomeRun_Runs_Pitches, n.color, node_runs.color, inn.inning);
+      } else if (n.type === 'out') {
+        if (inn.destinations.Outs_Runs_Pitches > 0) drawFlow(n, node_runs, inn.destinations.Outs_Runs_Pitches, n.color, node_runs.color, inn.inning);
+        if (inn.destinations.Outs_LOB_Pitches > 0) drawFlow(n, node_lob, inn.destinations.Outs_LOB_Pitches, n.color, node_lob.color, inn.inning);
+      }
+    });
   });
-
-  const runsVal = inn.destinations.Walk_Runs_Pitches + inn.destinations.Single_Runs_Pitches + inn.destinations.Double_Runs_Pitches + inn.destinations.Triple_Runs_Pitches + inn.destinations.HBP_Runs_Pitches + inn.destinations.HomeRun_Runs_Pitches + inn.destinations.Outs_Runs_Pitches;
-  const lobVal = totalPitches - runsVal;
-
-  const gapY_col5 = 12;
-  const h_runs = runsVal * scaleY;
-  const h_lob = lobVal * scaleY;
-  const totalH_col5 = h_runs + h_lob + (runsVal > 0 && lobVal > 0 ? gapY_col5 : 0);
-  const startY_col5 = padTop + (svgHeight - padTop - padBottom - totalH_col5) / 2;
-
-  const node_runs = { id: 'runs', label: 'Runs Given Up', value: runsVal, x: col5_x, y: startY_col5, h: h_runs, color: '#ef4444', sourceOffset: 0, targetOffset: 0 };
-  const node_lob = { id: 'lob', label: 'Stranded / Out', value: lobVal, x: col5_x, y: startY_col5 + h_runs + (runsVal > 0 ? gapY_col5 : 0), h: h_lob, color: '#10b981', sourceOffset: 0, targetOffset: 0 };
-
-  const node_destinations = [];
-  if (runsVal > 0) node_destinations.push(node_runs);
-  if (lobVal > 0) node_destinations.push(node_lob);
-
-  drawFlow(node_pitcher, node_inning, totalPitches, node_pitcher.color, node_inning.color);
-  drawFlow(node_inning, node_pitches, totalPitches, node_inning.color, node_pitches.color);
-
-  node_outcomes.forEach(n => {
-    drawFlow(node_pitches, n, n.value, node_pitches.color, n.color);
-  });
-
-  node_outcomes.forEach(n => {
-    if (n.id === 'strikeout') {
-      drawFlow(n, node_lob, inn.destinations.Strikeout_LOB_Pitches, n.color, node_lob.color);
-    } else if (n.id === 'sw-walks') {
-      if (inn.destinations.Walk_Runs_Pitches > 0) drawFlow(n, node_runs, inn.destinations.Walk_Runs_Pitches, n.color, node_runs.color);
-      if (inn.destinations.Walk_LOB_Pitches > 0) drawFlow(n, node_lob, inn.destinations.Walk_LOB_Pitches, n.color, node_lob.color);
-    } else if (n.id === 'sh-hbp') {
-      if (inn.destinations.HBP_Runs_Pitches > 0) drawFlow(n, node_runs, inn.destinations.HBP_Runs_Pitches, n.color, node_runs.color);
-      if (inn.destinations.HBP_LOB_Pitches > 0) drawFlow(n, node_lob, inn.destinations.HBP_LOB_Pitches, n.color, node_lob.color);
-    } else if (n.id === 'single') {
-      if (inn.destinations.Single_Runs_Pitches > 0) drawFlow(n, node_runs, inn.destinations.Single_Runs_Pitches, n.color, node_runs.color);
-      if (inn.destinations.Single_LOB_Pitches > 0) drawFlow(n, node_lob, inn.destinations.Single_LOB_Pitches, n.color, node_lob.color);
-    } else if (n.id === 'double') {
-      if (inn.destinations.Double_Runs_Pitches > 0) drawFlow(n, node_runs, inn.destinations.Double_Runs_Pitches, n.color, node_runs.color);
-      if (inn.destinations.Double_LOB_Pitches > 0) drawFlow(n, node_lob, inn.destinations.Double_LOB_Pitches, n.color, node_lob.color);
-    } else if (n.id === 'triple') {
-      if (inn.destinations.Triple_Runs_Pitches > 0) drawFlow(n, node_runs, inn.destinations.Triple_Runs_Pitches, n.color, node_runs.color);
-      if (inn.destinations.Triple_LOB_Pitches > 0) drawFlow(n, node_lob, inn.destinations.Triple_LOB_Pitches, n.color, node_lob.color);
-    } else if (n.id === 'hr') {
-      drawFlow(n, node_runs, inn.destinations.HomeRun_Runs_Pitches, n.color, node_runs.color);
-    } else if (n.id === 'out') {
-      if (inn.destinations.Outs_Runs_Pitches > 0) drawFlow(n, node_runs, inn.destinations.Outs_Runs_Pitches, n.color, node_runs.color);
-      if (inn.destinations.Outs_LOB_Pitches > 0) drawFlow(n, node_lob, inn.destinations.Outs_LOB_Pitches, n.color, node_lob.color);
-    }
-  });
-
-  const allNodes = [
-    node_pitcher,
-    node_inning,
-    node_pitches,
-    ...node_outcomes,
-    ...node_destinations
-  ];
 
   allNodes.forEach(n => {
-    const isInteractive = ['strikeout', 'sw-walks', 'sh-hbp', 'single', 'double', 'triple', 'hr', 'out'].includes(n.id);
+    const isInteractive = ['strikeout', 'sw-walks', 'sh-hbp', 'single', 'double', 'triple', 'hr', 'out'].includes(n.type);
     let nodeGroupHtml = '';
 
     if (isInteractive) {
-      nodeGroupHtml += `<g class="sankey-interactive-node" data-node-type="${n.id}" data-node-label="${n.label}" style="cursor: pointer;">`;
-      nodeGroupHtml += `<title>Click to view plays for ${n.label}</title>`;
+      const innNumber = parseInt(n.id.split('_')[1], 10);
+      const innItem = pm.innings.find(inn => inn.inning === innNumber);
+      const innPlays = innItem ? innItem.plays : [];
+
+      nodeGroupHtml += `<g class="sankey-interactive-node" data-node-id="${n.id}" data-node-type="${n.type}" data-node-label="${n.label} (Inn ${innNumber})" style="cursor: pointer;">`;
+      nodeGroupHtml += `<title>Click to view plays for Inning ${innNumber} ${n.label}</title>`;
+      
+      n.playsRef = innPlays;
     }
 
     nodeGroupHtml += `<rect x="${n.x}" y="${n.y}" width="${nodeWidth}" height="${n.h}" rx="2" fill="${n.color}" opacity="0.9" />`;
@@ -2607,7 +2613,7 @@ export function drawInningSankeySVG(pitcherName, inn, teamObj) {
       nodeGroupHtml += `<text x="${n.x - 6}" y="${n.y + n.h/2}" font-size="8px" font-weight="800" fill="var(--text-primary)" font-family="var(--font-title)" text-anchor="end" alignment-baseline="middle">${n.label}</text>`;
     } else if (n.id.startsWith('inn_')) {
       nodeGroupHtml += `<text x="${n.x - 6}" y="${n.y + n.h/2}" font-size="7.5px" font-weight="700" fill="var(--text-secondary)" font-family="var(--font-body)" text-anchor="end" alignment-baseline="middle">${n.label}</text>`;
-    } else if (n.id === 'pitches') {
+    } else if (n.id.startsWith('pitches_')) {
       nodeGroupHtml += `<text x="${n.x - 6}" y="${n.y + n.h/2}" font-size="7.5px" font-weight="700" fill="var(--text-secondary)" font-family="var(--font-body)" text-anchor="end" alignment-baseline="middle">${n.label}</text>`;
     } else if (isInteractive) {
       const labelText = `⊕ ${n.label} (${Math.round(n.value)}P)`;
@@ -2625,8 +2631,8 @@ export function drawInningSankeySVG(pitcherName, inn, teamObj) {
   });
 
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
-  svg.style.cssText = 'width: 680px; min-width: 680px; height: auto; display: block; overflow: visible;';
+  svg.setAttribute('viewBox', `0 0 ${svgWidth} ${totalSvgH}`);
+  svg.style.cssText = `width: 680px; min-width: 680px; height: ${totalSvgH}px; display: block; overflow: visible;`;
 
   svg.innerHTML = `
     <defs>${defsHtml}</defs>
@@ -2638,9 +2644,13 @@ export function drawInningSankeySVG(pitcherName, inn, teamObj) {
   interactiveGroups.forEach(g => {
     g.addEventListener('click', (e) => {
       e.stopPropagation();
+      const nodeId = g.getAttribute('data-node-id');
       const nodeType = g.getAttribute('data-node-type');
       const nodeLabel = g.getAttribute('data-node-label');
-      showNodeDetailsOverlay(nodeType, nodeLabel, inn.plays, teamObj);
+      
+      const nodeObj = allNodes.find(n => n.id === nodeId);
+      const nodePlays = nodeObj ? nodeObj.playsRef : [];
+      showNodeDetailsOverlay(nodeType, nodeLabel, nodePlays, teamObj);
     });
   });
 
