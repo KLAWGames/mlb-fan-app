@@ -3214,7 +3214,10 @@ function createDashboardView() {
     noGameCard.className = 'glass-card';
     noGameCard.style.cssText = 'margin-top: 14px; padding: 16px; text-align: center; color: var(--text-secondary); font-size: 13px; font-weight: 600; border: 1px solid var(--border-glass-highlight);';
     const formattedDate = formatOffDayDate(state.selectedDate);
-    noGameCard.innerText = `⚾ The ${activeTeamName} does not have a game today (${formattedDate}).`;
+    noGameCard.innerHTML = `
+      <div>⚾ The ${activeTeamName} do not have a game today.</div>
+      <div style="font-size: 11.5px; opacity: 0.8; margin-top: 4px; font-weight: 500;">(${formattedDate})</div>
+    `;
     container.appendChild(noGameCard);
   }
 
