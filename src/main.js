@@ -5780,6 +5780,224 @@ function getMockTeamLeaders(teamId) {
   ];
 }
 
+async function fetchBatterHRCount(playerId, year) {
+  try {
+    const res = await fetch(`https://statsapi.mlb.com/api/v1/people/${playerId}/stats?stats=season&group=batting&season=${year}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const hr = data.stats?.[0]?.splits?.[0]?.stat?.homeRuns;
+    return hr !== undefined ? hr : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function showDailyHRsModal(dateStr, labelText) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'recap-backdrop show';
+  backdrop.style.zIndex = '100000';
+  
+  const modal = document.createElement('div');
+  modal.className = 'glass-card';
+  modal.style.cssText = 'width: 90%; max-width: 460px; max-height: 80vh; background: var(--bg-card); border: 1px solid var(--border-glass-highlight); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px; color: var(--text-primary); animation: slideUpDetails 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; position: relative; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3); overflow: hidden;';
+  
+  const closeBtn = document.createElement('button');
+  closeBtn.innerText = '×';
+  closeBtn.style.cssText = 'position: absolute; top: 12px; right: 16px; border: none; background: none; font-size: 26px; font-weight: 300; color: var(--text-secondary); cursor: pointer; padding: 4px; line-height: 1; outline: none;';
+  closeBtn.addEventListener('click', () => backdrop.remove());
+  modal.appendChild(closeBtn);
+
+  const title = document.createElement('h3');
+  title.innerText = `💥 Home Runs — ${labelText}`;
+  title.style.cssText = 'font-family: var(--font-title); font-size: 17px; margin: 0; padding-right: 24px; color: var(--color-gold); font-weight: 800;';
+  modal.appendChild(title);
+
+  const listContainer = document.createElement('div');
+  listContainer.style.cssText = 'flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-right: 4px;';
+  
+  const spinner = document.createElement('div');
+  spinner.style.cssText = 'display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 40px 0;';
+  spinner.innerHTML = `
+    <div class="visual-spinner" style="width: 28px; height: 28px; border: 3px solid rgba(245, 158, 11, 0.2); border-top-color: var(--color-gold); border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+    <span style="font-size: 12.5px; color: var(--text-secondary); font-weight: 600;">Analyzing game feeds...</span>
+  `;
+  listContainer.appendChild(spinner);
+  modal.appendChild(listContainer);
+  backdrop.appendChild(modal);
+  
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) backdrop.remove();
+  });
+  document.body.appendChild(backdrop);
+
+  try {
+    const res = await fetch(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${dateStr}&endDate=${dateStr}`);
+    if (!res.ok) throw new Error('Failed to load schedule');
+    const scheduleData = await res.json();
+    const games = scheduleData.dates?.[0]?.games || [];
+    
+    const activeGames = games.filter(g => {
+      const detailedState = g.status?.detailedState?.toLowerCase() || '';
+      return !detailedState.includes('postponed') && !detailedState.includes('cancelled');
+    });
+
+    const hrList = [];
+    const selectedYear = dateStr.split('-')[0];
+
+    const feedPromises = activeGames.map(async (game) => {
+      const statusCode = game.status?.statusCode;
+      if (statusCode === 'S' || statusCode === 'P') return;
+
+      try {
+        const feedRes = await fetch(`https://statsapi.mlb.com/api/v1.1/game/${game.gamePk}/feed/live`);
+        if (!feedRes.ok) return;
+        const feedData = await feedRes.json();
+        const plays = feedData.liveData?.plays?.allPlays || [];
+
+        plays.forEach(play => {
+          const isHR = play.result?.eventType === 'home_run' || play.result?.event === 'Home Run';
+          if (!isHR) return;
+
+          const batter = play.matchup?.batter;
+          if (!batter) return;
+
+          let runs = 0;
+          if (play.runners) {
+            play.runners.forEach(r => {
+              if (r.movement && r.movement.end === 'score') {
+                runs++;
+              }
+            });
+          }
+          if (runs === 0) runs = 1;
+
+          let hrType = 'Solo HR';
+          if (runs === 2) hrType = '2-Run HR';
+          if (runs === 3) hrType = '3-Run HR';
+          if (runs === 4) hrType = 'Grand Slam';
+
+          const isTop = play.about?.isTopInning;
+          const battingTeamId = isTop ? game.teams?.away?.team?.id : game.teams?.home?.team?.id;
+          const battingTeam = teamsData[battingTeamId] || {
+            name: isTop ? game.teams?.away?.team?.name : game.teams?.home?.team?.name,
+            abbreviation: isTop ? game.teams?.away?.team?.abbreviation : game.teams?.home?.team?.abbreviation,
+            primaryColor: '#64748b',
+            textColor: '#ffffff'
+          };
+
+          hrList.push({
+            batterId: batter.id,
+            batterName: batter.fullName,
+            description: play.result.description,
+            hrType,
+            team: battingTeam,
+            runs
+          });
+        });
+      } catch (err) {
+        console.warn(`Error loading live feed for game ${game.gamePk}:`, err);
+      }
+    });
+
+    await Promise.all(feedPromises);
+
+    listContainer.innerHTML = '';
+
+    if (hrList.length === 0) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'text-align: center; color: var(--text-muted); font-size: 13px; padding: 40px 0; font-weight: 600;';
+      empty.innerText = 'No home runs hit on this date.';
+      listContainer.appendChild(empty);
+      return;
+    }
+
+    hrList.sort((a, b) => b.runs - a.runs);
+
+    hrList.forEach(hr => {
+      const card = document.createElement('div');
+      card.className = 'glass-card';
+      card.style.cssText = 'padding: 12px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 0; border: 1.5px solid var(--border-glass); text-align: left;';
+
+      const topRow = document.createElement('div');
+      topRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; width: 100%;';
+
+      const playerInfo = document.createElement('div');
+      playerInfo.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+
+      const badge = document.createElement('div');
+      badge.className = 'team-badge-small';
+      badge.innerText = hr.team.abbreviation;
+      badge.style.background = hr.team.primaryColor;
+      badge.style.color = hr.team.textColor;
+      badge.style.fontSize = '8.5px';
+      badge.style.width = '22px';
+      badge.style.height = '22px';
+      badge.style.display = 'flex';
+      badge.style.alignItems = 'center';
+      badge.style.justifyContent = 'center';
+      badge.style.borderRadius = '5px';
+      badge.style.flexShrink = '0';
+
+      const textMeta = document.createElement('div');
+      textMeta.style.cssText = 'display: flex; flex-direction: column; text-align: left;';
+
+      const nameSpan = document.createElement('span');
+      nameSpan.innerText = hr.batterName;
+      nameSpan.style.cssText = 'font-size: 13px; font-weight: 800; color: var(--text-primary);';
+
+      const teamSpan = document.createElement('span');
+      teamSpan.innerText = hr.team.name;
+      teamSpan.style.cssText = 'font-size: 9.5px; color: var(--text-muted); font-weight: 600;';
+
+      textMeta.appendChild(nameSpan);
+      textMeta.appendChild(teamSpan);
+      playerInfo.appendChild(badge);
+      playerInfo.appendChild(textMeta);
+      topRow.appendChild(playerInfo);
+
+      const badgeGroup = document.createElement('div');
+      badgeGroup.style.cssText = 'display: flex; flex-direction: column; align-items: flex-end; gap: 4px;';
+
+      const typeBadge = document.createElement('span');
+      typeBadge.innerText = hr.hrType;
+      typeBadge.style.cssText = `font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 12px; color: #ffffff; background: ${hr.runs === 4 ? 'linear-gradient(135deg, var(--color-gold), #ff5a00)' : hr.runs === 3 ? '#ff5a00' : hr.runs === 2 ? 'var(--color-win)' : 'var(--text-secondary)'}; box-shadow: ${hr.runs >= 3 ? '0 0 6px rgba(255, 90, 0, 0.4)' : 'none'};`;
+
+      const hrCountSpan = document.createElement('span');
+      hrCountSpan.style.cssText = 'font-size: 9.5px; color: var(--color-gold); font-weight: 700;';
+      hrCountSpan.innerText = 'Season: ...';
+
+      fetchBatterHRCount(hr.batterId, selectedYear).then(count => {
+        if (count !== null) {
+          hrCountSpan.innerText = `Season: ${count} HR`;
+        } else {
+          hrCountSpan.innerText = 'Season: N/A';
+        }
+      });
+
+      badgeGroup.appendChild(typeBadge);
+      badgeGroup.appendChild(hrCountSpan);
+      topRow.appendChild(badgeGroup);
+
+      card.appendChild(topRow);
+
+      const descText = document.createElement('p');
+      descText.style.cssText = 'font-size: 11.5px; color: var(--text-secondary); line-height: 1.45; margin: 0; padding-top: 6px; border-top: 1px dashed var(--border-glass); text-align: left;';
+      descText.innerText = hr.description;
+      card.appendChild(descText);
+
+      listContainer.appendChild(card);
+    });
+
+  } catch (e) {
+    console.error('Failed to load HR details:', e);
+    listContainer.innerHTML = '';
+    const err = document.createElement('div');
+    err.style.cssText = 'text-align: center; color: var(--color-loss); font-size: 13px; padding: 40px 0; font-weight: 600;';
+    err.innerText = 'Error loading home run details. Please check connection.';
+    listContainer.appendChild(err);
+  }
+}
+
 // Home Run Chase View (Dynamic Home Run Race dashboard)
 function createHRRaceView() {
   const container = document.createElement('div');
@@ -5848,6 +6066,16 @@ function createHRRaceView() {
   
   getDailyHRStats(yesterdayDate).then(data => {
     yesterdayVal.innerText = data.count;
+    if (data.count > 0) {
+      yesterdayVal.style.cursor = 'pointer';
+      yesterdayVal.style.transition = 'opacity 0.2s';
+      yesterdayVal.title = 'Click to see players who hit these HRs';
+      yesterdayVal.addEventListener('click', () => {
+        showDailyHRsModal(yesterdayDate, `${fmtMD(yesterdayDate)} (Yesterday)`);
+      });
+      yesterdayVal.addEventListener('mouseenter', () => yesterdayVal.style.opacity = '0.7');
+      yesterdayVal.addEventListener('mouseleave', () => yesterdayVal.style.opacity = '1');
+    }
   });
 
   getDailyHRStats(todayDate).then(data => {
@@ -5856,6 +6084,17 @@ function createHRRaceView() {
       todaySub.innerText = 'No games scheduled';
     } else {
       todaySub.innerText = `${data.completedGames}/${data.totalGames} games complete`;
+    }
+    
+    if (data.count > 0) {
+      todayVal.style.cursor = 'pointer';
+      todayVal.style.transition = 'opacity 0.2s';
+      todayVal.title = 'Click to see players who hit these HRs';
+      todayVal.addEventListener('click', () => {
+        showDailyHRsModal(todayDate, `${fmtMD(todayDate)} (Today)`);
+      });
+      todayVal.addEventListener('mouseenter', () => todayVal.style.opacity = '0.7');
+      todayVal.addEventListener('mouseleave', () => todayVal.style.opacity = '1');
     }
   });
 
