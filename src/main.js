@@ -2146,7 +2146,11 @@ function createSettingsView() {
           }
         });
       }
+      const tracked = localStorage.getItem('tracked_teams');
       localStorage.clear();
+      if (tracked) {
+        localStorage.setItem('tracked_teams', tracked);
+      }
       window.location.reload();
     }
   });
