@@ -2619,21 +2619,22 @@ function getRaceStatusNote(targetTeamIds) {
 }
 
 const MOCK_PITCHERS_BY_TEAM = {
-  147: { fullName: "Gerrit Cole", wins: 12, losses: 6, era: "3.26" }, // Yankees
-  141: { fullName: "Kevin Gausman", wins: 11, losses: 8, era: "3.55" }, // Blue Jays
-  111: { fullName: "Brayan Bello", wins: 9, losses: 7, era: "4.12" }, // Red Sox
-  139: { fullName: "Zach Eflin", wins: 10, losses: 8, era: "3.82" }, // Rays
-  117: { fullName: "Framber Valdez", wins: 12, losses: 7, era: "3.34" }, // Astros
-  136: { fullName: "Luis Castillo", wins: 13, losses: 9, era: "3.48" }, // Mariners
-  110: { fullName: "Corbin Burnes", wins: 15, losses: 5, era: "2.92" }, // Orioles
-  143: { fullName: "Zack Wheeler", wins: 16, losses: 6, era: "2.74" }, // Phillies
-  140: { fullName: "Nathan Eovaldi", wins: 11, losses: 8, era: "3.61" }, // Rangers
-  158: { fullName: "Freddy Peralta", wins: 11, losses: 7, era: "3.75" }, // Brewers
-  121: { fullName: "Kodai Senga", wins: 9, losses: 4, era: "3.07" }, // Mets
-  144: { fullName: "Max Fried", wins: 10, losses: 6, era: "3.25" }, // Braves
-  119: { fullName: "Tyler Glasnow", wins: 11, losses: 5, era: "3.12" }, // Dodgers
-  115: { fullName: "Kyle Freeland", wins: 5, losses: 11, era: "4.88" }, // Rockies
-  137: { fullName: "Logan Webb", wins: 12, losses: 9, era: "3.22" } // Giants
+  147: { id: 543037, name: "Gerrit Cole" }, // Yankees
+  141: { id: 592332, name: "Kevin Gausman" }, // Blue Jays
+  111: { id: 678394, name: "Brayan Bello" }, // Red Sox
+  139: { id: 621107, name: "Zach Eflin" }, // Rays
+  117: { id: 664285, name: "Framber Valdez" }, // Astros
+  136: { id: 622491, name: "Luis Castillo" }, // Mariners
+  110: { id: 669203, name: "Corbin Burnes" }, // Orioles
+  143: { id: 554430, name: "Zack Wheeler" }, // Phillies
+  140: { id: 543135, name: "Nathan Eovaldi" }, // Rangers
+  158: { id: 642547, name: "Freddy Peralta" }, // Brewers
+  121: { id: 673540, name: "Kodai Senga" }, // Mets
+  144: { id: 608331, name: "Max Fried" }, // Braves
+  119: { id: 607192, name: "Tyler Glasnow" }, // Dodgers
+  115: { id: 607536, name: "Kyle Freeland" }, // Rockies
+  137: { id: 657097, name: "Logan Webb" }, // Giants
+  135: { id: 656302, name: "Dylan Cease" }  // Padres
 };
 
 async function fetchPitcherStats(pitcherId, year) {
@@ -2957,15 +2958,20 @@ function createGameCard(item, isNeutral) {
     const realAwayPitcher = item.teams?.away?.probablePitcher;
     const realHomePitcher = item.teams?.home?.probablePitcher;
 
-    if (realAwayPitcher && realHomePitcher) {
+    let awayPitcherId = realAwayPitcher?.id || MOCK_PITCHERS_BY_TEAM[item.awayTeam.id]?.id;
+    let homePitcherId = realHomePitcher?.id || MOCK_PITCHERS_BY_TEAM[item.homeTeam.id]?.id;
+    let awayPitcherName = realAwayPitcher?.fullName || MOCK_PITCHERS_BY_TEAM[item.awayTeam.id]?.name || `${item.awayTeam.shortName} Pitcher`;
+    let homePitcherName = realHomePitcher?.fullName || MOCK_PITCHERS_BY_TEAM[item.homeTeam.id]?.name || `${item.homeTeam.shortName} Pitcher`;
+
+    if (awayPitcherId && homePitcherId) {
       hasPitchers = true;
       if (!state.pitcherStatsCache) {
         state.pitcherStatsCache = {};
       }
 
       const gameYear = state.selectedDate ? state.selectedDate.split('-')[0] : new Date().getFullYear();
-      const cacheKeyAway = `${realAwayPitcher.id}_${gameYear}`;
-      const cacheKeyHome = `${realHomePitcher.id}_${gameYear}`;
+      const cacheKeyAway = `${awayPitcherId}_${gameYear}`;
+      const cacheKeyHome = `${homePitcherId}_${gameYear}`;
 
       const cacheAway = state.pitcherStatsCache[cacheKeyAway];
       const cacheHome = state.pitcherStatsCache[cacheKeyHome];
@@ -2974,7 +2980,7 @@ function createGameCard(item, isNeutral) {
         awayPitcherData = cacheAway;
       } else {
         if (!cacheAway) {
-          fetchPitcherStats(realAwayPitcher.id, gameYear);
+          fetchPitcherStats(awayPitcherId, gameYear);
         }
       }
 
@@ -2982,14 +2988,9 @@ function createGameCard(item, isNeutral) {
         homePitcherData = cacheHome;
       } else {
         if (!cacheHome) {
-          fetchPitcherStats(realHomePitcher.id, gameYear);
+          fetchPitcherStats(homePitcherId, gameYear);
         }
       }
-    } else if (item.gamePk >= 1000) {
-      // Fallback for mock games
-      hasPitchers = true;
-      awayPitcherData = MOCK_PITCHERS_BY_TEAM[item.awayTeam.id] || { fullName: `${item.awayTeam.shortName} Starter`, wins: 7, losses: 7, era: "3.95" };
-      homePitcherData = MOCK_PITCHERS_BY_TEAM[item.homeTeam.id] || { fullName: `${item.homeTeam.shortName} Starter`, wins: 8, losses: 6, era: "3.80" };
     }
 
     if (hasPitchers) {
@@ -3013,20 +3014,20 @@ function createGameCard(item, isNeutral) {
       pAwayTeam.innerText = `${item.awayTeam.abbreviation} (Away)`;
       pAwayCol.appendChild(pAwayTeam);
 
-      if (awayPitcherData) {
-        const pAwayName = document.createElement('span');
-        pAwayName.style.cssText = 'font-size: 12px; font-weight: 700; color: var(--text-primary); font-family: var(--font-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
-        pAwayName.innerText = awayPitcherData.fullName || realAwayPitcher?.fullName || 'Pitcher';
-        pAwayCol.appendChild(pAwayName);
+      const pAwayName = document.createElement('span');
+      pAwayName.style.cssText = 'font-size: 12px; font-weight: 700; color: var(--text-primary); font-family: var(--font-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
+      pAwayName.innerText = (awayPitcherData && awayPitcherData.fullName) || awayPitcherName;
+      pAwayCol.appendChild(pAwayName);
 
+      if (awayPitcherData && !awayPitcherData.loading && !awayPitcherData.error) {
         const pAwayStats = document.createElement('span');
         pAwayStats.style.cssText = 'font-size: 9.5px; color: var(--text-muted); font-weight: 600; margin-top: 3px;';
         pAwayStats.innerHTML = `${awayPitcherData.wins}-${awayPitcherData.losses} <span style="margin: 0 4px; opacity: 0.4;">|</span> <strong style="color: var(--text-primary);">${awayPitcherData.era} ERA</strong>`;
         pAwayCol.appendChild(pAwayStats);
       } else {
         const pAwayLoading = document.createElement('span');
-        pAwayLoading.style.cssText = 'font-size: 11px; color: var(--text-muted); font-style: italic; margin-top: 2px;';
-        pAwayLoading.innerText = 'Loading stats...';
+        pAwayLoading.style.cssText = 'font-size: 10px; color: var(--text-muted); font-style: italic; margin-top: 3px;';
+        pAwayLoading.innerText = (awayPitcherData && awayPitcherData.error) ? 'Stats unavailable' : 'Loading stats...';
         pAwayCol.appendChild(pAwayLoading);
       }
 
@@ -3039,20 +3040,20 @@ function createGameCard(item, isNeutral) {
       pHomeTeam.innerText = `${item.homeTeam.abbreviation} (Home)`;
       pHomeCol.appendChild(pHomeTeam);
 
-      if (homePitcherData) {
-        const pHomeName = document.createElement('span');
-        pHomeName.style.cssText = 'font-size: 12px; font-weight: 700; color: var(--text-primary); font-family: var(--font-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
-        pHomeName.innerText = homePitcherData.fullName || realHomePitcher?.fullName || 'Pitcher';
-        pHomeCol.appendChild(pHomeName);
+      const pHomeName = document.createElement('span');
+      pHomeName.style.cssText = 'font-size: 12px; font-weight: 700; color: var(--text-primary); font-family: var(--font-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
+      pHomeName.innerText = (homePitcherData && homePitcherData.fullName) || homePitcherName;
+      pHomeCol.appendChild(pHomeName);
 
+      if (homePitcherData && !homePitcherData.loading && !homePitcherData.error) {
         const pHomeStats = document.createElement('span');
         pHomeStats.style.cssText = 'font-size: 9.5px; color: var(--text-muted); font-weight: 600; margin-top: 3px;';
         pHomeStats.innerHTML = `${homePitcherData.wins}-${homePitcherData.losses} <span style="margin: 0 4px; opacity: 0.4;">|</span> <strong style="color: var(--text-primary);">${homePitcherData.era} ERA</strong>`;
         pHomeCol.appendChild(pHomeStats);
       } else {
         const pHomeLoading = document.createElement('span');
-        pHomeLoading.style.cssText = 'font-size: 11px; color: var(--text-muted); font-style: italic; margin-top: 2px;';
-        pHomeLoading.innerText = 'Loading stats...';
+        pHomeLoading.style.cssText = 'font-size: 10px; color: var(--text-muted); font-style: italic; margin-top: 3px;';
+        pHomeLoading.innerText = (homePitcherData && homePitcherData.error) ? 'Stats unavailable' : 'Loading stats...';
         pHomeCol.appendChild(pHomeLoading);
       }
 
