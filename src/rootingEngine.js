@@ -208,6 +208,7 @@ export function calculateThreatLevels(teamsMap, targetTeamId) {
 
 // Analyze matchups for a single favorite team
 export function analyzeMatchups(games, processedStandings, favoriteTeamId) {
+  if (!processedStandings || !processedStandings.teamsMap) return [];
   const { teamsMap } = processedStandings;
   const favorite = teamsMap[favoriteTeamId];
   if (!favorite) return [];
