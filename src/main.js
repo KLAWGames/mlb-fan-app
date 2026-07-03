@@ -3942,15 +3942,23 @@ function getWildCardRaceTeams(leagueId, activeTeam, processedStandings) {
   return { wcPool, selectedWCTeams };
 }
 
-// Modal popup showing stand-alone SVG trend graphs in full screen
+// Modal popup showing stand-alone SVG trend graphs, styled to match the app's modal templates
 function showStandingsGraphModal(title, chartNode) {
   const backdrop = document.createElement('div');
-  backdrop.className = 'recap-backdrop show';
+  backdrop.className = 'recap-backdrop';
   backdrop.style.zIndex = '100000';
   
   const modal = document.createElement('div');
-  modal.className = 'recap-modal';
-  modal.style.cssText = 'width: 100%; max-width: 480px; max-height: 85vh; padding: 24px; display: flex; flex-direction: column; gap: 16px; position: relative;';
+  modal.className = 'recap-content';
+  
+  // Header Row
+  const headerRow = document.createElement('div');
+  headerRow.className = 'recap-header';
+  
+  const modalTitle = document.createElement('h3');
+  modalTitle.style.cssText = 'font-size: 16px; font-weight: 800; color: #0f172a; margin: 0; font-family: var(--font-title);';
+  modalTitle.innerText = title;
+  headerRow.appendChild(modalTitle);
   
   const closeBtn = document.createElement('button');
   closeBtn.className = 'recap-close-btn';
@@ -3959,26 +3967,32 @@ function showStandingsGraphModal(title, chartNode) {
     backdrop.classList.remove('show');
     setTimeout(() => backdrop.remove(), 300);
   });
-  modal.appendChild(closeBtn);
+  headerRow.appendChild(closeBtn);
+  modal.appendChild(headerRow);
   
-  const modalTitle = document.createElement('h2');
-  modalTitle.className = 'recap-title';
-  modalTitle.style.cssText = 'font-size: 20px; color: var(--color-gold); text-align: center; margin: 0; font-family: var(--font-title);';
-  modalTitle.innerText = title;
-  modal.appendChild(modalTitle);
+  // Body Container
+  const bodyContainer = document.createElement('div');
+  bodyContainer.style.cssText = 'padding: 20px; display: flex; flex-direction: column; gap: 16px; align-items: center;';
   
   const chartWrapper = document.createElement('div');
-  chartWrapper.style.cssText = 'background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center;';
+  chartWrapper.style.cssText = 'background: rgba(15, 23, 42, 0.03); border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;';
   chartWrapper.appendChild(chartNode);
-  modal.appendChild(chartWrapper);
+  bodyContainer.appendChild(chartWrapper);
   
   const desc = document.createElement('p');
-  desc.style.cssText = 'font-size: 12px; color: var(--text-secondary); line-height: 1.5; text-align: center; margin: 0; font-family: var(--font-body);';
+  desc.style.cssText = 'font-size: 12px; color: #64748b; line-height: 1.5; text-align: center; margin: 0; font-family: var(--font-body); font-weight: 500;';
   desc.innerText = 'Trend graph shows relative games above or below .500 (Wins - Losses surplus) over the last 10 games.';
-  modal.appendChild(desc);
+  bodyContainer.appendChild(desc);
   
+  modal.appendChild(bodyContainer);
   backdrop.appendChild(modal);
+  
   document.body.appendChild(backdrop);
+  
+  // Trigger transition
+  setTimeout(() => {
+    backdrop.classList.add('show');
+  }, 10);
 }
 
 // Standings View
