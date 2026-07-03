@@ -2000,6 +2000,9 @@ function render() {
       case 'credits-version':
         main.appendChild(createCreditsVersionView());
         break;
+      case 'developer-notes':
+        main.appendChild(createDeveloperNotesView());
+        break;
       default:
         main.appendChild(createDashboardView());
     }
@@ -2575,6 +2578,15 @@ function createSettingsView() {
     render();
   });
 
+  const devNotesBtn = document.createElement('button');
+  devNotesBtn.style.cssText = 'width: 100%; padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-primary); background: var(--bg-card-hover); border: 1px solid var(--border-glass-highlight); border-radius: 12px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; box-shadow: var(--shadow-sm); outline: none;';
+  devNotesBtn.innerHTML = '🛠️ Developer Release Notes';
+  devNotesBtn.addEventListener('click', () => {
+    state.previousMainView = 'settings';
+    state.activeView = 'developer-notes';
+    render();
+  });
+
   const reloadBtn = document.createElement('button');
   reloadBtn.style.cssText = 'width: 100%; padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-primary); background: var(--bg-card-hover); border: 1px solid var(--border-glass-highlight); border-radius: 12px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; box-shadow: var(--shadow-sm); outline: none;';
   reloadBtn.innerHTML = '🔄 Force Reset Standing Data';
@@ -2598,6 +2610,7 @@ function createSettingsView() {
 
   actionsGroup.appendChild(configureBtn);
   actionsGroup.appendChild(creditsBtn);
+  actionsGroup.appendChild(devNotesBtn);
   actionsGroup.appendChild(reloadBtn);
   container.appendChild(actionsGroup);
 
@@ -5072,52 +5085,6 @@ function createCreditsVersionView() {
   appMetaText.innerHTML = '<strong>Trajectory Web App</strong><br>Version: v1.4.0<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
   creditsCard.appendChild(appMetaText);
 
-  const changelogTitle = document.createElement('h3');
-  changelogTitle.innerText = 'Developer Release Notes';
-  changelogTitle.style.fontFamily = 'var(--font-title)';
-  changelogTitle.style.fontSize = '16px';
-  changelogTitle.style.margin = '0';
-  changelogTitle.style.marginTop = '8px';
-  creditsCard.appendChild(changelogTitle);
-
-  const changelogText = document.createElement('div');
-  changelogText.style.fontSize = '12px';
-  changelogText.style.color = 'var(--text-secondary)';
-  changelogText.style.lineHeight = '1.5';
-  changelogText.style.display = 'flex';
-  changelogText.style.flexDirection = 'column';
-  changelogText.style.gap = '10px';
-  changelogText.style.maxHeight = '200px';
-  changelogText.style.overflowY = 'auto';
-  changelogText.style.paddingRight = '4px';
-
-  changelogText.innerHTML = `
-    <div>
-      <strong style="color: var(--text-primary); font-size:12.5px;">v1.4.0 (Outside Impact & Spacing)</strong>
-      <ul style="margin: 4px 0 0 16px; padding: 0;">
-        <li>Added a visual <strong>Outside Impact</strong> meter to track standings help/drag from rival matchups (green for wins, red for losses, gray for active).</li>
-        <li>Redesigned the <strong>All Teams</strong> grid page with tab switcher and compact spacing to eliminate nested scrolls.</li>
-        <li>Enabled the <strong>Teams dropup switcher</strong> menu to toggle even if only one team is selected.</li>
-      </ul>
-    </div>
-    <div>
-      <strong style="color: var(--text-primary); font-size:12.5px;">v1.3.5 (Real-time HR & Click Modals)</strong>
-      <ul style="margin: 4px 0 0 16px; padding: 0;">
-        <li>Fixed schedule filters (status code <code>P</code>) to query all 13 games instead of 5, enabling in-progress game boxscore parsing.</li>
-        <li>Made daily HR numbers look like pressable button cards. Clicking them triggers a play-by-play HR scorers details modal.</li>
-        <li>Added auto-reloading when navigating to the HR page and a manual refresh button with a timestamp.</li>
-      </ul>
-    </div>
-    <div>
-      <strong style="color: var(--text-primary); font-size:12.5px;">v1.3.0 (Pitching Analytics & Matchups)</strong>
-      <ul style="margin: 4px 0 0 16px; padding: 0;">
-        <li>Designed interactive <strong>Pitcher Sankey Flow Charts</strong> inside visual drawer details.</li>
-        <li>Added dynamic <strong>Probable Pitchers Matchup</strong> stats showing W-L and ERA statistics on expanded cards.</li>
-      </ul>
-    </div>
-  `;
-  creditsCard.appendChild(changelogText);
-
   container.appendChild(creditsCard);
 
   // Large full-width back button at the bottom for easier touch target finger presses
@@ -5126,6 +5093,76 @@ function createCreditsVersionView() {
   backBtn.innerHTML = '← Back';
   backBtn.addEventListener('click', () => {
     state.activeView = state.previousMainView || 'dashboard';
+    render();
+  });
+  container.appendChild(backBtn);
+
+  return container;
+}
+
+function createDeveloperNotesView() {
+  const container = document.createElement('div');
+  container.className = 'setup-container';
+  container.style.cssText = 'display: flex; flex-direction: column; gap: 20px; padding-bottom: 24px; text-align: left;';
+
+  const backHeader = document.createElement('div');
+  backHeader.style.display = 'flex';
+  backHeader.style.alignItems = 'center';
+  backHeader.style.gap = '12px';
+  backHeader.style.marginBottom = '4px';
+
+  const title = document.createElement('h2');
+  title.className = 'setup-title';
+  title.innerText = 'Developer Notes';
+  title.style.margin = '0';
+  title.style.fontSize = '20px';
+  title.style.fontWeight = '800';
+  title.style.color = 'var(--color-gold)';
+
+  backHeader.appendChild(title);
+  container.appendChild(backHeader);
+
+  const desc = document.createElement('p');
+  desc.style.cssText = 'font-size: 12.5px; color: var(--text-secondary); line-height: 1.55; margin: 0; margin-top: -12px; margin-bottom: 4px;';
+  desc.innerText = 'Chronological log of changes and feature updates implemented starting this morning.';
+  container.appendChild(desc);
+
+  const notesCard = document.createElement('div');
+  notesCard.className = 'glass-card';
+  notesCard.style.cssText = 'padding: 20px; display: flex; flex-direction: column; gap: 18px; border: 1px solid var(--border-glass-highlight); margin-bottom: 0;';
+
+  notesCard.innerHTML = `
+    <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(245, 158, 11, 0.2); padding-bottom: 4px;">v1.4.0 (Outside Impact & Spacing Updates) — Afternoon</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Implemented a visual <strong>Outside Impact</strong> meter in the <em>Games That Matter</em> sections to track standings help/drag from rival matchups (green for wins, red for losses, gray for active).</li>
+        <li>Converted the <strong>All Teams</strong> list into a single full-page grid switcher (AL / NL) with compact card paddings, eliminating nested scrolling.</li>
+        <li>Enabled the Teams dropup menu toggle when only one team is favorited, allowing access to the league grid page.</li>
+      </ul>
+    </div>
+    <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(6, 95, 70, 0.2); padding-bottom: 4px;">v1.3.5 (Real-Time Live HR & Click Modals) — Midday</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Fixed schedule filters (status code <code>P</code>) to query all 13 games instead of 5, enabling in-progress game boxscore parsing.</li>
+        <li>Formatted daily HR counts as pressable button cards. Clicking them triggers a play-by-play HR scorers details modal.</li>
+        <li>Added auto-reloading when navigating to the HR page and a manual refresh button with a timestamp.</li>
+      </ul>
+    </div>
+    <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid var(--border-glass); padding-bottom: 4px;">v1.3.0 (Pitching Analytics & Matchups) — Morning</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Designed interactive <strong>Pitcher Sankey Flow Charts</strong> inside visual drawer details.</li>
+        <li>Added dynamic <strong>Probable Pitchers Matchup</strong> stats showing W-L and ERA statistics on expanded cards.</li>
+      </ul>
+    </div>
+  `;
+  container.appendChild(notesCard);
+
+  const backBtn = document.createElement('button');
+  backBtn.style.cssText = 'width: 100%; margin-top: 12px; padding: 14px 16px; font-size: 14.5px; font-weight: 700; color: var(--text-primary); background: var(--bg-card-hover); border: 1px solid var(--border-glass-highlight); border-radius: 12px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; box-shadow: var(--shadow-sm);';
+  backBtn.innerHTML = '← Back';
+  backBtn.addEventListener('click', () => {
+    state.activeView = state.previousMainView || 'settings';
     render();
   });
   container.appendChild(backBtn);
