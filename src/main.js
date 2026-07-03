@@ -1818,12 +1818,15 @@ function transitionToView(targetView, targetTeamId = null) {
   });
   viewsList.push({ view: 'standings' });
   viewsList.push({ view: 'scores' });
+  viewsList.push({ view: 'settings' });
 
   // Resolve current active view index
   let currentIndex = -1;
   if (state.activeView === 'standings') {
-    currentIndex = viewsList.length - 2;
+    currentIndex = viewsList.length - 3;
   } else if (state.activeView === 'scores') {
+    currentIndex = viewsList.length - 2;
+  } else if (state.activeView === 'settings') {
     currentIndex = viewsList.length - 1;
   } else if (state.activeView === 'dashboard') {
     currentIndex = viewsList.findIndex(item => item.view === 'dashboard' && item.teamId === state.activeTeamId);
@@ -1832,8 +1835,10 @@ function transitionToView(targetView, targetTeamId = null) {
   // Resolve target index
   let targetIndex = -1;
   if (targetView === 'standings') {
-    targetIndex = viewsList.length - 2;
+    targetIndex = viewsList.length - 3;
   } else if (targetView === 'scores') {
+    targetIndex = viewsList.length - 2;
+  } else if (targetView === 'settings') {
     targetIndex = viewsList.length - 1;
   } else if (targetView === 'dashboard') {
     targetIndex = viewsList.findIndex(item => item.view === 'dashboard' && item.teamId === targetTeamId);
@@ -1873,9 +1878,9 @@ function render() {
   // Ensure persistent shell containers exist
   let header = appContainer.querySelector('.app-header');
   let main = appContainer.querySelector('.app-main');
-  let trigger = appContainer.querySelector('.floating-menu-trigger');
+  let footer = appContainer.querySelector('.app-footer');
 
-  if (!header || !main || !trigger) {
+  if (!header || !main || !footer) {
     appContainer.innerHTML = ''; // bootstrap once
     
     header = document.createElement('header');
@@ -1886,24 +1891,19 @@ function render() {
     main.className = 'app-main';
     main.style.flex = '1';
     
-    trigger = document.createElement('button');
-    trigger.className = 'floating-menu-trigger';
-    trigger.innerHTML = '☰';
-    trigger.title = 'Open Navigation Menu';
-    trigger.addEventListener('click', () => {
-      if (state.activeView === 'dashboard' || state.activeView === 'standings') {
-        state.previousMainView = state.activeView;
-      }
-      toggleHamburgerMenu(true);
-    });
+    footer = document.createElement('footer');
+    footer.className = 'app-footer';
     
     appContainer.appendChild(header);
     appContainer.appendChild(main);
-    appContainer.appendChild(trigger);
+    appContainer.appendChild(footer);
   }
 
   // 1. Update Header content (Date toggle control)
   updateHeaderContent(header);
+
+  // 2. Update Footer content (Persistent Bottom Navigation)
+  updateFooterContent(footer);
 
   // 3. Update Main view content
   main.innerHTML = '';
@@ -1928,6 +1928,9 @@ function render() {
       case 'scores':
         main.appendChild(createScoresView());
         break;
+      case 'settings':
+        main.appendChild(createSettingsView());
+        break;
       case 'team-select':
         main.appendChild(createTeamSelectView());
         break;
@@ -1940,168 +1943,206 @@ function render() {
   }
 }
 
-// Global Hamburger Menu Controller
-function toggleHamburgerMenu(open) {
-  let drawer = document.getElementById('hamburger-drawer');
-  let list;
-  if (!drawer) {
-    drawer = document.createElement('div');
-    drawer.id = 'hamburger-drawer';
-    drawer.className = 'hamburger-drawer';
-    
-    const backdrop = document.createElement('div');
-    backdrop.className = 'drawer-backdrop';
-    backdrop.addEventListener('click', () => toggleHamburgerMenu(false));
-    drawer.appendChild(backdrop);
-    
-    const content = document.createElement('div');
-    content.className = 'drawer-content';
-    
-    const header = document.createElement('div');
-    header.className = 'drawer-header';
-    const title = document.createElement('h3');
-    title.innerText = 'Trajectory Menu';
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'drawer-close-btn';
-    closeBtn.innerHTML = '×';
-    closeBtn.addEventListener('click', () => toggleHamburgerMenu(false));
-    
-    header.appendChild(title);
-    header.appendChild(closeBtn);
-    content.appendChild(header);
-    
-    list = document.createElement('div');
-    list.id = 'drawer-menu-list';
-    list.className = 'drawer-menu-list';
-    content.appendChild(list);
-    
-    drawer.appendChild(content);
-    document.body.appendChild(drawer);
-  } else {
-    list = drawer.querySelector('#drawer-menu-list');
-  }
+// Persistent Bottom Navigation Footer Builder
+function updateFooterContent(footer) {
+  footer.innerHTML = '';
   
-  if (open) {
-    buildDrawerMenuList(list);
-    drawer.classList.add('show');
-    document.body.style.overflow = 'hidden';
-  } else {
-    drawer.classList.remove('show');
-    document.body.style.overflow = '';
-  }
+  // Footer menu items configuration
+  const menuItems = [
+    { view: 'dashboard', label: 'Teams', emoji: '🧢' },
+    { view: 'scores', label: 'Scores', emoji: '⚾' },
+    { view: 'standings', label: 'Standings', emoji: '🏆' },
+    { view: 'settings', label: 'Settings', emoji: '⚙️' }
+  ];
+  
+  menuItems.forEach(item => {
+    const btn = document.createElement('button');
+    btn.className = `footer-nav-item ${state.activeView === item.view ? 'active' : ''}`;
+    
+    // Icon/Visual container
+    const iconContainer = document.createElement('div');
+    iconContainer.className = 'footer-nav-icon';
+    
+    // For 'Teams' tab, let's draw a premium team badge containing the current active team initials!
+    if (item.view === 'dashboard') {
+      const activeTeam = teamsData[state.activeTeamId];
+      if (activeTeam) {
+        iconContainer.innerText = activeTeam.abbreviation;
+        iconContainer.className = 'footer-nav-icon team-badge';
+        iconContainer.style.background = activeTeam.primaryColor;
+        iconContainer.style.color = activeTeam.textColor;
+        iconContainer.style.fontSize = '9px';
+        iconContainer.style.fontWeight = '800';
+        iconContainer.style.display = 'flex';
+        iconContainer.style.alignItems = 'center';
+        iconContainer.style.justifyContent = 'center';
+        iconContainer.style.borderRadius = '6px';
+        iconContainer.style.width = '24px';
+        iconContainer.style.height = '24px';
+        iconContainer.style.border = `1.5px solid ${state.activeView === 'dashboard' ? 'var(--color-gold)' : 'rgba(255,255,255,0.2)'}`;
+      } else {
+        iconContainer.innerText = item.emoji;
+      }
+    } else {
+      iconContainer.innerText = item.emoji;
+      iconContainer.style.fontSize = '18px';
+      iconContainer.style.lineHeight = '1';
+    }
+    
+    const label = document.createElement('span');
+    label.className = 'footer-nav-label';
+    label.innerText = item.label;
+    
+    btn.appendChild(iconContainer);
+    btn.appendChild(label);
+    
+    btn.addEventListener('click', () => {
+      if (state.activeView !== item.view) {
+        if (item.view === 'dashboard') {
+          transitionToView('dashboard', state.activeTeamId);
+        } else {
+          transitionToView(item.view);
+        }
+      }
+    });
+    
+    footer.appendChild(btn);
+  });
 }
 
-// Dynamically build thumb-friendly settings menu tray items
-function buildDrawerMenuList(list) {
-  list.innerHTML = '';
+// Settings View (More page in fixed footer navigation)
+function createSettingsView() {
+  const container = document.createElement('div');
+  container.className = 'setup-container';
+  container.style.cssText = 'display: flex; flex-direction: column; flex-grow: 1; gap: 20px;';
 
-  // 1. Group 1: Tracked Favorite Teams
+  const title = document.createElement('h2');
+  title.className = 'setup-title';
+  title.innerText = 'Settings & Configuration';
+  title.style.cssText = 'font-size: 20px; font-weight: 800; color: var(--color-gold); margin-bottom: 4px; text-align: left;';
+  container.appendChild(title);
+
+  const desc = document.createElement('p');
+  desc.style.cssText = 'font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin: 0;';
+  desc.innerText = 'Manage your tracked teams, check app details, or reload the latest MLB standings and schedules data.';
+  container.appendChild(desc);
+
+  // Divider
+  const hr = document.createElement('div');
+  hr.style.borderBottom = '1px solid var(--border-glass)';
+  hr.style.margin = '4px 0';
+  container.appendChild(hr);
+
+  // Tracked Teams Switcher
+  const teamsHeader = document.createElement('h3');
+  teamsHeader.style.cssText = 'font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;';
+  teamsHeader.innerText = 'Quick Switch Tracked Team';
+  container.appendChild(teamsHeader);
+
+  const teamsGroup = document.createElement('div');
+  teamsGroup.style.cssText = 'display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; padding-right: 4px;';
+  
   state.selectedTeamIds.forEach(id => {
     const team = teamsData[id];
     if (!team) return;
-
-    const btn = document.createElement('button');
-    const isTeamActive = state.activeView === 'dashboard' && state.activeTeamId === id;
-    btn.className = `drawer-menu-item ${isTeamActive ? 'active' : ''}`;
+    const isCurrent = state.activeTeamId === id;
+    const teamBtn = document.createElement('button');
+    teamBtn.style.cssText = `width: 100%; padding: 12px 14px; font-size: 13.5px; font-weight: 700; border-radius: 10px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; gap: 10px; transition: all 0.2s ease; border: 1.5px solid ${isCurrent ? 'var(--color-gold)' : 'var(--border-glass)'}; background: ${isCurrent ? 'rgba(245, 158, 11, 0.08)' : 'var(--bg-card)'}; color: ${isCurrent ? 'var(--color-gold)' : 'var(--text-primary)'}; outline: none;`;
     
     const badge = document.createElement('div');
-    badge.className = 'team-tab-badge';
+    badge.className = 'team-badge-small';
     badge.innerText = team.abbreviation;
     badge.style.background = team.primaryColor;
-    badge.style.border = `1px solid ${team.secondaryColor}`;
-    badge.style.marginRight = '8px';
-
+    badge.style.color = team.textColor;
+    badge.style.fontSize = '10px';
+    badge.style.width = '24px';
+    badge.style.height = '24px';
+    badge.style.display = 'flex';
+    badge.style.alignItems = 'center';
+    badge.style.justifyContent = 'center';
+    badge.style.borderRadius = '5px';
+    
     const label = document.createElement('span');
     label.innerText = team.name;
-
-    btn.appendChild(badge);
-    btn.appendChild(label);
-
-    btn.addEventListener('click', () => {
-      toggleHamburgerMenu(false);
+    
+    teamBtn.appendChild(badge);
+    teamBtn.appendChild(label);
+    
+    if (isCurrent) {
+      const activeIndicator = document.createElement('span');
+      activeIndicator.style.marginLeft = 'auto';
+      activeIndicator.style.fontSize = '11px';
+      activeIndicator.style.color = 'var(--color-gold)';
+      activeIndicator.innerText = '✓ Active';
+      teamBtn.appendChild(activeIndicator);
+    } else {
+      const switchIndicator = document.createElement('span');
+      switchIndicator.style.marginLeft = 'auto';
+      switchIndicator.style.fontSize = '11px';
+      switchIndicator.style.color = 'var(--text-muted)';
+      switchIndicator.innerText = 'Switch';
+      teamBtn.appendChild(switchIndicator);
+    }
+    
+    teamBtn.addEventListener('click', () => {
       transitionToView('dashboard', id);
     });
-
-    list.appendChild(btn);
+    
+    teamsGroup.appendChild(teamBtn);
   });
+  container.appendChild(teamsGroup);
 
-  // Divider
-  if (state.selectedTeamIds.length > 0) {
-    const divider = document.createElement('div');
-    divider.style.borderBottom = '1px solid var(--border-glass)';
-    divider.style.margin = '4px 0';
-    list.appendChild(divider);
-  }
+  // Push main actions to the bottom of the container
+  const spacer = document.createElement('div');
+  spacer.style.flex = '1';
+  container.appendChild(spacer);
 
-  // 2. Standings Selector
-  const optStandings = document.createElement('button');
-  const isStandingsActive = state.activeView === 'standings';
-  optStandings.className = `drawer-menu-item ${isStandingsActive ? 'active' : ''}`;
-  optStandings.innerHTML = '🏆 <span>Standings</span>';
-  optStandings.addEventListener('click', () => {
-    toggleHamburgerMenu(false);
-    transitionToView('standings');
-  });
-  list.appendChild(optStandings);
+  // Bottom action buttons stacked vertically for easy thumb reach
+  const actionsGroup = document.createElement('div');
+  actionsGroup.style.cssText = 'display: flex; flex-direction: column; gap: 10px; margin-top: auto; margin-bottom: 12px;';
 
-  // 2.5. Scores Selector
-  const optScores = document.createElement('button');
-  const isScoresActive = state.activeView === 'scores';
-  optScores.className = `drawer-menu-item ${isScoresActive ? 'active' : ''}`;
-  optScores.innerHTML = '⚾ <span>Scores</span>';
-  optScores.addEventListener('click', () => {
-    toggleHamburgerMenu(false);
-    transitionToView('scores');
-  });
-  list.appendChild(optScores);
-
-  // 3. Configure Teams Selector
-  const optTeamSelect = document.createElement('button');
-  const isTeamSelectActive = state.activeView === 'team-select';
-  optTeamSelect.className = `drawer-menu-item ${isTeamSelectActive ? 'active' : ''}`;
-  optTeamSelect.innerHTML = '👥 <span>Configure Teams</span>';
-  optTeamSelect.addEventListener('click', () => {
-    toggleHamburgerMenu(false);
+  const configureBtn = document.createElement('button');
+  configureBtn.style.cssText = 'width: 100%; padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-primary); background: var(--bg-card-hover); border: 1px solid var(--border-glass-highlight); border-radius: 12px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; box-shadow: var(--shadow-sm); outline: none;';
+  configureBtn.innerHTML = '👥 Configure Tracked Teams';
+  configureBtn.addEventListener('click', () => {
+    state.previousMainView = 'settings';
     state.activeView = 'team-select';
     state.searchQuery = '';
     render();
   });
-  list.appendChild(optTeamSelect);
-
-  // 4. Credits & Version Selector
-  const optCredits = document.createElement('button');
-  const isCreditsActive = state.activeView === 'credits-version';
-  optCredits.className = `drawer-menu-item ${isCreditsActive ? 'active' : ''}`;
-  optCredits.innerHTML = 'ℹ️ <span>Credits & Version</span>';
-  optCredits.addEventListener('click', () => {
-    toggleHamburgerMenu(false);
+  
+  const creditsBtn = document.createElement('button');
+  creditsBtn.style.cssText = 'width: 100%; padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-primary); background: var(--bg-card-hover); border: 1px solid var(--border-glass-highlight); border-radius: 12px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; box-shadow: var(--shadow-sm); outline: none;';
+  creditsBtn.innerHTML = 'ℹ️ Credits & Info';
+  creditsBtn.addEventListener('click', () => {
+    state.previousMainView = 'settings';
     state.activeView = 'credits-version';
     render();
   });
-  list.appendChild(optCredits);
 
-  // Separator
-  const divider2 = document.createElement('div');
-  divider2.style.borderBottom = '1px solid var(--border-glass)';
-  divider2.style.margin = '4px 0';
-  list.appendChild(divider2);
-
-  // 5. Force Reset (Clear cache & refresh)
-  const optReload = document.createElement('button');
-  optReload.className = 'drawer-menu-item';
-  optReload.innerHTML = '🔄 <span>Force Reset</span>';
-  optReload.addEventListener('click', () => {
-    toggleHamburgerMenu(false);
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(registrations => {
-        for (let registration of registrations) {
-          registration.unregister();
-        }
-      });
+  const reloadBtn = document.createElement('button');
+  reloadBtn.style.cssText = 'width: 100%; padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-primary); background: var(--bg-card-hover); border: 1px solid var(--border-glass-highlight); border-radius: 12px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; box-shadow: var(--shadow-sm); outline: none;';
+  reloadBtn.innerHTML = '🔄 Force Reset Standing Data';
+  reloadBtn.addEventListener('click', () => {
+    if (confirm('This will unregister service workers and refresh your browser data cache. Proceed?')) {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+          for (let registration of registrations) {
+            registration.unregister();
+          }
+        });
+      }
+      localStorage.clear();
+      window.location.reload();
     }
-    window.location.reload(true);
   });
-  list.appendChild(optReload);
+
+  actionsGroup.appendChild(configureBtn);
+  actionsGroup.appendChild(creditsBtn);
+  actionsGroup.appendChild(reloadBtn);
+  container.appendChild(actionsGroup);
+
+  return container;
 }
 
 // Update persistent Header content
@@ -2111,10 +2152,13 @@ function updateHeaderContent(header) {
   const topRow = document.createElement('div');
   topRow.className = 'header-top';
 
+  const logo = document.createElement('div');
+  logo.className = 'app-logo';
+  logo.innerText = 'Trajectory';
+  topRow.appendChild(logo);
+
   const rightControls = document.createElement('div');
-  rightControls.style.display = 'flex';
-  rightControls.style.alignItems = 'center';
-  rightControls.style.gap = '8px';
+  rightControls.style.cssText = 'display: flex; align-items: center; gap: 8px; position: absolute; right: 0;';
 
   if (state.activeView === 'scores') {
     const dateNav = document.createElement('div');
@@ -2167,9 +2211,9 @@ function updateHeaderContent(header) {
     dateNav.appendChild(datePicker);
     dateNav.appendChild(nextDayBtn);
     rightControls.appendChild(dateNav);
+    topRow.appendChild(rightControls);
   }
 
-  topRow.appendChild(rightControls);
   header.appendChild(topRow);
 }
 
