@@ -1644,6 +1644,10 @@ function showRecapModal(isAutoTrigger = false) {
   const targetRivalGames = sortGames(rootingGamesAnalysis.filter(g => g.priority > 0 && g.awayTeam.id !== activeTeamId && g.homeTeam.id !== activeTeamId));
 
   if (targetRivalGames.length > 0) {
+    const rootingGames = targetRivalGames.filter(g => g.rootFor === 'Away' || g.rootFor === 'Home');
+    if (rootingGames.length > 0) {
+      rootingBody.appendChild(createOutsideImpactMeter(rootingGames));
+    }
     targetRivalGames.forEach(g => {
       const isAwayWinner = g.awayScore > g.homeScore;
       const winnerSide = isAwayWinner ? 'Away' : 'Home';
@@ -3392,6 +3396,124 @@ function createGameCard(item, isNeutral) {
   return card;
 }
 
+function createOutsideImpactMeter(rootingGames) {
+  const N = rootingGames.length;
+  
+  let leftActiveCount = 0;
+  let leftCompletedCount = 0;
+  let rightActiveCount = 0;
+  let rightCompletedCount = 0;
+
+  rootingGames.forEach(g => {
+    const statusCode = g.status?.statusCode;
+    const isCompleted = statusCode === 'F' || statusCode === 'O' || statusCode === 'FT';
+    const isLive = statusCode === 'I' || g.status?.detailedState?.toLowerCase().includes('progress');
+    
+    const rootAway = g.rootFor === 'Away';
+    const rootHome = g.rootFor === 'Home';
+    
+    const rootScore = rootAway ? (g.awayScore || 0) : (g.homeScore || 0);
+    const oppScore = rootAway ? (g.homeScore || 0) : (g.awayScore || 0);
+    
+    if (isCompleted) {
+      if (rootScore > oppScore) {
+        rightCompletedCount++;
+      } else if (rootScore < oppScore) {
+        leftCompletedCount++;
+      }
+    } else if (isLive) {
+      if (rootScore > oppScore) {
+        rightActiveCount++;
+      } else if (rootScore < oppScore) {
+        leftActiveCount++;
+      }
+    }
+  });
+
+  const leftCompletedPct = (leftCompletedCount / N) * 100;
+  const leftActivePct = (leftActiveCount / N) * 100;
+  const rightCompletedPct = (rightCompletedCount / N) * 100;
+  const rightActivePct = (rightActiveCount / N) * 100;
+
+  let statusText = '';
+  const totalCompleted = leftCompletedCount + rightCompletedCount;
+  
+  if (totalCompleted === N) {
+    if (rightCompletedCount > leftCompletedCount) {
+      statusText = `Great Help (+${rightCompletedCount} W / -${leftCompletedCount} L)`;
+    } else if (rightCompletedCount < leftCompletedCount) {
+      statusText = `Tough Break (+${rightCompletedCount} W / -${leftCompletedCount} L)`;
+    } else {
+      statusText = `Neutral Day (+${rightCompletedCount} W / -${leftCompletedCount} L)`;
+    }
+  } else {
+    statusText = `Live: ${rightCompletedCount + rightActiveCount} Up, ${leftCompletedCount + leftActiveCount} Down`;
+  }
+
+  const card = document.createElement('div');
+  card.className = 'glass-card';
+  card.style.cssText = 'padding: 14px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; border: 1.5px solid var(--border-glass-highlight);';
+
+  const topRow = document.createElement('div');
+  topRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+
+  const label = document.createElement('span');
+  label.style.cssText = 'font-size: 11px; font-weight: 800; font-family: var(--font-title); color: var(--color-gold); text-transform: uppercase; letter-spacing: 0.5px;';
+  label.innerText = '⚡ Outside Impact';
+
+  const statusSpan = document.createElement('span');
+  statusSpan.style.cssText = 'font-size: 11px; font-weight: 700; color: var(--text-secondary);';
+  statusSpan.innerText = statusText;
+
+  topRow.appendChild(label);
+  topRow.appendChild(statusSpan);
+  card.appendChild(topRow);
+
+  const track = document.createElement('div');
+  track.style.cssText = 'height: 16px; width: 100%; border-radius: 8px; background: rgba(0,0,0,0.03); border: 1px solid var(--border-glass); display: flex; position: relative; overflow: hidden;';
+
+  const leftHalf = document.createElement('div');
+  leftHalf.style.cssText = 'width: 50%; height: 100%; display: flex; flex-direction: row-reverse; justify-content: flex-start;';
+
+  const leftComp = document.createElement('div');
+  leftComp.style.cssText = `width: ${leftCompletedPct}%; height: 100%; background: var(--color-loss); transition: width 0.3s ease;`;
+  const leftAct = document.createElement('div');
+  leftAct.style.cssText = `width: ${leftActivePct}%; height: 100%; background: #94a3b8; transition: width 0.3s ease;`;
+
+  leftHalf.appendChild(leftComp);
+  leftHalf.appendChild(leftAct);
+  track.appendChild(leftHalf);
+
+  const centerMarker = document.createElement('div');
+  centerMarker.style.cssText = 'position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: #ffffff; z-index: 10; box-shadow: 0 0 2px rgba(0,0,0,0.3);';
+  track.appendChild(centerMarker);
+
+  const rightHalf = document.createElement('div');
+  rightHalf.style.cssText = 'width: 50%; height: 100%; display: flex; flex-direction: row; justify-content: flex-start;';
+
+  const rightComp = document.createElement('div');
+  rightComp.style.cssText = `width: ${rightCompletedPct}%; height: 100%; background: var(--color-win); transition: width 0.3s ease;`;
+  const rightAct = document.createElement('div');
+  rightAct.style.cssText = `width: ${rightActivePct}%; height: 100%; background: #94a3b8; transition: width 0.3s ease;`;
+
+  rightHalf.appendChild(rightComp);
+  rightHalf.appendChild(rightAct);
+  track.appendChild(rightHalf);
+
+  card.appendChild(track);
+
+  const legend = document.createElement('div');
+  legend.style.cssText = 'display: flex; justify-content: space-between; font-size: 8.5px; font-weight: 700; color: var(--text-muted);';
+  legend.innerHTML = `
+    <span>Negative Impact (Rivals Win)</span>
+    <span>Neutral (0)</span>
+    <span>Positive Impact (Rivals Lose)</span>
+  `;
+  card.appendChild(legend);
+
+  return card;
+}
+
 // Dashboard View
 function createDashboardView() {
   const container = document.createElement('div');
@@ -4415,6 +4537,11 @@ function createDashboardView() {
     noGamesMsg.innerText = 'No rival matchups directly impacting your standing today.';
     container.appendChild(noGamesMsg);
   } else {
+    const rootingGames = rivalGamesThatMatter.filter(g => g.rootFor === 'Away' || g.rootFor === 'Home');
+    if (rootingGames.length > 0) {
+      container.appendChild(createOutsideImpactMeter(rootingGames));
+    }
+
     const sortedRivalGames = sortGames(rivalGamesThatMatter);
     sortedRivalGames.forEach(g => {
       container.appendChild(createGameCard(g, false));
