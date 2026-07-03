@@ -5068,6 +5068,22 @@ function renderMLBLeadersGraph(leaders, card, spinner, yesterdayPlayerHRsMap = {
   animBtn.className = 'action-btn';
   animBtn.style.cssText = 'padding: 6px 12px; font-size: 11px; font-weight: 800; border-radius: 20px; text-transform: none; display: flex; align-items: center; gap: 6px; transition: all 0.3s; background: rgba(255, 90, 0, 0.1); border: 1px solid rgba(255, 90, 0, 0.35); color: #ff5a00; cursor: pointer;';
   animBtn.innerHTML = `🔥 Show Yesterday to Today`;
+
+  const hasAnyChanges = leaders.some(leader => {
+    const pId = leader.person?.id;
+    return (yesterdayPlayerHRsMap[pId] || 0) > 0 || (todayPlayerHRsMap[pId] || 0) > 0;
+  });
+
+  if (!hasAnyChanges) {
+    animBtn.disabled = true;
+    animBtn.style.opacity = '0.5';
+    animBtn.style.cursor = 'not-allowed';
+    animBtn.style.background = 'rgba(0, 0, 0, 0.05)';
+    animBtn.style.color = 'var(--text-muted)';
+    animBtn.style.borderColor = 'rgba(0, 0, 0, 0.1)';
+    animBtn.innerHTML = `🔒 No Recent HRs to Animate`;
+  }
+
   btnContainer.appendChild(animBtn);
   
   graphContainer.appendChild(btnContainer);
@@ -5147,13 +5163,13 @@ function renderMLBLeadersGraph(leaders, card, spinner, yesterdayPlayerHRsMap = {
     // Yesterday's added segment
     const yesterdayBar = document.createElement('div');
     const yesterdayAddedWidth = (yesterdayHRs / maxScaleHR) * 100;
-    yesterdayBar.style.cssText = `height: 100%; width: 0%; background: #eab308; transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 1.5s ease; box-shadow: 0 0 8px rgba(234, 179, 8, 0.4);`;
+    yesterdayBar.style.cssText = `height: 100%; width: 0%; background: #eab308; transition: width 4.0s cubic-bezier(0.16, 1, 0.3, 1), background-color 1.5s ease; box-shadow: 0 0 8px rgba(234, 179, 8, 0.4);`;
     barOuter.appendChild(yesterdayBar);
 
     // Today's added segment
     const todayBar = document.createElement('div');
     const todayAddedWidth = (todayHRs / maxScaleHR) * 100;
-    todayBar.style.cssText = `height: 100%; width: 0%; background: #ff5a00; border-radius: 0 6px 6px 0; transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 1.5s ease; box-shadow: 0 0 8px rgba(255, 90, 0, 0.4);`;
+    todayBar.style.cssText = `height: 100%; width: 0%; background: #ff5a00; border-radius: 0 6px 6px 0; transition: width 4.0s cubic-bezier(0.16, 1, 0.3, 1), background-color 1.5s ease; box-shadow: 0 0 8px rgba(255, 90, 0, 0.4);`;
     barOuter.appendChild(todayBar);
 
     barCol.appendChild(barOuter);
@@ -5217,8 +5233,8 @@ function renderMLBLeadersGraph(leaders, card, spinner, yesterdayPlayerHRsMap = {
       
       animRows.forEach(row => {
         if (row.hasYesterdayChange || row.hasTodayChange) {
-          row.yesterdayBar.style.transition = 'width 1.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 1.5s ease';
-          row.todayBar.style.transition = 'width 1.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 1.5s ease';
+          row.yesterdayBar.style.transition = 'width 4.0s cubic-bezier(0.16, 1, 0.3, 1), background-color 1.5s ease';
+          row.todayBar.style.transition = 'width 4.0s cubic-bezier(0.16, 1, 0.3, 1), background-color 1.5s ease';
         }
       });
     }
@@ -5267,14 +5283,14 @@ function renderMLBLeadersGraph(leaders, card, spinner, yesterdayPlayerHRsMap = {
 
         if (row.hasYesterdayChange) {
           spawnYesterdayBubble();
-          row.bubbleInterval = setInterval(spawnYesterdayBubble, 1200);
+          row.bubbleInterval = setInterval(spawnYesterdayBubble, 1500);
           
           setTimeout(() => {
             row.yesterdayBar.style.width = `${row.yesterdayAddedWidth}%`;
             
             let count = row.baseHR;
             const target = row.baseHR + row.yesterdayHRs;
-            const delayPerHR = 1000 / Math.max(1, row.yesterdayHRs);
+            const delayPerHR = 4000 / Math.max(1, row.yesterdayHRs);
             const interval = setInterval(() => {
               if (count >= target) {
                 clearInterval(interval);
@@ -5288,7 +5304,7 @@ function renderMLBLeadersGraph(leaders, card, spinner, yesterdayPlayerHRsMap = {
       }
     });
 
-    // 2. Today's Animation Phase
+    // 2. Today's Animation Phase (starts after 5.0 seconds)
     setTimeout(() => {
       animRows.forEach((row, idx) => {
         if (row.bubbleInterval) {
@@ -5328,13 +5344,13 @@ function renderMLBLeadersGraph(leaders, card, spinner, yesterdayPlayerHRsMap = {
           };
 
           spawnTodayBubble();
-          row.bubbleInterval = setInterval(spawnTodayBubble, 1200);
+          row.bubbleInterval = setInterval(spawnTodayBubble, 1500);
 
           setTimeout(() => {
             row.todayBar.style.width = `${row.todayAddedWidth}%`;
             
             let count = row.baseHR + row.yesterdayHRs;
-            const delayPerHR = 1000 / Math.max(1, row.todayHRs);
+            const delayPerHR = 4000 / Math.max(1, row.todayHRs);
             const interval = setInterval(() => {
               if (count >= row.totalHR) {
                 clearInterval(interval);
@@ -5348,7 +5364,7 @@ function renderMLBLeadersGraph(leaders, card, spinner, yesterdayPlayerHRsMap = {
           row.valueSpan.innerText = row.baseHR + row.yesterdayHRs;
         }
       });
-    }, 1500);
+    }, 5000);
 
     // 3. Finalize
     setTimeout(() => {
@@ -5374,7 +5390,7 @@ function renderMLBLeadersGraph(leaders, card, spinner, yesterdayPlayerHRsMap = {
       animBtn.style.color = '#ff5a00';
       animBtn.style.borderColor = 'rgba(255, 90, 0, 0.35)';
       animBtn.innerHTML = `🔄 Replay Animation`;
-    }, 3200);
+    }, 10200);
   });
 
   card.appendChild(graphContainer);
