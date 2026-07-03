@@ -5069,8 +5069,54 @@ function createCreditsVersionView() {
   appMetaText.style.fontSize = '13px';
   appMetaText.style.color = 'var(--text-secondary)';
   appMetaText.style.lineHeight = '1.6';
-  appMetaText.innerHTML = '<strong>Trajectory Web App</strong><br>Version: v1.3.0<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
+  appMetaText.innerHTML = '<strong>Trajectory Web App</strong><br>Version: v1.4.0<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
   creditsCard.appendChild(appMetaText);
+
+  const changelogTitle = document.createElement('h3');
+  changelogTitle.innerText = 'Developer Release Notes';
+  changelogTitle.style.fontFamily = 'var(--font-title)';
+  changelogTitle.style.fontSize = '16px';
+  changelogTitle.style.margin = '0';
+  changelogTitle.style.marginTop = '8px';
+  creditsCard.appendChild(changelogTitle);
+
+  const changelogText = document.createElement('div');
+  changelogText.style.fontSize = '12px';
+  changelogText.style.color = 'var(--text-secondary)';
+  changelogText.style.lineHeight = '1.5';
+  changelogText.style.display = 'flex';
+  changelogText.style.flexDirection = 'column';
+  changelogText.style.gap = '10px';
+  changelogText.style.maxHeight = '200px';
+  changelogText.style.overflowY = 'auto';
+  changelogText.style.paddingRight = '4px';
+
+  changelogText.innerHTML = `
+    <div>
+      <strong style="color: var(--text-primary); font-size:12.5px;">v1.4.0 (Outside Impact & Spacing)</strong>
+      <ul style="margin: 4px 0 0 16px; padding: 0;">
+        <li>Added a visual <strong>Outside Impact</strong> meter to track standings help/drag from rival matchups (green for wins, red for losses, gray for active).</li>
+        <li>Redesigned the <strong>All Teams</strong> grid page with tab switcher and compact spacing to eliminate nested scrolls.</li>
+        <li>Enabled the <strong>Teams dropup switcher</strong> menu to toggle even if only one team is selected.</li>
+      </ul>
+    </div>
+    <div>
+      <strong style="color: var(--text-primary); font-size:12.5px;">v1.3.5 (Real-time HR & Click Modals)</strong>
+      <ul style="margin: 4px 0 0 16px; padding: 0;">
+        <li>Fixed schedule filters (status code <code>P</code>) to query all 13 games instead of 5, enabling in-progress game boxscore parsing.</li>
+        <li>Made daily HR numbers look like pressable button cards. Clicking them triggers a play-by-play HR scorers details modal.</li>
+        <li>Added auto-reloading when navigating to the HR page and a manual refresh button with a timestamp.</li>
+      </ul>
+    </div>
+    <div>
+      <strong style="color: var(--text-primary); font-size:12.5px;">v1.3.0 (Pitching Analytics & Matchups)</strong>
+      <ul style="margin: 4px 0 0 16px; padding: 0;">
+        <li>Designed interactive <strong>Pitcher Sankey Flow Charts</strong> inside visual drawer details.</li>
+        <li>Added dynamic <strong>Probable Pitchers Matchup</strong> stats showing W-L and ERA statistics on expanded cards.</li>
+      </ul>
+    </div>
+  `;
+  creditsCard.appendChild(changelogText);
 
   container.appendChild(creditsCard);
 
