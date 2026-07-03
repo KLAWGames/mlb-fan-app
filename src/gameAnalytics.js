@@ -1744,7 +1744,8 @@ export function openGameAnalyticsCenter(game, state, render) {
   const renderVisToggles = () => {
     visToggleRow.innerHTML = '';
     [
-      { id: 'sankey', label: '📊 Sankey Flow' },
+      { id: 'sankey', label: '📊 Batter Flow' },
+      { id: 'sankey_pitcher', label: '🔥 Pitcher Flow' },
       { id: 'spray', label: '⚾ Spray Chart' }
     ].forEach(opt => {
       const btn = document.createElement('button');
@@ -1837,6 +1838,50 @@ export function openGameAnalyticsCenter(game, state, render) {
       const helper = document.createElement('div');
       helper.style.cssText = 'font-size: 10.5px; color: var(--text-secondary); text-align: center; font-style: italic;';
       helper.innerText = '← Swipe to pan • Pinch with 2 fingers to zoom →';
+      visContainer.appendChild(helper);
+
+    } else if (selectedVis === 'sankey_pitcher') {
+      const pitchersData = getDeterministicPitcherSankeyStats(normGame, selectedTeamId, state);
+      
+      const scrollWrapper = document.createElement('div');
+      scrollWrapper.style.cssText = 'width: 100%; max-height: 440px; overflow-y: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border-glass); border-radius: 12px; background: #f8fafc; padding: 12px; display: flex; flex-direction: column; gap: 20px; position: relative;';
+      
+      pitchersData.forEach(pm => {
+        const pCard = document.createElement('div');
+        pCard.style.cssText = 'background: #ffffff; border: 1px solid rgba(0,0,0,0.06); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);';
+        
+        const pHeader = document.createElement('div');
+        pHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-glass); padding-bottom: 8px;';
+        
+        const pName = document.createElement('span');
+        pName.style.cssText = 'font-size: 13.5px; font-weight: 800; font-family: var(--font-title); color: var(--text-primary);';
+        pName.innerText = pm.pitcherName;
+        
+        const pSummary = document.createElement('span');
+        pSummary.style.cssText = 'font-size: 11px; font-weight: 700; color: var(--text-secondary); background: rgba(0,0,0,0.05); padding: 2px 8px; border-radius: 12px;';
+        pSummary.innerText = `${pm.totalPitches} Pitches • ${pm.innings.length} Innings`;
+        
+        pHeader.appendChild(pName);
+        pHeader.appendChild(pSummary);
+        pCard.appendChild(pHeader);
+
+        pm.innings.forEach(inn => {
+          const svgScroll = document.createElement('div');
+          svgScroll.style.cssText = 'width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 6px; border-bottom: 1px dashed rgba(0,0,0,0.04); padding-bottom: 8px;';
+          
+          const svgNode = drawInningSankeySVG(pm.pitcherName, inn, teamObj);
+          svgScroll.appendChild(svgNode);
+          pCard.appendChild(svgScroll);
+        });
+        
+        scrollWrapper.appendChild(pCard);
+      });
+      
+      visContainer.appendChild(scrollWrapper);
+
+      const helper = document.createElement('div');
+      helper.style.cssText = 'font-size: 10.5px; color: var(--text-secondary); text-align: center; font-style: italic;';
+      helper.innerText = '← Swipe charts to pan • Scroll up/down to see all pitchers →';
       visContainer.appendChild(helper);
 
     } else if (selectedVis === 'spray') {
@@ -2014,4 +2059,598 @@ export function openGameAnalyticsCenter(game, state, render) {
     console.error("Error in openGameAnalyticsCenter:", err);
     alert("openGameAnalyticsCenter Error:\n" + err.message + "\n" + err.stack);
   }
+}
+
+export function parsePitcherLiveFeedData(feed, teamId) {
+  const selectedTeamIdNum = parseInt(teamId, 10);
+  const awayTeamId = feed.gameData?.teams?.away?.id;
+  const homeTeamId = feed.gameData?.teams?.home?.id;
+  const isAway = selectedTeamIdNum === awayTeamId;
+
+  const inningScorers = {};
+  if (feed.liveData && feed.liveData.plays && feed.liveData.plays.allPlays) {
+    feed.liveData.plays.allPlays.forEach(p => {
+      if (p.runners && p.about) {
+        const inningKey = `${p.about.inning}_${p.about.halfInning}`;
+        if (!inningScorers[inningKey]) {
+          inningScorers[inningKey] = new Set();
+        }
+        p.runners.forEach(r => {
+          if (r.movement && r.movement.end === 'score') {
+            inningScorers[inningKey].add(r.details?.runner?.id);
+          }
+        });
+      }
+    });
+  }
+
+  const pitcherOrder = [];
+  const pitcherMap = {};
+
+  if (feed.liveData && feed.liveData.plays && feed.liveData.plays.allPlays) {
+    feed.liveData.plays.allPlays.forEach(p => {
+      if (!p.result || !p.about || !p.about.isComplete) return;
+
+      const isTeamPitching = p.about.isTopInning ? !isAway : isAway;
+      if (!isTeamPitching) return;
+
+      const pitcherName = p.matchup?.pitcher?.fullName || 'Pitcher';
+      const pitcherId = p.matchup?.pitcher?.id;
+      if (!pitcherId) return;
+
+      if (!pitcherMap[pitcherId]) {
+        pitcherOrder.push(pitcherId);
+        pitcherMap[pitcherId] = {
+          pitcherId,
+          pitcherName,
+          totalPitches: 0,
+          inningsMap: {}
+        };
+      }
+
+      const pm = pitcherMap[pitcherId];
+      const innNum = p.about.inning;
+      if (!pm.inningsMap[innNum]) {
+        pm.inningsMap[innNum] = {
+          inning: innNum,
+          pitches: 0,
+          outcomes: {
+            Strikeout_Pitches: 0,
+            Walk_Pitches: 0,
+            HBP_Pitches: 0,
+            Single_Pitches: 0,
+            Double_Pitches: 0,
+            Triple_Pitches: 0,
+            HomeRun_Pitches: 0,
+            Outs_Pitches: 0
+          },
+          destinations: {
+            Walk_Runs_Pitches: 0, Walk_LOB_Pitches: 0,
+            Single_Runs_Pitches: 0, Single_LOB_Pitches: 0,
+            Double_Runs_Pitches: 0, Double_LOB_Pitches: 0,
+            Triple_Runs_Pitches: 0, Triple_LOB_Pitches: 0,
+            HBP_Runs_Pitches: 0, HBP_LOB_Pitches: 0,
+            HomeRun_Runs_Pitches: 0,
+            Outs_Runs_Pitches: 0, Outs_LOB_Pitches: 0,
+            Strikeout_LOB_Pitches: 0
+          },
+          plays: []
+        };
+      }
+
+      const innData = pm.inningsMap[innNum];
+      const eventType = p.result.eventType || '';
+      const eventLabel = p.result.event || '';
+      const batterId = p.matchup?.batter?.id;
+      const batterName = p.matchup?.batter?.fullName || 'Batter';
+      const inningKey = `${p.about.inning}_${p.about.halfInning}`;
+      const didScore = (batterId && inningScorers[inningKey]) ? inningScorers[inningKey].has(batterId) : false;
+
+      let pitches = 0;
+      if (p.playEvents) {
+        pitches = p.playEvents.filter(e => e.details?.type || e.isPitch).length;
+      }
+      if (pitches === 0) {
+        if (eventType.includes('strikeout')) pitches = 5;
+        else if (eventType.includes('walk') || eventType.includes('base_on_balls')) pitches = 5;
+        else if (eventType.includes('hit_by_pitch')) pitches = 1;
+        else pitches = 3;
+      }
+
+      pm.totalPitches += pitches;
+      innData.pitches += pitches;
+
+      let eventKey = 'out';
+      let isRunScoring = didScore;
+
+      if (eventType.includes('strikeout')) {
+        innData.outcomes.Strikeout_Pitches += pitches;
+        innData.destinations.Strikeout_LOB_Pitches += pitches;
+        eventKey = 'strikeout-out';
+      } else if (eventType.includes('walk') || eventType.includes('base_on_balls') || eventType.includes('intent_walk')) {
+        innData.outcomes.Walk_Pitches += pitches;
+        eventKey = 'walk';
+        if (didScore) {
+          innData.destinations.Walk_Runs_Pitches += pitches;
+        } else {
+          innData.destinations.Walk_LOB_Pitches += pitches;
+        }
+      } else if (eventType.includes('hit_by_pitch')) {
+        innData.outcomes.HBP_Pitches += pitches;
+        eventKey = 'hbp';
+        if (didScore) {
+          innData.destinations.HBP_Runs_Pitches += pitches;
+        } else {
+          innData.destinations.HBP_LOB_Pitches += pitches;
+        }
+      } else if (eventType.includes('single')) {
+        innData.outcomes.Single_Pitches += pitches;
+        eventKey = 'single';
+        if (didScore) {
+          innData.destinations.Single_Runs_Pitches += pitches;
+        } else {
+          innData.destinations.Single_LOB_Pitches += pitches;
+        }
+      } else if (eventType.includes('double')) {
+        innData.outcomes.Double_Pitches += pitches;
+        eventKey = 'double';
+        if (didScore) {
+          innData.destinations.Double_Runs_Pitches += pitches;
+        } else {
+          innData.destinations.Double_LOB_Pitches += pitches;
+        }
+      } else if (eventType.includes('triple')) {
+        innData.outcomes.Triple_Pitches += pitches;
+        eventKey = 'triple';
+        if (didScore) {
+          innData.destinations.Triple_Runs_Pitches += pitches;
+        } else {
+          innData.destinations.Triple_LOB_Pitches += pitches;
+        }
+      } else if (eventType.includes('home_run')) {
+        innData.outcomes.HomeRun_Pitches += pitches;
+        eventKey = 'hr';
+        innData.destinations.HomeRun_Runs_Pitches += pitches;
+        isRunScoring = true;
+      } else {
+        innData.outcomes.Outs_Pitches += pitches;
+        eventKey = 'out';
+        if (didScore) {
+          innData.destinations.Outs_Runs_Pitches += pitches;
+        } else {
+          innData.destinations.Outs_LOB_Pitches += pitches;
+        }
+      }
+
+      innData.plays.push({
+        event: eventKey,
+        desc: p.result.description || `${eventLabel} in ${p.about.inning} Inning`,
+        inning: p.about.inning,
+        runs: isRunScoring ? 1 : 0,
+        batter: batterName,
+        pitcher: pitcherName
+      });
+    });
+  }
+
+  return pitcherOrder.map(pid => {
+    const pm = pitcherMap[pid];
+    const inningsList = Object.keys(pm.inningsMap).map(inn => pm.inningsMap[inn]).sort((a, b) => a.inning - b.inning);
+    return {
+      pitcherId: pm.pitcherId,
+      pitcherName: pm.pitcherName,
+      totalPitches: pm.totalPitches,
+      innings: inningsList
+    };
+  });
+}
+
+export function getDeterministicPitcherSankeyStats(normGame, teamId, state) {
+  const selectedTeamIdNum = parseInt(teamId, 10);
+  const awayTeamId = normGame.awayTeam?.id;
+  const isAway = selectedTeamIdNum === awayTeamId;
+
+  const gamePk = normGame.gamePk;
+  const feed = (gamePk && state.gameFeeds) ? state.gameFeeds[gamePk] : null;
+
+  if (feed) {
+    try {
+      const parsed = parsePitcherLiveFeedData(feed, teamId);
+      if (parsed && parsed.length > 0) {
+        return parsed;
+      }
+    } catch (err) {
+      console.warn("Failed parsing live feed for pitcher Sankey stats:", err);
+    }
+  }
+
+  // --- Fallback (Mock/Offline) Generation ---
+  const seed = (normGame.gamePk || 1000) + selectedTeamIdNum;
+  let s = seed;
+  function lcgRandom() {
+    s = (1103515245 * s + 12345) % 2147483648;
+    return s / 2147483648;
+  }
+
+  const runsGivenUp = isAway ? (normGame.homeScore || 0) : (normGame.awayScore || 0);
+  const pitchers = [];
+
+  let starterId = 999000 + selectedTeamIdNum;
+  let starterName = `${normGame.awayTeam.id === selectedTeamIdNum ? normGame.awayTeam.shortName : normGame.homeTeam.shortName} Starter`;
+
+  const probPitcher = isAway ? normGame.teams?.away?.probablePitcher : normGame.teams?.home?.probablePitcher;
+  if (probPitcher && probPitcher.id) {
+    starterId = probPitcher.id;
+    starterName = probPitcher.fullName;
+  }
+
+  const starterRuns = Math.min(runsGivenUp, Math.floor(lcgRandom() * (runsGivenUp + 1)));
+  const starterIP = 5 + Math.floor(lcgRandom() * 2);
+
+  const starterStats = generateMockPitcherStats(starterId, starterName, starterRuns, 1, starterIP, lcgRandom);
+  pitchers.push(starterStats);
+
+  let remainingRuns = runsGivenUp - starterRuns;
+  const relieverId = starterId + 1;
+  const relieverName = `${starterName.split(' ')[0]} Reliever`;
+  const relieverRuns = Math.min(remainingRuns, Math.floor(lcgRandom() * (remainingRuns + 1)));
+  const relieverStats = generateMockPitcherStats(relieverId, relieverName, relieverRuns, starterIP + 1, starterIP + 2, lcgRandom);
+  pitchers.push(relieverStats);
+
+  remainingRuns -= relieverRuns;
+  const closerId = starterId + 2;
+  const closerName = `${starterName.split(' ')[0]} Closer`;
+  const closerStats = generateMockPitcherStats(closerId, closerName, remainingRuns, starterIP + 3, starterIP + 3, lcgRandom);
+  pitchers.push(closerStats);
+
+  return pitchers;
+}
+
+function generateMockPitcherStats(id, name, runs, startInn, endInn, lcg) {
+  const innings = [];
+  let totalPitches = 0;
+  let runsLeft = runs;
+
+  for (let inn = startInn; inn <= endInn; inn++) {
+    const innPitches = Math.floor(12 + lcg() * 12);
+    totalPitches += innPitches;
+
+    let Strikeout_Pitches = Math.floor(innPitches * (0.08 + lcg() * 0.12));
+    let Walk_Pitches = Math.floor(innPitches * (0.04 + lcg() * 0.08));
+    let HBP_Pitches = lcg() < 0.15 ? 1 : 0;
+
+    let HomeRun_Pitches = 0;
+    let Single_Pitches = 0;
+    let Double_Pitches = 0;
+
+    let innRuns = 0;
+    if (runsLeft > 0 && lcg() < 0.5) {
+      innRuns = Math.min(runsLeft, Math.floor(1 + lcg() * 2));
+      runsLeft -= innRuns;
+    }
+
+    let innRunsLeft = innRuns;
+    if (innRunsLeft > 0) {
+      const hrs = Math.min(innRunsLeft, lcg() < 0.35 ? 1 : 0);
+      HomeRun_Pitches = hrs * Math.floor(3 + lcg() * 2);
+      innRunsLeft -= hrs;
+    }
+
+    let singlesCount = Math.max(0, innRunsLeft + (lcg() < 0.4 ? 1 : 0));
+    Single_Pitches = singlesCount * Math.floor(3 + lcg() * 2);
+
+    let Walk_Runs_Pitches = 0;
+    let Walk_LOB_Pitches = Walk_Pitches;
+    let Single_Runs_Pitches = 0;
+    let Single_LOB_Pitches = Single_Pitches;
+
+    while (innRunsLeft > 0) {
+      if (singlesCount > 0) {
+        Single_Runs_Pitches += 3;
+        Single_LOB_Pitches -= 3;
+        innRunsLeft--;
+      } else if (Walk_Pitches > 5) {
+        Walk_Runs_Pitches += 5;
+        Walk_LOB_Pitches -= 5;
+        innRunsLeft--;
+      } else {
+        Single_Runs_Pitches += 3;
+        Single_LOB_Pitches -= 3;
+        innRunsLeft--;
+      }
+    }
+
+    const accounted = Strikeout_Pitches + Walk_Pitches + HBP_Pitches + Single_Pitches + Double_Pitches + HomeRun_Pitches;
+    const Outs_Pitches = Math.max(0, innPitches - accounted);
+
+    const Strikeout_LOB_Pitches = Strikeout_Pitches;
+    const HomeRun_Runs_Pitches = HomeRun_Pitches;
+    const Outs_LOB_Pitches = Outs_Pitches;
+
+    const plays = [];
+    if (HomeRun_Pitches > 0) {
+      plays.push({
+        event: 'hr',
+        desc: `${name} gives up a Solo Home Run in the ${inn} inning.`,
+        inning: inn,
+        runs: 1,
+        batter: "Opponent Hitter",
+        pitcher: name
+      });
+    }
+    if (singlesCount > 0) {
+      plays.push({
+        event: 'single',
+        desc: `Opponent Hitter singles off ${name}.`,
+        inning: inn,
+        runs: 0,
+        batter: "Opponent Hitter",
+        pitcher: name
+      });
+    }
+    plays.push({
+      event: 'strikeout-out',
+      desc: `${name} strikes out Opponent Hitter.`,
+      inning: inn,
+      runs: 0,
+      batter: "Opponent Hitter",
+      pitcher: name
+    });
+    plays.push({
+      event: 'out',
+      desc: `Opponent Hitter ground out to short.`,
+      inning: inn,
+      runs: 0,
+      batter: "Opponent Hitter",
+      pitcher: name
+    });
+
+    innings.push({
+      inning: inn,
+      pitches: innPitches,
+      outcomes: {
+        Strikeout_Pitches,
+        Walk_Pitches,
+        HBP_Pitches,
+        Single_Pitches,
+        Double_Pitches,
+        Triple_Pitches: 0,
+        HomeRun_Pitches,
+        Outs_Pitches
+      },
+      destinations: {
+        Walk_Runs_Pitches, Walk_LOB_Pitches,
+        Single_Runs_Pitches, Single_LOB_Pitches,
+        Double_Runs_Pitches: 0, Double_LOB_Pitches: 0,
+        Triple_Runs_Pitches: 0, Triple_LOB_Pitches: 0,
+        HBP_Runs_Pitches: 0, HBP_LOB_Pitches: HBP_Pitches,
+        HomeRun_Runs_Pitches,
+        Outs_Runs_Pitches: 0, Outs_LOB_Pitches,
+        Strikeout_LOB_Pitches
+      },
+      plays
+    });
+  }
+
+  return {
+    pitcherId: id,
+    pitcherName: name,
+    totalPitches,
+    innings
+  };
+}
+
+export function drawInningSankeySVG(pitcherName, inn, teamObj) {
+  const svgWidth = 720;
+  const svgHeight = 180;
+  const padTop = 15;
+  const padBottom = 15;
+  const nodeWidth = 14;
+
+  const totalPitches = inn.pitches;
+  if (totalPitches <= 0) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 720 50');
+    svg.style.cssText = 'width: 100%; height: auto;';
+    svg.innerHTML = `<text x="360" y="25" text-anchor="middle" fill="var(--text-muted)">No pitches recorded in this inning</text>`;
+    return svg;
+  }
+
+  const maxAllocatedH = svgHeight - padTop - padBottom - 40;
+  const scaleY = maxAllocatedH / totalPitches;
+
+  const col1_x = 105;
+  const col2_x = 235;
+  const col3_x = 365;
+  const col4_x = 495;
+  const col5_x = 625;
+
+  let defsHtml = '';
+  let nodesHtml = '';
+  let linksHtml = '';
+
+  function drawFlow(src, dest, val, color1, color2) {
+    if (val <= 0) return;
+    const h = val * scaleY;
+    const x1 = src.x + nodeWidth;
+    const y1 = src.y + src.sourceOffset;
+    const x2 = dest.x;
+    const y2 = dest.y + dest.targetOffset;
+
+    src.sourceOffset += h;
+    dest.targetOffset += h;
+
+    const cpX = x1 + (x2 - x1) / 2;
+    const d = `M ${x1} ${y1} C ${cpX} ${y1}, ${cpX} ${y2}, ${x2} ${y2} L ${x2} ${y2 + h} C ${cpX} ${y2 + h}, ${cpX} ${y1 + h}, ${x1} ${y1 + h} Z`;
+
+    const gradId = `pflow-${src.id}-${dest.id}-i${inn.inning}`;
+    defsHtml += `
+      <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="${color1}" stop-opacity="0.3" />
+        <stop offset="100%" stop-color="${color2}" stop-opacity="0.3" />
+      </linearGradient>
+    `;
+
+    linksHtml += `<path d="${d}" fill="url(#${gradId})" />`;
+  }
+
+  const h_pitcher = totalPitches * scaleY;
+  const y_pitcher = padTop + (svgHeight - padTop - padBottom - h_pitcher) / 2;
+  const node_pitcher = { id: 'pitcher', label: pitcherName, value: totalPitches, x: col1_x, y: y_pitcher, h: h_pitcher, color: teamObj.primaryColor || '#94a3b8', sourceOffset: 0, targetOffset: 0 };
+
+  const h_inning = totalPitches * scaleY;
+  const y_inning = padTop + (svgHeight - padTop - padBottom - h_inning) / 2;
+  const node_inning = { id: `inn_${inn.inning}`, label: `${inn.inning}${getOrdinalSuffix(inn.inning)} Inn`, value: totalPitches, x: col2_x, y: y_inning, h: h_inning, color: '#cbd5e1', sourceOffset: 0, targetOffset: 0 };
+
+  const h_pitches = totalPitches * scaleY;
+  const y_pitches = padTop + (svgHeight - padTop - padBottom - h_pitches) / 2;
+  const node_pitches = { id: 'pitches', label: `${totalPitches} Pitches`, value: totalPitches, x: col3_x, y: y_pitches, h: h_pitches, color: '#64748b', sourceOffset: 0, targetOffset: 0 };
+
+  const gapY_col4 = 6;
+  const rawOutcomes = [
+    { id: 'strikeout', label: 'Strikeout', value: inn.outcomes.Strikeout_Pitches, color: '#ec4899' },
+    { id: 'sw-walks', label: 'Walk', value: inn.outcomes.Walk_Pitches, color: '#3b82f6' },
+    { id: 'sh-hbp', label: 'HBP', value: inn.outcomes.HBP_Pitches, color: '#f59e0b' },
+    { id: 'single', label: 'Single', value: inn.outcomes.Single_Pitches, color: '#10b981' },
+    { id: 'double', label: 'Double', value: inn.outcomes.Double_Pitches, color: '#10b981' },
+    { id: 'triple', label: 'Triple', value: inn.outcomes.Triple_Pitches, color: '#10b981' },
+    { id: 'hr', label: 'Home Run', value: inn.outcomes.HomeRun_Pitches, color: '#e11d48' },
+    { id: 'out', label: 'Out', value: inn.outcomes.Outs_Pitches, color: '#94a3b8' }
+  ].filter(o => o.value > 0);
+
+  const totalH_col4 = rawOutcomes.reduce((acc, o) => acc + o.value * scaleY, 0) + (rawOutcomes.length - 1) * gapY_col4;
+  let currentY_col4 = padTop + (svgHeight - padTop - padBottom - totalH_col4) / 2;
+
+  const node_outcomes = rawOutcomes.map(o => {
+    const h = o.value * scaleY;
+    const node = {
+      ...o,
+      x: col4_x,
+      y: currentY_col4,
+      h,
+      sourceOffset: 0,
+      targetOffset: 0
+    };
+    currentY_col4 += h + gapY_col4;
+    return node;
+  });
+
+  const runsVal = inn.destinations.Walk_Runs_Pitches + inn.destinations.Single_Runs_Pitches + inn.destinations.Double_Runs_Pitches + inn.destinations.Triple_Runs_Pitches + inn.destinations.HBP_Runs_Pitches + inn.destinations.HomeRun_Runs_Pitches + inn.destinations.Outs_Runs_Pitches;
+  const lobVal = totalPitches - runsVal;
+
+  const gapY_col5 = 12;
+  const h_runs = runsVal * scaleY;
+  const h_lob = lobVal * scaleY;
+  const totalH_col5 = h_runs + h_lob + (runsVal > 0 && lobVal > 0 ? gapY_col5 : 0);
+  const startY_col5 = padTop + (svgHeight - padTop - padBottom - totalH_col5) / 2;
+
+  const node_runs = { id: 'runs', label: 'Runs Given Up', value: runsVal, x: col5_x, y: startY_col5, h: h_runs, color: '#ef4444', sourceOffset: 0, targetOffset: 0 };
+  const node_lob = { id: 'lob', label: 'Stranded / Out', value: lobVal, x: col5_x, y: startY_col5 + h_runs + (runsVal > 0 ? gapY_col5 : 0), h: h_lob, color: '#10b981', sourceOffset: 0, targetOffset: 0 };
+
+  const node_destinations = [];
+  if (runsVal > 0) node_destinations.push(node_runs);
+  if (lobVal > 0) node_destinations.push(node_lob);
+
+  drawFlow(node_pitcher, node_inning, totalPitches, node_pitcher.color, node_inning.color);
+  drawFlow(node_inning, node_pitches, totalPitches, node_inning.color, node_pitches.color);
+
+  node_outcomes.forEach(n => {
+    drawFlow(node_pitches, n, n.value, node_pitches.color, n.color);
+  });
+
+  node_outcomes.forEach(n => {
+    if (n.id === 'strikeout') {
+      drawFlow(n, node_lob, inn.destinations.Strikeout_LOB_Pitches, n.color, node_lob.color);
+    } else if (n.id === 'sw-walks') {
+      if (inn.destinations.Walk_Runs_Pitches > 0) drawFlow(n, node_runs, inn.destinations.Walk_Runs_Pitches, n.color, node_runs.color);
+      if (inn.destinations.Walk_LOB_Pitches > 0) drawFlow(n, node_lob, inn.destinations.Walk_LOB_Pitches, n.color, node_lob.color);
+    } else if (n.id === 'sh-hbp') {
+      if (inn.destinations.HBP_Runs_Pitches > 0) drawFlow(n, node_runs, inn.destinations.HBP_Runs_Pitches, n.color, node_runs.color);
+      if (inn.destinations.HBP_LOB_Pitches > 0) drawFlow(n, node_lob, inn.destinations.HBP_LOB_Pitches, n.color, node_lob.color);
+    } else if (n.id === 'single') {
+      if (inn.destinations.Single_Runs_Pitches > 0) drawFlow(n, node_runs, inn.destinations.Single_Runs_Pitches, n.color, node_runs.color);
+      if (inn.destinations.Single_LOB_Pitches > 0) drawFlow(n, node_lob, inn.destinations.Single_LOB_Pitches, n.color, node_lob.color);
+    } else if (n.id === 'double') {
+      if (inn.destinations.Double_Runs_Pitches > 0) drawFlow(n, node_runs, inn.destinations.Double_Runs_Pitches, n.color, node_runs.color);
+      if (inn.destinations.Double_LOB_Pitches > 0) drawFlow(n, node_lob, inn.destinations.Double_LOB_Pitches, n.color, node_lob.color);
+    } else if (n.id === 'triple') {
+      if (inn.destinations.Triple_Runs_Pitches > 0) drawFlow(n, node_runs, inn.destinations.Triple_Runs_Pitches, n.color, node_runs.color);
+      if (inn.destinations.Triple_LOB_Pitches > 0) drawFlow(n, node_lob, inn.destinations.Triple_LOB_Pitches, n.color, node_lob.color);
+    } else if (n.id === 'hr') {
+      drawFlow(n, node_runs, inn.destinations.HomeRun_Runs_Pitches, n.color, node_runs.color);
+    } else if (n.id === 'out') {
+      if (inn.destinations.Outs_Runs_Pitches > 0) drawFlow(n, node_runs, inn.destinations.Outs_Runs_Pitches, n.color, node_runs.color);
+      if (inn.destinations.Outs_LOB_Pitches > 0) drawFlow(n, node_lob, inn.destinations.Outs_LOB_Pitches, n.color, node_lob.color);
+    }
+  });
+
+  const allNodes = [
+    node_pitcher,
+    node_inning,
+    node_pitches,
+    ...node_outcomes,
+    ...node_destinations
+  ];
+
+  allNodes.forEach(n => {
+    const isInteractive = ['strikeout', 'sw-walks', 'sh-hbp', 'single', 'double', 'triple', 'hr', 'out'].includes(n.id);
+    let nodeGroupHtml = '';
+
+    if (isInteractive) {
+      nodeGroupHtml += `<g class="sankey-interactive-node" data-node-type="${n.id}" data-node-label="${n.label}" style="cursor: pointer;">`;
+      nodeGroupHtml += `<title>Click to view plays for ${n.label}</title>`;
+    }
+
+    nodeGroupHtml += `<rect x="${n.x}" y="${n.y}" width="${nodeWidth}" height="${n.h}" rx="2" fill="${n.color}" opacity="0.9" />`;
+
+    if (n.id === 'pitcher') {
+      nodeGroupHtml += `<text x="${n.x - 6}" y="${n.y + n.h/2}" font-size="8px" font-weight="800" fill="var(--text-primary)" font-family="var(--font-title)" text-anchor="end" alignment-baseline="middle">${n.label}</text>`;
+    } else if (n.id.startsWith('inn_')) {
+      nodeGroupHtml += `<text x="${n.x - 6}" y="${n.y + n.h/2}" font-size="7.5px" font-weight="700" fill="var(--text-secondary)" font-family="var(--font-body)" text-anchor="end" alignment-baseline="middle">${n.label}</text>`;
+    } else if (n.id === 'pitches') {
+      nodeGroupHtml += `<text x="${n.x - 6}" y="${n.y + n.h/2}" font-size="7.5px" font-weight="700" fill="var(--text-secondary)" font-family="var(--font-body)" text-anchor="end" alignment-baseline="middle">${n.label}</text>`;
+    } else if (isInteractive) {
+      const labelText = `⊕ ${n.label} (${Math.round(n.value)}P)`;
+      const labelWidth = Math.max(58, labelText.length * 5.2 + 8);
+      nodeGroupHtml += `<rect x="${n.x + nodeWidth + 5}" y="${n.y + n.h/2 - 7.5}" width="${labelWidth}" height="15" rx="4.5" fill="rgba(226, 232, 240, 0.22)" stroke="rgba(226, 232, 240, 0.45)" stroke-width="0.75" class="sankey-btn-bg" style="transition: all 0.2s;" />`;
+      nodeGroupHtml += `<text x="${n.x + nodeWidth + 5 + labelWidth/2}" y="${n.y + n.h/2}" font-size="7px" font-weight="700" fill="var(--text-primary)" font-family="var(--font-title)" text-anchor="middle" alignment-baseline="middle" style="pointer-events: none;">${labelText}</text>`;
+    } else {
+      nodeGroupHtml += `<text x="${n.x + nodeWidth + 6}" y="${n.y + n.h/2}" font-size="7.5px" font-weight="600" fill="var(--text-secondary)" font-family="var(--font-body)" text-anchor="start" alignment-baseline="middle">${n.label} (${Math.round(n.value)}P)</text>`;
+    }
+
+    if (isInteractive) {
+      nodeGroupHtml += `</g>`;
+    }
+    nodesHtml += nodeGroupHtml;
+  });
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
+  svg.style.cssText = 'width: 680px; min-width: 680px; height: auto; display: block; overflow: visible;';
+
+  svg.innerHTML = `
+    <defs>${defsHtml}</defs>
+    <g>${linksHtml}</g>
+    <g>${nodesHtml}</g>
+  `;
+
+  const interactiveGroups = svg.querySelectorAll('.sankey-interactive-node');
+  interactiveGroups.forEach(g => {
+    g.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const nodeType = g.getAttribute('data-node-type');
+      const nodeLabel = g.getAttribute('data-node-label');
+      showNodeDetailsOverlay(nodeType, nodeLabel, inn.plays, teamObj);
+    });
+  });
+
+  return svg;
+}
+
+function getOrdinalSuffix(i) {
+  const j = i % 10, k = i % 100;
+  if (j === 1 && k !== 11) return "st";
+  if (j === 2 && k !== 12) return "nd";
+  if (j === 3 && k !== 13) return "rd";
+  return "th";
 }
