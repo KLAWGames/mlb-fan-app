@@ -942,6 +942,30 @@ export function drawSankeySVG(stats, team, plays) {
   return svg;
 }
 
+function getActiveSankeyNodes(plays) {
+  const possibleNodes = [
+    { id: 'single', label: 'Single', eventKey: 'single' },
+    { id: 'double', label: 'Double', eventKey: 'double' },
+    { id: 'triple', label: 'Triple', eventKey: 'triple' },
+    { id: 'hr', label: 'Home Run', eventKey: 'hr' },
+    { id: 'sw-walks', label: 'Walks', eventKey: 'walk' },
+    { id: 'sh-hbp', label: 'HBP', eventKey: 'hbp' },
+    { id: 'field_error', label: 'Reached on Error', eventKey: 'error' },
+    { id: 'ground', label: 'Ground Out', eventKey: 'ground' },
+    { id: 'lineout', label: 'Lineout', eventKey: 'lineout' },
+    { id: 'flyout', label: 'Flyout', eventKey: 'flyout' },
+    { id: 'sac', label: 'Sac Fly', eventKey: 'sac' },
+    { id: 'pop', label: 'Pop Out', eventKey: 'pop' },
+    { id: 'strikeout', label: 'Strikeout', eventKey: 'strikeout-out' },
+    { id: 'thrown', label: 'Thrown Out', eventKey: 'thrown' },
+    { id: 'unplayed', label: 'Unplayed', eventKey: 'unplayed' }
+  ];
+
+  // Scan plays to see which eventKeys are actually present
+  const presentKeys = new Set((plays || []).map(p => p.event));
+  return possibleNodes.filter(node => presentKeys.has(node.eventKey));
+}
+
 function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
   const backdrop = document.querySelector('.analytics-center-backdrop');
   if (!backdrop) return;
@@ -1013,10 +1037,52 @@ function showNodeDetailsOverlay(nodeType, nodeLabel, plays, team) {
   listContainer.className = 'sankey-list-container';
   listContainer.style.cssText = 'display: flex; flex-direction: column; gap: 8px; flex: 1; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding-bottom: 16px;';
 
-  // Setup touch-redirection to scroll list container when swiping backdrop or margins
+  // Setup touch-redirection and swipe gestures
   let lastTouchY = 0;
+  let touchStartX = 0;
+  let touchStartY = 0;
+
   overlay.addEventListener('touchstart', (e) => {
     lastTouchY = e.touches[0].clientY;
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  overlay.addEventListener('touchend', (e) => {
+    const touchEndX = e.changedTouches[0].clientX;
+    const touchEndY = e.changedTouches[0].clientY;
+    
+    const diffX = touchEndX - touchStartX;
+    const diffY = touchEndY - touchStartY;
+    
+    // Only trigger swipe if horizontal swipe is dominant and significant
+    if (Math.abs(diffX) > 60 && Math.abs(diffY) < 45) {
+      const activeNodes = getActiveSankeyNodes(plays);
+      if (activeNodes.length <= 1) return;
+      
+      const currentIdx = activeNodes.findIndex(n => n.id === nodeType);
+      if (currentIdx === -1) return;
+      
+      let targetIdx = currentIdx;
+      if (diffX < 0) {
+        // Swipe Left -> Next node (Single -> Double -> Triple -> HR -> Walk...)
+        targetIdx = (currentIdx + 1) % activeNodes.length;
+      } else {
+        // Swipe Right -> Previous node (Single -> Error -> Walks -> HR...)
+        targetIdx = (currentIdx - 1 + activeNodes.length) % activeNodes.length;
+      }
+      
+      const targetNode = activeNodes[targetIdx];
+      
+      // Premium slide out animation
+      overlay.style.transition = 'transform 0.2s ease, opacity 0.2s ease';
+      overlay.style.transform = diffX < 0 ? 'translateX(-100%)' : 'translateX(100%)';
+      overlay.style.opacity = '0';
+      
+      setTimeout(() => {
+        showNodeDetailsOverlay(targetNode.id, targetNode.label, plays, team);
+      }, 180);
+    }
   }, { passive: true });
 
   overlay.addEventListener('touchmove', (e) => {
