@@ -1834,6 +1834,28 @@ function transitionToView(targetView, targetTeamId = null) {
     return;
   }
 
+  if (targetView === 'hr-race') {
+    state.activeView = 'hr-race';
+    const todayStr = state.selectedDate;
+    localStorage.removeItem(`hr_count_v1_${todayStr}`);
+    state.loading = true;
+    render();
+    
+    Promise.all([
+      loadData(),
+      loadTodayPlayerHRs(todayStr)
+    ]).then(() => {
+      state.loading = false;
+      state.hrRaceLastRefreshed = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      render();
+    }).catch((e) => {
+      console.error(e);
+      state.loading = false;
+      render();
+    });
+    return;
+  }
+
   // Build a list of valid switcher view targets
   const viewsList = [];
   state.selectedTeamIds.forEach(id => {
@@ -6023,6 +6045,48 @@ function createHRRaceView() {
   subtitle.style.cssText = 'font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; margin: 0; margin-top: -12px; margin-bottom: 4px;';
   subtitle.innerText = `Real-time leaderboard and daily stats for the ${selectedYear} MLB Home Run Chase.`;
   container.appendChild(subtitle);
+
+  // Refresh & Last Updated Row
+  const refreshRow = document.createElement('div');
+  refreshRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.02); border: 1px solid var(--border-glass); border-radius: 8px; padding: 6px 12px; margin-top: -8px; margin-bottom: -4px;';
+
+  const timeSpan = document.createElement('span');
+  timeSpan.style.cssText = 'font-size: 11px; color: var(--text-muted); font-weight: 600;';
+  
+  if (!state.hrRaceLastRefreshed) {
+    state.hrRaceLastRefreshed = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+  timeSpan.innerText = `Refreshed: ${state.hrRaceLastRefreshed}`;
+  refreshRow.appendChild(timeSpan);
+
+  const refreshBtn = document.createElement('button');
+  refreshBtn.style.cssText = 'background: none; border: none; color: var(--color-gold); font-size: 11px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; transition: all 0.2s; outline: none; font-family: var(--font-title);';
+  refreshBtn.innerHTML = `🔄 Refresh`;
+  
+  refreshBtn.addEventListener('click', async () => {
+    refreshBtn.disabled = true;
+    refreshBtn.style.opacity = '0.5';
+    refreshBtn.innerHTML = `🔄 Refreshing...`;
+    
+    // Clear today's cache to force reload live numbers
+    const todayStr = state.selectedDate;
+    localStorage.removeItem(`hr_count_v1_${todayStr}`);
+    
+    try {
+      await Promise.all([
+        loadData(),
+        loadTodayPlayerHRs(todayStr)
+      ]);
+    } catch (e) {
+      console.error(e);
+    }
+    
+    state.hrRaceLastRefreshed = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    render();
+  });
+
+  refreshRow.appendChild(refreshBtn);
+  container.appendChild(refreshRow);
 
   const statsCard = document.createElement('div');
   statsCard.className = 'glass-card';
