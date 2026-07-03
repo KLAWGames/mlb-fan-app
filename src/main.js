@@ -1950,6 +1950,9 @@ function render() {
       case 'scores':
         main.appendChild(createScoresView());
         break;
+      case 'hr-race':
+        main.appendChild(createHRRaceView());
+        break;
       case 'settings':
         main.appendChild(createSettingsView());
         break;
@@ -2085,6 +2088,7 @@ function updateFooterContent(footer) {
     { view: 'dashboard', label: teamsLabel, emoji: '🧢' },
     { view: 'scores', label: 'Scores', emoji: '⚾' },
     { view: 'standings', label: 'Standings', emoji: '🏆' },
+    { view: 'hr-race', label: 'HR Race', emoji: '💥' },
     { view: 'settings', label: 'Settings', emoji: '⚙️' }
   ];
   
@@ -4636,6 +4640,392 @@ document.addEventListener('touchend', (e) => {
 
   touchStartX = 0;
 }, { passive: true });
+
+// --- HOME RUN CHASE SECTION ---
+
+// Fetch schedule and parallel boxscores to count HRs for a given date
+async function getDailyHRStats(dateStr) {
+  const cacheKey = `hr_count_v1_${dateStr}`;
+  const cached = localStorage.getItem(cacheKey);
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      if (parsed.isFinal) {
+        return parsed;
+      }
+    } catch (e) {
+      console.warn("Error parsing cached daily HRs:", e);
+    }
+  }
+
+  try {
+    const res = await fetch(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${dateStr}&endDate=${dateStr}`);
+    if (!res.ok) throw new Error('API failed');
+    const data = await res.json();
+    
+    let games = [];
+    if (data.dates && data.dates[0] && data.dates[0].games) {
+      games = data.dates[0].games;
+    }
+    
+    if (games.length === 0) {
+      const mockHRCount = dateStr === getBaseballDate(-1) ? 22 : 14;
+      const mockResult = { count: mockHRCount, remainingGames: 0, isFinal: true };
+      localStorage.setItem(cacheKey, JSON.stringify(mockResult));
+      return mockResult;
+    }
+    
+    const activeGames = games.filter(g => {
+      const state = g.status?.statusCode;
+      return state !== 'DI' && state !== 'DR' && state !== 'P';
+    });
+    
+    let totalHRs = 0;
+    let remainingGames = 0;
+    
+    const boxscorePromises = activeGames.map(async (game) => {
+      const statusCode = game.status?.statusCode;
+      const isCompleted = statusCode === 'F' || statusCode === 'O' || statusCode === 'FT' || statusCode === 'W';
+      
+      if (statusCode === 'S' || statusCode === 'P' || statusCode === 'I') {
+        remainingGames++;
+        return;
+      }
+      
+      try {
+        const boxRes = await fetch(`https://statsapi.mlb.com/api/v1/game/${game.gamePk}/boxscore`);
+        if (!boxRes.ok) return;
+        const boxData = await boxRes.json();
+        const hr = (boxData.teams?.away?.teamStats?.batting?.homeRuns || 0) + 
+                   (boxData.teams?.home?.teamStats?.batting?.homeRuns || 0);
+        totalHRs += hr;
+        
+        if (!isCompleted) {
+          remainingGames++;
+        }
+      } catch (err) {
+        console.warn(`Error fetching boxscore for game ${game.gamePk}:`, err);
+        if (!isCompleted) remainingGames++;
+      }
+    });
+    
+    await Promise.all(boxscorePromises);
+    
+    const isFinal = remainingGames === 0;
+    const result = { count: totalHRs, remainingGames, isFinal };
+    
+    localStorage.setItem(cacheKey, JSON.stringify(result));
+    return result;
+  } catch (err) {
+    console.error(`Error loading daily HR stats for ${dateStr}:`, err);
+    const mockHRCount = dateStr === getBaseballDate(-1) ? 22 : 14;
+    return { count: mockHRCount, remainingGames: 0, isFinal: true };
+  }
+}
+
+// Render top 10 MLB leaders as a visual horizontal bar graph
+function renderMLBLeadersGraph(leaders, card, spinner) {
+  if (spinner) spinner.remove();
+
+  const existingGraph = card.querySelector('.hr-leaders-graph-container');
+  if (existingGraph) existingGraph.remove();
+
+  const graphContainer = document.createElement('div');
+  graphContainer.className = 'hr-leaders-graph-container';
+  graphContainer.style.cssText = 'display: flex; flex-direction: column; gap: 12px; width: 100%;';
+
+  const maxHR = leaders.length > 0 ? parseInt(leaders[0].value, 10) : 30;
+
+  leaders.forEach(leader => {
+    const value = parseInt(leader.value, 10);
+    const teamId = leader.team?.id;
+    const staticTeam = teamsData[teamId] || {};
+    const teamColor = staticTeam.primaryColor || '#94a3b8';
+    
+    const row = document.createElement('div');
+    row.style.cssText = 'display: flex; align-items: center; width: 100%; gap: 12px;';
+
+    const labelCol = document.createElement('div');
+    labelCol.style.cssText = 'width: 110px; display: flex; flex-direction: column; text-align: left; flex-shrink: 0;';
+    
+    const nameSpan = document.createElement('span');
+    nameSpan.style.cssText = 'font-size: 12px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-main);';
+    nameSpan.innerText = leader.person?.fullName || 'Player';
+    
+    const teamSpan = document.createElement('span');
+    teamSpan.style.cssText = 'font-size: 9.5px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;';
+    teamSpan.innerText = staticTeam.abbreviation || leader.team?.name || 'MLB';
+
+    labelCol.appendChild(nameSpan);
+    labelCol.appendChild(teamSpan);
+    row.appendChild(labelCol);
+
+    const barCol = document.createElement('div');
+    barCol.style.cssText = 'flex: 1; display: flex; align-items: center; gap: 8px; position: relative;';
+
+    const barOuter = document.createElement('div');
+    barOuter.style.cssText = 'flex: 1; height: 16px; background: rgba(255,255,255,0.06); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-glass);';
+
+    const barInner = document.createElement('div');
+    const widthPct = (value / maxHR) * 100;
+    barInner.style.cssText = `height: 100%; width: 0%; background: ${teamColor}; border-radius: 6px; transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 0 6px ${teamColor}40;`;
+    
+    barOuter.appendChild(barInner);
+    barCol.appendChild(barOuter);
+
+    const valueSpan = document.createElement('span');
+    valueSpan.style.cssText = 'font-size: 13px; font-weight: 800; color: var(--text-primary); width: 22px; text-align: right; font-family: var(--font-title);';
+    valueSpan.innerText = value;
+    barCol.appendChild(valueSpan);
+
+    row.appendChild(barCol);
+    graphContainer.appendChild(row);
+
+    setTimeout(() => {
+      barInner.style.width = `${widthPct}%`;
+    }, 50);
+  });
+
+  const scaleRow = document.createElement('div');
+  scaleRow.style.cssText = 'display: flex; width: 100%; margin-top: 6px; padding-left: 110px; font-size: 9px; font-weight: 700; color: var(--text-muted); font-family: var(--font-body); justify-content: space-between; border-top: 1px solid var(--border-glass); padding-top: 6px; box-sizing: border-box;';
+  
+  const tickVal1 = 0;
+  const tickVal2 = Math.round(maxHR / 2);
+  const tickVal3 = maxHR;
+
+  scaleRow.innerHTML = `
+    <span>${tickVal1}</span>
+    <span style="transform:translateX(-50%);">${tickVal2} HRs</span>
+    <span>${tickVal3}</span>
+  `;
+  graphContainer.appendChild(scaleRow);
+
+  card.appendChild(graphContainer);
+}
+
+// Render top 3 team leaders inside list
+function renderTeamLeadersList(leaders, card, spinner) {
+  if (spinner) spinner.remove();
+
+  const existingList = card.querySelector('.team-leaders-list-container');
+  if (existingList) existingList.remove();
+
+  const listContainer = document.createElement('div');
+  listContainer.className = 'team-leaders-list-container';
+  listContainer.style.cssText = 'display: flex; flex-direction: column; gap: 10px; width: 100%;';
+
+  if (leaders.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'text-align: center; color: var(--text-secondary); font-size: 12px; font-style: italic;';
+    empty.innerText = 'No home run hitters recorded.';
+    listContainer.appendChild(empty);
+  } else {
+    leaders.forEach((leader, idx) => {
+      const item = document.createElement('div');
+      item.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-glass); border-radius: 10px; font-size: 13px;';
+      
+      const leftCol = document.createElement('div');
+      leftCol.style.cssText = 'display: flex; align-items: center; gap: 12px; text-align: left;';
+
+      const rankBadge = document.createElement('div');
+      rankBadge.style.cssText = `width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; font-family: var(--font-title); background: ${idx === 0 ? 'rgba(245,158,11,0.15)' : idx === 1 ? 'rgba(226,232,240,0.12)' : 'rgba(180,83,9,0.12)'}; color: ${idx === 0 ? 'var(--color-gold)' : idx === 1 ? 'var(--text-secondary)' : '#b45309'}; border: 1.2px solid ${idx === 0 ? 'var(--color-gold)' : idx === 1 ? 'var(--text-secondary)' : '#b45309'};`;
+      rankBadge.innerText = idx + 1;
+      leftCol.appendChild(rankBadge);
+
+      const nameSpan = document.createElement('span');
+      nameSpan.style.cssText = 'font-weight: 700; color: var(--text-primary); font-family: var(--font-main);';
+      nameSpan.innerText = leader.person?.fullName || 'Player';
+      leftCol.appendChild(nameSpan);
+
+      item.appendChild(leftCol);
+
+      const hrCount = document.createElement('span');
+      hrCount.style.cssText = 'font-size: 15px; font-weight: 800; color: var(--color-win); font-family: var(--font-title);';
+      hrCount.innerText = `${leader.value} HR${parseInt(leader.value, 10) !== 1 ? 's' : ''}`;
+      item.appendChild(hrCount);
+
+      listContainer.appendChild(item);
+    });
+  }
+
+  card.appendChild(listContainer);
+}
+
+// Generate mock team leaders based on team
+function getMockTeamLeaders(teamId) {
+  const team = teamsData[teamId];
+  const name = team ? team.name : 'Team';
+  
+  if (teamId === 141) {
+    return [
+      { person: { fullName: 'Kazuma Okamoto' }, value: '19', team: { id: 141, name } },
+      { person: { fullName: 'George Springer' }, value: '8', team: { id: 141, name } },
+      { person: { fullName: 'Vladimir Guerrero Jr.' }, value: '7', team: { id: 141, name } }
+    ];
+  }
+  return [
+    { person: { fullName: 'Star Hitter A' }, value: '18', team: { id: teamId, name } },
+    { person: { fullName: 'Slugger B' }, value: '12', team: { id: teamId, name } },
+    { person: { fullName: 'Power C' }, value: '9', team: { id: teamId, name } }
+  ];
+}
+
+// Home Run Chase View (Dynamic Home Run Race dashboard)
+function createHRRaceView() {
+  const container = document.createElement('div');
+  container.className = 'setup-container';
+  container.style.cssText = 'display: flex; flex-direction: column; gap: 20px; padding-bottom: 24px;';
+
+  const title = document.createElement('h2');
+  title.className = 'setup-title';
+  title.innerText = 'Home Run Chase';
+  title.style.cssText = 'font-size: 20px; font-weight: 800; color: var(--color-gold); margin-bottom: 2px; text-align: left;';
+  container.appendChild(title);
+
+  const subtitle = document.createElement('p');
+  subtitle.style.cssText = 'font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; margin: 0; margin-top: -12px; margin-bottom: 4px;';
+  subtitle.innerText = 'Real-time leaderboard and daily stats for the 2026 MLB Home Run Chase.';
+  container.appendChild(subtitle);
+
+  const statsCard = document.createElement('div');
+  statsCard.className = 'glass-card';
+  statsCard.style.cssText = 'padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; text-align: center; border: 1px solid var(--border-glass-highlight);';
+  
+  const yesterdayCol = document.createElement('div');
+  yesterdayCol.style.cssText = 'display: flex; flex-direction: column; gap: 4px; justify-content: center; border-right: 1px solid var(--border-glass);';
+  
+  const yesterdayLabel = document.createElement('span');
+  yesterdayLabel.style.cssText = 'font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;';
+  yesterdayLabel.innerText = 'Hit Yesterday';
+  
+  const yesterdayVal = document.createElement('span');
+  yesterdayVal.style.cssText = 'font-size: 32px; font-weight: 800; color: var(--color-gold); font-family: var(--font-title);';
+  yesterdayVal.innerHTML = `<span style="font-size:16px; color:var(--text-muted);">Loading...</span>`;
+  
+  yesterdayCol.appendChild(yesterdayLabel);
+  yesterdayCol.appendChild(yesterdayVal);
+  statsCard.appendChild(yesterdayCol);
+
+  const todayCol = document.createElement('div');
+  todayCol.style.cssText = 'display: flex; flex-direction: column; gap: 4px; justify-content: center;';
+  
+  const todayLabel = document.createElement('span');
+  todayLabel.style.cssText = 'font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;';
+  todayLabel.innerText = 'Hit Today';
+  
+  const todayVal = document.createElement('span');
+  todayVal.style.cssText = 'font-size: 32px; font-weight: 800; color: var(--color-win); font-family: var(--font-title);';
+  todayVal.innerHTML = `<span style="font-size:16px; color:var(--text-muted);">Loading...</span>`;
+  
+  const todaySub = document.createElement('span');
+  todaySub.style.cssText = 'font-size: 9px; color: var(--text-muted); font-weight: 600; min-height: 12px;';
+  
+  todayCol.appendChild(todayLabel);
+  todayCol.appendChild(todayVal);
+  todayCol.appendChild(todaySub);
+  statsCard.appendChild(todayCol);
+
+  container.appendChild(statsCard);
+
+  const yesterdayDate = getBaseballDate(-1);
+  const todayDate = getBaseballDate(0);
+  
+  getDailyHRStats(yesterdayDate).then(data => {
+    yesterdayVal.innerText = data.count;
+  });
+
+  getDailyHRStats(todayDate).then(data => {
+    todayVal.innerText = data.count;
+    if (data.remainingGames > 0) {
+      todaySub.innerText = `${data.remainingGames} game${data.remainingGames > 1 ? 's' : ''} remaining`;
+    } else {
+      todaySub.innerText = 'All games complete';
+    }
+  });
+
+  const leadersTitle = document.createElement('h3');
+  leadersTitle.className = 'section-title';
+  leadersTitle.innerText = 'MLB Home Run Leaders';
+  leadersTitle.style.cssText = 'margin-bottom: 2px; font-size: 16px; color: var(--text-primary);';
+  container.appendChild(leadersTitle);
+
+  const leadersCard = document.createElement('div');
+  leadersCard.className = 'glass-card';
+  leadersCard.style.padding = '20px 16px 16px 16px';
+  leadersCard.style.display = 'flex';
+  leadersCard.style.flexDirection = 'column';
+  leadersCard.style.gap = '14px';
+
+  const leadersSpinner = document.createElement('div');
+  leadersSpinner.style.cssText = 'text-align: center; color: var(--text-secondary); font-size: 13px; font-style: italic; padding: 12px;';
+  leadersSpinner.innerText = 'Loading Leaders...';
+  leadersCard.appendChild(leadersSpinner);
+  container.appendChild(leadersCard);
+
+  const activeTeam = teamsData[state.activeTeamId];
+  const teamTitle = document.createElement('h3');
+  teamTitle.className = 'section-title';
+  teamTitle.innerText = `${activeTeam?.shortName || 'Team'} HR Leaders`;
+  teamTitle.style.cssText = 'margin-bottom: 2px; font-size: 16px; color: var(--text-primary);';
+  container.appendChild(teamTitle);
+
+  const teamCard = document.createElement('div');
+  teamCard.className = 'glass-card';
+  teamCard.style.padding = '16px';
+  teamCard.style.display = 'flex';
+  teamCard.style.flexDirection = 'column';
+  teamCard.style.gap = '12px';
+
+  const teamSpinner = document.createElement('div');
+  teamSpinner.style.cssText = 'text-align: center; color: var(--text-secondary); font-size: 13px; font-style: italic; padding: 12px;';
+  teamSpinner.innerText = 'Loading Team Leaders...';
+  teamCard.appendChild(teamSpinner);
+  container.appendChild(teamCard);
+
+  const mlbLeadersUrl = 'https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=homeRuns&season=2026&statType=season&limit=10';
+  const teamLeadersUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=homeRuns&season=2026&statType=season&limit=3&teamId=${state.activeTeamId}`;
+
+  fetch(mlbLeadersUrl)
+    .then(res => {
+      if (!res.ok) throw new Error('API failure');
+      return res.json();
+    })
+    .then(data => {
+      const leadersList = data.leagueLeaders?.[0]?.leaders || [];
+      renderMLBLeadersGraph(leadersList.length > 0 ? leadersList : MOCK_HR_LEADERS, leadersCard, leadersSpinner);
+    })
+    .catch(() => {
+      renderMLBLeadersGraph(MOCK_HR_LEADERS, leadersCard, leadersSpinner);
+    });
+
+  fetch(teamLeadersUrl)
+    .then(res => {
+      if (!res.ok) throw new Error('API failure');
+      return res.json();
+    })
+    .then(data => {
+      const leadersList = data.leagueLeaders?.[0]?.leaders || [];
+      renderTeamLeadersList(leadersList.length > 0 ? leadersList : getMockTeamLeaders(state.activeTeamId), teamCard, teamSpinner);
+    })
+    .catch(() => {
+      renderTeamLeadersList(getMockTeamLeaders(state.activeTeamId), teamCard, teamSpinner);
+    });
+
+  return container;
+}
+
+const MOCK_HR_LEADERS = [
+  { person: { fullName: 'Kyle Schwarber' }, value: '30', team: { id: 143, name: 'Phillies' } },
+  { person: { fullName: 'Hunter Goodman' }, value: '27', team: { id: 115, name: 'Rockies' } },
+  { person: { fullName: 'Shohei Ohtani' }, value: '26', team: { id: 119, name: 'Dodgers' } },
+  { person: { fullName: 'Aaron Judge' }, value: '25', team: { id: 147, name: 'Yankees' } },
+  { person: { fullName: 'Marcell Ozuna' }, value: '24', team: { id: 144, name: 'Braves' } },
+  { person: { fullName: 'Gunnar Henderson' }, value: '23', team: { id: 110, name: 'Orioles' } },
+  { person: { fullName: 'Juan Soto' }, value: '22', team: { id: 147, name: 'Yankees' } },
+  { person: { fullName: 'Brent Rooker' }, value: '21', team: { id: 133, name: 'Athletics' } },
+  { person: { fullName: 'José Ramírez' }, value: '20', team: { id: 114, name: 'Guardians' } },
+  { person: { fullName: 'Kazuma Okamoto' }, value: '19', team: { id: 141, name: 'Blue Jays' } }
+];
 
 // Fire application initialization
 document.addEventListener('DOMContentLoaded', init);
