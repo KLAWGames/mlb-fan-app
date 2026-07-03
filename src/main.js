@@ -5212,26 +5212,30 @@ async function getDailyHRStats(dateStr) {
     
     if (games.length === 0) {
       const mockHRCount = dateStr === getBaseballDate(-1) ? 22 : 14;
-      const mockResult = { count: mockHRCount, remainingGames: 0, isFinal: true };
+      const mockResult = { count: mockHRCount, completedGames: 15, totalGames: 15, isFinal: true };
       localStorage.setItem(cacheKey, JSON.stringify(mockResult));
       return mockResult;
     }
     
     const activeGames = games.filter(g => {
-      const state = g.status?.statusCode;
-      return state !== 'DI' && state !== 'DR' && state !== 'P';
+      const detailedState = g.status?.detailedState?.toLowerCase() || '';
+      return !detailedState.includes('postponed') && !detailedState.includes('cancelled');
     });
     
     let totalHRs = 0;
-    let remainingGames = 0;
+    let completedGames = 0;
+    const totalGames = activeGames.length;
     
     const boxscorePromises = activeGames.map(async (game) => {
       const statusCode = game.status?.statusCode;
-      const isCompleted = statusCode === 'F' || statusCode === 'O' || statusCode === 'FT' || statusCode === 'W';
+      const isCompleted = statusCode === 'F' || statusCode === 'O' || statusCode === 'FT';
       
-      if (statusCode === 'S' || statusCode === 'P' || statusCode === 'I') {
-        remainingGames++;
-        return;
+      if (isCompleted) {
+        completedGames++;
+      }
+
+      if (statusCode === 'S' || statusCode === 'P') {
+        return; // No boxscore yet
       }
       
       try {
@@ -5241,27 +5245,22 @@ async function getDailyHRStats(dateStr) {
         const hr = (boxData.teams?.away?.teamStats?.batting?.homeRuns || 0) + 
                    (boxData.teams?.home?.teamStats?.batting?.homeRuns || 0);
         totalHRs += hr;
-        
-        if (!isCompleted) {
-          remainingGames++;
-        }
       } catch (err) {
         console.warn(`Error fetching boxscore for game ${game.gamePk}:`, err);
-        if (!isCompleted) remainingGames++;
       }
     });
     
     await Promise.all(boxscorePromises);
     
-    const isFinal = remainingGames === 0;
-    const result = { count: totalHRs, remainingGames, isFinal };
+    const isFinal = completedGames === totalGames;
+    const result = { count: totalHRs, completedGames, totalGames, isFinal };
     
     localStorage.setItem(cacheKey, JSON.stringify(result));
     return result;
   } catch (err) {
     console.error(`Error loading daily HR stats for ${dateStr}:`, err);
     const mockHRCount = dateStr === getBaseballDate(-1) ? 22 : 14;
-    return { count: mockHRCount, remainingGames: 0, isFinal: true };
+    return { count: mockHRCount, completedGames: 15, totalGames: 15, isFinal: true };
   }
 }
 
@@ -5278,15 +5277,15 @@ async function loadTodayPlayerHRs(dateStr) {
     const games = data.dates?.[0]?.games || [];
     
     const activeGames = games.filter(g => {
-      const state = g.status?.statusCode;
-      return state !== 'DI' && state !== 'DR' && state !== 'P';
+      const detailedState = g.status?.detailedState?.toLowerCase() || '';
+      return !detailedState.includes('postponed') && !detailedState.includes('cancelled');
     });
     
     const hrMap = {};
     
     await Promise.all(activeGames.map(async (game) => {
       const statusCode = game.status?.statusCode;
-      if (statusCode === 'S' || statusCode === 'P' || statusCode === 'I') return;
+      if (statusCode === 'S' || statusCode === 'P') return;
       
       try {
         const boxRes = await fetch(`https://statsapi.mlb.com/api/v1/game/${game.gamePk}/boxscore`);
@@ -5816,7 +5815,7 @@ function createHRRaceView() {
   
   const yesterdayLabel = document.createElement('span');
   yesterdayLabel.style.cssText = 'font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;';
-  yesterdayLabel.innerText = `Hit ${fmtMD(yesterdayDate)}`;
+  yesterdayLabel.innerText = `${fmtMD(yesterdayDate)} (Yesterday)`;
   
   const yesterdayVal = document.createElement('span');
   yesterdayVal.style.cssText = 'font-size: 32px; font-weight: 800; color: var(--color-gold); font-family: var(--font-title);';
@@ -5831,7 +5830,7 @@ function createHRRaceView() {
   
   const todayLabel = document.createElement('span');
   todayLabel.style.cssText = 'font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;';
-  todayLabel.innerText = `Hit ${fmtMD(todayDate)}`;
+  todayLabel.innerText = `${fmtMD(todayDate)} (Today)`;
   
   const todayVal = document.createElement('span');
   todayVal.style.cssText = 'font-size: 32px; font-weight: 800; color: var(--color-win); font-family: var(--font-title);';
@@ -5853,10 +5852,10 @@ function createHRRaceView() {
 
   getDailyHRStats(todayDate).then(data => {
     todayVal.innerText = data.count;
-    if (data.remainingGames > 0) {
-      todaySub.innerText = `${data.remainingGames} game${data.remainingGames > 1 ? 's' : ''} remaining`;
+    if (data.totalGames === 0) {
+      todaySub.innerText = 'No games scheduled';
     } else {
-      todaySub.innerText = 'All games complete';
+      todaySub.innerText = `${data.completedGames}/${data.totalGames} games complete`;
     }
   });
 
