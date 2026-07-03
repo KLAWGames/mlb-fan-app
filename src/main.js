@@ -3829,7 +3829,7 @@ function createScoresView() {
   gamesListContainer.style.gap = '12px';
 
   sortedGames.forEach(g => {
-    gamesListContainer.appendChild(createGameCard(g, g.priority === 0 && g.awayTeam.id !== state.activeTeamId && g.homeTeam.id !== state.activeTeamId));
+    gamesListContainer.appendChild(createGameCard(g, false));
   });
 
   container.appendChild(gamesListContainer);
