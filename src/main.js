@@ -1828,6 +1828,12 @@ function transitionToView(targetView, targetTeamId = null) {
   // Always reset scroll position to the top on page switches
   window.scrollTo(0, 0);
 
+  if (targetView === 'all-teams') {
+    state.activeView = 'all-teams';
+    render();
+    return;
+  }
+
   // Build a list of valid switcher view targets
   const viewsList = [];
   state.selectedTeamIds.forEach(id => {
@@ -1959,6 +1965,9 @@ function render() {
       case 'settings':
         main.appendChild(createSettingsView());
         break;
+      case 'all-teams':
+        main.appendChild(createAllTeamsView());
+        break;
       case 'team-select':
         main.appendChild(createTeamSelectView());
         break;
@@ -2040,6 +2049,54 @@ function showTeamsDropupMenu(anchorBtn) {
     
     dropup.appendChild(itemBtn);
   });
+
+  const allTeamsBtn = document.createElement('button');
+  allTeamsBtn.className = `teams-dropup-item ${state.activeView === 'all-teams' ? 'active' : ''}`;
+  allTeamsBtn.style.borderTop = '1.5px solid var(--border-glass)';
+  allTeamsBtn.style.marginTop = '4px';
+  allTeamsBtn.style.paddingTop = '8px';
+  
+  const allBadge = document.createElement('div');
+  allBadge.className = 'team-badge-small';
+  allBadge.innerText = 'ALL';
+  allBadge.style.background = 'linear-gradient(135deg, var(--color-gold), #ff5a00)';
+  allBadge.style.color = '#ffffff';
+  allBadge.style.fontSize = '8px';
+  allBadge.style.fontWeight = '800';
+  allBadge.style.width = '24px';
+  allBadge.style.height = '24px';
+  allBadge.style.display = 'flex';
+  allBadge.style.alignItems = 'center';
+  allBadge.style.justifyContent = 'center';
+  allBadge.style.borderRadius = '6px';
+  allBadge.style.flexShrink = '0';
+  
+  const allDetails = document.createElement('div');
+  allDetails.style.display = 'flex';
+  allDetails.style.flexDirection = 'column';
+  allDetails.style.gap = '2px';
+  
+  const allNameSpan = document.createElement('span');
+  allNameSpan.className = 'team-name';
+  allNameSpan.innerText = 'All Teams';
+  
+  const allSubSpan = document.createElement('span');
+  allSubSpan.className = 'team-abbr';
+  allSubSpan.innerText = 'Browse AL/NL Roster';
+  
+  allDetails.appendChild(allNameSpan);
+  allDetails.appendChild(allSubSpan);
+  
+  allTeamsBtn.appendChild(allBadge);
+  allTeamsBtn.appendChild(allDetails);
+  
+  allTeamsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    transitionToView('all-teams');
+    closeTeamsDropup();
+  });
+  
+  dropup.appendChild(allTeamsBtn);
   
   document.body.appendChild(dropup);
   
@@ -2161,6 +2218,191 @@ function updateFooterContent(footer) {
     
     footer.appendChild(btn);
   });
+}
+
+function showTeamReplacementModal(newTeamId) {
+  const newTeam = teamsData[newTeamId];
+  if (!newTeam) return;
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'recap-backdrop show';
+  backdrop.style.zIndex = '100000';
+  
+  const modal = document.createElement('div');
+  modal.className = 'glass-card';
+  modal.style.cssText = 'width: 90%; max-width: 400px; background: var(--bg-card); border: 1px solid var(--border-glass-highlight); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 16px; color: var(--text-primary); animation: slideUpDetails 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; position: relative; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);';
+  
+  const closeBtn = document.createElement('button');
+  closeBtn.innerText = '×';
+  closeBtn.style.cssText = 'position: absolute; top: 12px; right: 16px; border: none; background: none; font-size: 26px; font-weight: 300; color: var(--text-secondary); cursor: pointer; padding: 4px; line-height: 1; outline: none;';
+  closeBtn.addEventListener('click', () => backdrop.remove());
+  modal.appendChild(closeBtn);
+
+  const title = document.createElement('h3');
+  title.innerText = '🔄 Replace Tracked Team';
+  title.style.cssText = 'font-family: var(--font-title); font-size: 17px; margin: 0; padding-right: 24px; color: var(--color-gold); font-weight: 800;';
+  modal.appendChild(title);
+
+  const desc = document.createElement('p');
+  desc.style.cssText = 'font-size: 12.5px; color: var(--text-secondary); margin: 0; line-height: 1.45;';
+  desc.innerText = `You are currently tracking the maximum of 3 teams. Select which team you want to replace with the ${newTeam.name}:`;
+  modal.appendChild(desc);
+
+  const list = document.createElement('div');
+  list.style.cssText = 'display: flex; flex-direction: column; gap: 10px;';
+
+  state.selectedTeamIds.forEach(id => {
+    const t = teamsData[id];
+    if (!t) return;
+
+    const rowBtn = document.createElement('button');
+    rowBtn.style.cssText = 'width: 100%; padding: 12px; font-size: 13px; font-weight: 700; border-radius: 10px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: space-between; transition: all 0.2s ease; border: 1.5px solid var(--border-glass); background: var(--bg-card-hover); color: var(--text-primary); outline: none;';
+
+    const info = document.createElement('div');
+    info.style.cssText = 'display: flex; align-items: center; gap: 10px;';
+
+    const badge = document.createElement('div');
+    badge.className = 'team-badge-small';
+    badge.innerText = t.abbreviation;
+    badge.style.background = t.primaryColor;
+    badge.style.color = t.textColor;
+    badge.style.fontSize = '9px';
+    badge.style.width = '24px';
+    badge.style.height = '24px';
+    badge.style.display = 'flex';
+    badge.style.alignItems = 'center';
+    badge.style.justifyContent = 'center';
+    badge.style.borderRadius = '5px';
+
+    const name = document.createElement('span');
+    name.innerText = t.shortName;
+
+    info.appendChild(badge);
+    info.appendChild(name);
+    rowBtn.appendChild(info);
+
+    const actionText = document.createElement('span');
+    actionText.innerText = 'Replace →';
+    actionText.style.cssText = 'font-size: 11px; color: var(--color-gold); font-weight: 800;';
+    rowBtn.appendChild(actionText);
+
+    rowBtn.addEventListener('click', () => {
+      state.selectedTeamIds = state.selectedTeamIds.map(sid => sid === id ? newTeamId : sid);
+      localStorage.setItem('tracked_teams', JSON.stringify(state.selectedTeamIds));
+      state.activeTeamId = newTeamId;
+      updateTeamTheme(newTeamId);
+      backdrop.remove();
+      render();
+    });
+
+    list.appendChild(rowBtn);
+  });
+
+  modal.appendChild(list);
+  backdrop.appendChild(modal);
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) backdrop.remove();
+  });
+  document.body.appendChild(backdrop);
+}
+
+function createAllTeamsView() {
+  const container = document.createElement('div');
+  container.className = 'setup-container';
+  container.style.cssText = 'display: flex; flex-direction: column; gap: 20px; padding-bottom: 24px;';
+
+  const title = document.createElement('h2');
+  title.className = 'setup-title';
+  title.innerText = 'All MLB Teams';
+  title.style.cssText = 'font-size: 20px; font-weight: 800; color: var(--color-gold); margin-bottom: 2px; text-align: left;';
+  container.appendChild(title);
+
+  const subtitle = document.createElement('p');
+  subtitle.style.cssText = 'font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; margin: 0; margin-top: -12px; margin-bottom: 4px;';
+  subtitle.innerText = 'Select any team below to browse their page, run differential stats, schedule, and pitching analytics.';
+  container.appendChild(subtitle);
+
+  const drawLeagueSection = (leagueName, leagueId) => {
+    const section = document.createElement('div');
+    section.style.cssText = 'display: flex; flex-direction: column; gap: 10px;';
+
+    const secTitle = document.createElement('h3');
+    secTitle.className = 'section-title';
+    secTitle.innerText = leagueName;
+    secTitle.style.cssText = 'font-size: 15px; color: var(--text-primary); margin-bottom: 4px; border-bottom: 1.5px solid var(--border-glass); padding-bottom: 4px;';
+    section.appendChild(secTitle);
+
+    const grid = document.createElement('div');
+    grid.className = 'team-list-grid';
+    grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px;';
+
+    const leagueTeams = Object.values(teamsData)
+      .filter(t => t.leagueId === leagueId)
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    leagueTeams.forEach(team => {
+      const isFav = state.selectedTeamIds.includes(team.id);
+
+      const teamCard = document.createElement('div');
+      teamCard.className = 'glass-card';
+      teamCard.style.cssText = 'padding: 10px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.2s ease; border: 1px solid var(--border-glass); position: relative;';
+      
+      const badge = document.createElement('div');
+      badge.className = 'team-badge-small';
+      badge.innerText = team.abbreviation;
+      badge.style.background = team.primaryColor;
+      badge.style.color = team.textColor;
+      badge.style.fontSize = '9px';
+      badge.style.width = '24px';
+      badge.style.height = '24px';
+      badge.style.display = 'flex';
+      badge.style.alignItems = 'center';
+      badge.style.justifyContent = 'center';
+      badge.style.borderRadius = '5px';
+
+      const details = document.createElement('div');
+      details.style.display = 'flex';
+      details.style.flexDirection = 'column';
+      details.style.gap = '2px';
+
+      const name = document.createElement('span');
+      name.innerText = team.shortName;
+      name.style.cssText = 'font-size: 12.5px; font-weight: 700; color: var(--text-primary);';
+
+      const division = document.createElement('span');
+      division.innerText = team.divisionName;
+      division.style.cssText = 'font-size: 9px; color: var(--text-muted); font-weight: 600;';
+
+      details.appendChild(name);
+      details.appendChild(division);
+      teamCard.appendChild(badge);
+      details.style.overflow = 'hidden';
+      teamCard.appendChild(details);
+
+      if (isFav) {
+        const star = document.createElement('span');
+        star.innerText = '★';
+        star.style.cssText = 'position: absolute; top: 4px; right: 6px; font-size: 10px; color: var(--color-gold);';
+        teamCard.appendChild(star);
+      }
+
+      teamCard.addEventListener('click', () => {
+        state.activeTeamId = team.id;
+        updateTeamTheme(team.id);
+        transitionToView('dashboard', team.id);
+      });
+
+      grid.appendChild(teamCard);
+    });
+
+    section.appendChild(grid);
+    return section;
+  };
+
+  container.appendChild(drawLeagueSection('American League (AL)', 103));
+  container.appendChild(drawLeagueSection('National League (NL)', 104));
+
+  return container;
 }
 
 // Settings View (More page in fixed footer navigation)
@@ -2310,7 +2552,7 @@ function updateHeaderContent(header) {
   topRow.className = 'header-top';
   topRow.style.minHeight = '0px';
 
-  if (state.activeView === 'settings') {
+  if (state.activeView === 'settings' || state.activeView === 'all-teams') {
     topRow.style.minHeight = '44px';
     const logo = document.createElement('div');
     logo.className = 'app-logo';
@@ -3100,6 +3342,42 @@ function createDashboardView() {
 
   const team = state.processedStandings?.teamsMap?.[state.activeTeamId] || teamsData[state.activeTeamId];
   if (!team) return container;
+
+  const isFavorite = state.selectedTeamIds.includes(state.activeTeamId);
+  if (!isFavorite) {
+    const favoritingBanner = document.createElement('div');
+    favoritingBanner.style.cssText = 'background: rgba(245, 158, 11, 0.08); border: 1.5px solid var(--color-gold); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; align-items: center; justify-content: center; margin-bottom: 12px; box-shadow: var(--shadow-sm);';
+    
+    const bannerText = document.createElement('span');
+    bannerText.style.cssText = 'font-size: 13px; font-weight: 700; color: var(--text-primary); font-family: var(--font-title); text-align: center;';
+    bannerText.innerText = `You are browsing the ${team.name}.`;
+    favoritingBanner.appendChild(bannerText);
+
+    const favActionBtn = document.createElement('button');
+    favActionBtn.style.cssText = 'width: 100%; max-width: 280px; padding: 10px 16px; font-size: 13px; font-weight: 800; border-radius: 20px; font-family: var(--font-title); cursor: pointer; transition: all 0.2s ease; border: none; outline: none; display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: var(--shadow-sm);';
+    
+    const hasFreeSlot = state.selectedTeamIds.length < 3;
+    if (hasFreeSlot) {
+      favActionBtn.style.background = 'var(--color-win)';
+      favActionBtn.style.color = '#ffffff';
+      favActionBtn.innerHTML = '⭐ Add to Selected Teams';
+      favActionBtn.addEventListener('click', () => {
+        state.selectedTeamIds.push(state.activeTeamId);
+        localStorage.setItem('tracked_teams', JSON.stringify(state.selectedTeamIds));
+        updateTeamTheme(state.activeTeamId);
+        render();
+      });
+    } else {
+      favActionBtn.style.background = 'linear-gradient(135deg, var(--color-gold), #ff5a00)';
+      favActionBtn.style.color = '#ffffff';
+      favActionBtn.innerHTML = '🔄 Replace a Selected Team';
+      favActionBtn.addEventListener('click', () => {
+        showTeamReplacementModal(team.id);
+      });
+    }
+    favoritingBanner.appendChild(favActionBtn);
+    container.appendChild(favoritingBanner);
+  }
 
   // 1. Dashboard Active Team Banner
   // If activeTeamId changed, reset selectedGameIdx to null
