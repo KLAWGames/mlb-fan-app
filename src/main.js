@@ -4723,7 +4723,62 @@ async function getDailyHRStats(dateStr) {
   }
 }
 
-// Render top 10 MLB leaders as a visual horizontal bar graph
+// Global today player HR map
+let todayPlayerHRsMap = {};
+
+// Load player HR counts hit today
+async function loadTodayPlayerHRs() {
+  const todayDate = getBaseballDate(0);
+  try {
+    const res = await fetch(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${todayDate}&endDate=${todayDate}`);
+    if (!res.ok) return {};
+    const data = await res.json();
+    const games = data.dates?.[0]?.games || [];
+    
+    const activeGames = games.filter(g => {
+      const state = g.status?.statusCode;
+      return state !== 'DI' && state !== 'DR' && state !== 'P';
+    });
+    
+    const hrMap = {};
+    
+    await Promise.all(activeGames.map(async (game) => {
+      const statusCode = game.status?.statusCode;
+      if (statusCode === 'S' || statusCode === 'P' || statusCode === 'I') return;
+      
+      try {
+        const boxRes = await fetch(`https://statsapi.mlb.com/api/v1/game/${game.gamePk}/boxscore`);
+        if (!boxRes.ok) return;
+        const boxData = await boxRes.json();
+        
+        const processTeam = (teamData) => {
+          if (!teamData?.players) return;
+          for (const key in teamData.players) {
+            const p = teamData.players[key];
+            const pId = p.person?.id;
+            const hr = p.stats?.batting?.homeRuns || 0;
+            if (pId && hr > 0) {
+              hrMap[pId] = (hrMap[pId] || 0) + hr;
+            }
+          }
+        };
+        
+        processTeam(boxData.teams?.away);
+        processTeam(boxData.teams?.home);
+      } catch (err) {
+        console.warn("Failed loading boxscore for player HR map:", err);
+      }
+    }));
+    
+    todayPlayerHRsMap = hrMap;
+    return hrMap;
+  } catch (err) {
+    console.error("Failed loading today player HRs:", err);
+    return {};
+  }
+}
+
+// Render top 20 MLB leaders as a visual horizontal bar graph with season record chase
 function renderMLBLeadersGraph(leaders, card, spinner) {
   if (spinner) spinner.remove();
 
@@ -4734,14 +4789,84 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
   graphContainer.className = 'hr-leaders-graph-container';
   graphContainer.style.cssText = 'display: flex; flex-direction: column; gap: 12px; width: 100%;';
 
-  const maxHR = leaders.length > 0 ? parseInt(leaders[0].value, 10) : 30;
+  const maxScaleHR = 83; // Bonds 73 + 10 room
 
-  leaders.forEach(leader => {
-    const value = parseInt(leader.value, 10);
+  // Prepend Barry Bonds Single Season Record at the top
+  const recordRow = document.createElement('div');
+  recordRow.style.cssText = 'display: flex; align-items: center; width: 100%; gap: 12px; padding-bottom: 8px; border-bottom: 1.5px dashed var(--border-glass);';
+  
+  const recordLabelCol = document.createElement('div');
+  recordLabelCol.style.cssText = 'width: 110px; display: flex; flex-direction: column; text-align: left; flex-shrink: 0;';
+  
+  const recordName = document.createElement('span');
+  recordName.style.cssText = 'font-size: 12px; font-weight: 800; color: var(--color-gold); font-family: var(--font-title); display: flex; align-items: center; gap: 4px;';
+  recordName.innerHTML = `👑 Barry Bonds`;
+  
+  const recordSub = document.createElement('span');
+  recordSub.style.cssText = 'font-size: 9px; color: var(--text-muted); font-weight: 700;';
+  recordSub.innerText = 'RECORD (2001)';
+  
+  recordLabelCol.appendChild(recordName);
+  recordLabelCol.appendChild(recordSub);
+  recordRow.appendChild(recordLabelCol);
+
+  const recordBarCol = document.createElement('div');
+  recordBarCol.style.cssText = 'flex: 1; display: flex; align-items: center; gap: 8px;';
+  
+  const recordBarOuter = document.createElement('div');
+  recordBarOuter.style.cssText = 'flex: 1; height: 16px; background: rgba(217, 119, 6, 0.08); border-radius: 8px; overflow: hidden; border: 1.5px solid var(--color-gold); position: relative;';
+  
+  const recordBarInner = document.createElement('div');
+  const recordWidth = (73 / maxScaleHR) * 100;
+  recordBarInner.style.cssText = `height: 100%; width: ${recordWidth}%; background: linear-gradient(90deg, #b45309, #d97706, #f59e0b); border-radius: 6px; box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);`;
+  
+  recordBarOuter.appendChild(recordBarInner);
+  recordBarCol.appendChild(recordBarOuter);
+  
+  const recordValue = document.createElement('span');
+  recordValue.style.cssText = 'font-size: 13px; font-weight: 800; color: var(--color-gold); width: 22px; text-align: right; font-family: var(--font-title);';
+  recordValue.innerText = '73';
+  recordBarCol.appendChild(recordValue);
+  
+  recordRow.appendChild(recordBarCol);
+  graphContainer.appendChild(recordRow);
+
+  // Animation Action Button Header
+  const btnContainer = document.createElement('div');
+  btnContainer.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; margin-top: 4px;';
+  
+  const btnTitle = document.createElement('span');
+  btnTitle.style.cssText = 'font-size: 11px; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;';
+  btnTitle.innerText = 'Challengers List';
+  btnContainer.appendChild(btnTitle);
+
+  const animBtn = document.createElement('button');
+  animBtn.className = 'action-btn';
+  animBtn.style.cssText = 'padding: 6px 12px; font-size: 11px; font-weight: 800; border-radius: 20px; text-transform: none; display: flex; align-items: center; gap: 6px; transition: all 0.3s; background: rgba(255, 90, 0, 0.1); border: 1px solid rgba(255, 90, 0, 0.35); color: #ff5a00; cursor: pointer;';
+  animBtn.innerHTML = `🔥 Show Yesterday to Today`;
+  btnContainer.appendChild(animBtn);
+  
+  graphContainer.appendChild(btnContainer);
+
+  // Render player rows
+  const animRows = [];
+
+  leaders.forEach((leader, idx) => {
+    const pId = leader.person?.id;
+    let todayHRs = 0;
+    if (Object.keys(todayPlayerHRsMap).length > 0) {
+      todayHRs = todayPlayerHRsMap[pId] || 0;
+    } else {
+      todayHRs = MOCK_TODAY_PLAYER_HRS[pId] || 0;
+    }
+    
+    const totalHR = parseInt(leader.value, 10);
+    const yesterdayHR = totalHR - todayHRs;
+    
     const teamId = leader.team?.id;
     const staticTeam = teamsData[teamId] || {};
     const teamColor = staticTeam.primaryColor || '#94a3b8';
-    
+
     const row = document.createElement('div');
     row.style.cssText = 'display: flex; align-items: center; width: 100%; gap: 12px;';
 
@@ -4754,51 +4879,100 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
     
     const teamSpan = document.createElement('span');
     teamSpan.style.cssText = 'font-size: 9.5px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;';
-    teamSpan.innerText = staticTeam.abbreviation || leader.team?.name || 'MLB';
+    teamSpan.innerText = `${idx + 1}. ${staticTeam.abbreviation || leader.team?.name || 'MLB'}`;
 
     labelCol.appendChild(nameSpan);
     labelCol.appendChild(teamSpan);
     row.appendChild(labelCol);
 
     const barCol = document.createElement('div');
-    barCol.style.cssText = 'flex: 1; display: flex; align-items: center; gap: 8px; position: relative;';
+    barCol.style.cssText = 'flex: 1; display: flex; align-items: center; gap: 8px;';
 
     const barOuter = document.createElement('div');
-    barOuter.style.cssText = 'flex: 1; height: 16px; background: rgba(255,255,255,0.06); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-glass);';
+    barOuter.style.cssText = 'flex: 1; height: 16px; background: rgba(255,255,255,0.06); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-glass); display: flex;';
 
-    const barInner = document.createElement('div');
-    const widthPct = (value / maxHR) * 100;
-    barInner.style.cssText = `height: 100%; width: 0%; background: ${teamColor}; border-radius: 6px; transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 0 6px ${teamColor}40;`;
-    
-    barOuter.appendChild(barInner);
+    // Base segment (Yesterday)
+    const baseBar = document.createElement('div');
+    const baseWidth = (yesterdayHR / maxScaleHR) * 100;
+    baseBar.style.cssText = `height: 100%; width: 0%; background: ${teamColor}; border-radius: 6px 0 0 6px; transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);`;
+    barOuter.appendChild(baseBar);
+
+    // Today's added segment
+    const todayBar = document.createElement('div');
+    const todayAddedWidth = (todayHRs / maxScaleHR) * 100;
+    todayBar.style.cssText = `height: 100%; width: 0%; background: #ff5a00; border-radius: 0 6px 6px 0; transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.8s ease; box-shadow: 0 0 8px rgba(255, 90, 0, 0.4);`;
+    barOuter.appendChild(todayBar);
+
     barCol.appendChild(barOuter);
 
     const valueSpan = document.createElement('span');
     valueSpan.style.cssText = 'font-size: 13px; font-weight: 800; color: var(--text-primary); width: 22px; text-align: right; font-family: var(--font-title);';
-    valueSpan.innerText = value;
+    valueSpan.innerText = yesterdayHR;
     barCol.appendChild(valueSpan);
 
     row.appendChild(barCol);
     graphContainer.appendChild(row);
 
     setTimeout(() => {
-      barInner.style.width = `${widthPct}%`;
+      baseBar.style.width = `${baseWidth}%`;
     }, 50);
+
+    animRows.push({
+      todayBar,
+      todayAddedWidth,
+      valueSpan,
+      yesterdayHR,
+      totalHR,
+      teamColor,
+      hasChange: todayHRs > 0
+    });
   });
 
   const scaleRow = document.createElement('div');
   scaleRow.style.cssText = 'display: flex; width: 100%; margin-top: 6px; padding-left: 110px; font-size: 9px; font-weight: 700; color: var(--text-muted); font-family: var(--font-body); justify-content: space-between; border-top: 1px solid var(--border-glass); padding-top: 6px; box-sizing: border-box;';
   
-  const tickVal1 = 0;
-  const tickVal2 = Math.round(maxHR / 2);
-  const tickVal3 = maxHR;
-
   scaleRow.innerHTML = `
-    <span>${tickVal1}</span>
-    <span style="transform:translateX(-50%);">${tickVal2} HRs</span>
-    <span>${tickVal3}</span>
+    <span>0</span>
+    <span style="transform:translateX(-50%);">40 HRs</span>
+    <span style="color:var(--color-gold); font-weight:900;">73 (Record)</span>
+    <span>83</span>
   `;
   graphContainer.appendChild(scaleRow);
+
+  animBtn.addEventListener('click', () => {
+    animBtn.disabled = true;
+    animBtn.style.background = 'rgba(16, 185, 129, 0.15)';
+    animBtn.style.color = '#10b981';
+    animBtn.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+    animBtn.innerHTML = `⚡ Animating...`;
+
+    animRows.forEach((row, idx) => {
+      if (row.hasChange) {
+        setTimeout(() => {
+          row.todayBar.style.width = `${row.todayAddedWidth}%`;
+          
+          let count = row.yesterdayHR;
+          const interval = setInterval(() => {
+            if (count >= row.totalHR) {
+              clearInterval(interval);
+            } else {
+              count++;
+              row.valueSpan.innerText = count;
+            }
+          }, 300);
+        }, idx * 40);
+
+        setTimeout(() => {
+          row.todayBar.style.backgroundColor = row.teamColor;
+          row.todayBar.style.boxShadow = 'none';
+        }, 1600);
+      }
+    });
+
+    setTimeout(() => {
+      animBtn.innerHTML = `✔ Today's Chase Locked In`;
+    }, 1800);
+  });
 
   card.appendChild(graphContainer);
 }
@@ -4982,21 +5156,23 @@ function createHRRaceView() {
   teamCard.appendChild(teamSpinner);
   container.appendChild(teamCard);
 
-  const mlbLeadersUrl = 'https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=homeRuns&season=2026&statType=season&limit=10';
+  const mlbLeadersUrl = 'https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=homeRuns&season=2026&statType=season&limit=20';
   const teamLeadersUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=homeRuns&season=2026&statType=season&limit=3&teamId=${state.activeTeamId}`;
 
-  fetch(mlbLeadersUrl)
-    .then(res => {
-      if (!res.ok) throw new Error('API failure');
-      return res.json();
-    })
-    .then(data => {
-      const leadersList = data.leagueLeaders?.[0]?.leaders || [];
-      renderMLBLeadersGraph(leadersList.length > 0 ? leadersList : MOCK_HR_LEADERS, leadersCard, leadersSpinner);
-    })
-    .catch(() => {
-      renderMLBLeadersGraph(MOCK_HR_LEADERS, leadersCard, leadersSpinner);
-    });
+  loadTodayPlayerHRs().finally(() => {
+    fetch(mlbLeadersUrl)
+      .then(res => {
+        if (!res.ok) throw new Error('API failure');
+        return res.json();
+      })
+      .then(data => {
+        const leadersList = data.leagueLeaders?.[0]?.leaders || [];
+        renderMLBLeadersGraph(leadersList.length > 0 ? leadersList : MOCK_HR_LEADERS, leadersCard, leadersSpinner);
+      })
+      .catch(() => {
+        renderMLBLeadersGraph(MOCK_HR_LEADERS, leadersCard, leadersSpinner);
+      });
+  });
 
   fetch(teamLeadersUrl)
     .then(res => {
@@ -5014,17 +5190,35 @@ function createHRRaceView() {
   return container;
 }
 
+const MOCK_TODAY_PLAYER_HRS = {
+  656941: 0, // Kyle Schwarber
+  696100: 0, // Hunter Goodman
+  660271: 1, // Shohei Ohtani
+  592450: 1, // Aaron Judge
+  672960: 1  // Kazuma Okamoto
+};
+
 const MOCK_HR_LEADERS = [
-  { person: { fullName: 'Kyle Schwarber' }, value: '30', team: { id: 143, name: 'Phillies' } },
-  { person: { fullName: 'Hunter Goodman' }, value: '27', team: { id: 115, name: 'Rockies' } },
-  { person: { fullName: 'Shohei Ohtani' }, value: '26', team: { id: 119, name: 'Dodgers' } },
-  { person: { fullName: 'Aaron Judge' }, value: '25', team: { id: 147, name: 'Yankees' } },
-  { person: { fullName: 'Marcell Ozuna' }, value: '24', team: { id: 144, name: 'Braves' } },
-  { person: { fullName: 'Gunnar Henderson' }, value: '23', team: { id: 110, name: 'Orioles' } },
-  { person: { fullName: 'Juan Soto' }, value: '22', team: { id: 147, name: 'Yankees' } },
-  { person: { fullName: 'Brent Rooker' }, value: '21', team: { id: 133, name: 'Athletics' } },
-  { person: { fullName: 'José Ramírez' }, value: '20', team: { id: 114, name: 'Guardians' } },
-  { person: { fullName: 'Kazuma Okamoto' }, value: '19', team: { id: 141, name: 'Blue Jays' } }
+  { person: { id: 656941, fullName: 'Kyle Schwarber' }, value: '30', team: { id: 143, name: 'Phillies' } },
+  { person: { id: 696100, fullName: 'Hunter Goodman' }, value: '27', team: { id: 115, name: 'Rockies' } },
+  { person: { id: 660271, fullName: 'Shohei Ohtani' }, value: '26', team: { id: 119, name: 'Dodgers' } },
+  { person: { id: 592450, fullName: 'Aaron Judge' }, value: '25', team: { id: 147, name: 'Yankees' } },
+  { person: { id: 660271, fullName: 'Marcell Ozuna' }, value: '24', team: { id: 144, name: 'Braves' } },
+  { person: { id: 657557, fullName: 'Gunnar Henderson' }, value: '23', team: { id: 110, name: 'Orioles' } },
+  { person: { id: 665489, fullName: 'Juan Soto' }, value: '22', team: { id: 147, name: 'Yankees' } },
+  { person: { id: 669022, fullName: 'Brent Rooker' }, value: '21', team: { id: 133, name: 'Athletics' } },
+  { person: { id: 608070, fullName: 'José Ramírez' }, value: '20', team: { id: 114, name: 'Guardians' } },
+  { person: { id: 672960, fullName: 'Kazuma Okamoto' }, value: '19', team: { id: 141, name: 'Blue Jays' } },
+  { person: { id: 641355, fullName: 'Cody Bellinger' }, value: '18', team: { id: 112, name: 'Cubs' } },
+  { person: { id: 660688, fullName: 'Christian Walker' }, value: '18', team: { id: 109, name: 'D-backs' } },
+  { person: { id: 663656, fullName: 'Kyle Tucker' }, value: '17', team: { id: 117, name: 'Astros' } },
+  { person: { id: 621020, fullName: 'Corey Seager' }, value: '17', team: { id: 140, name: 'Rangers' } },
+  { person: { id: 605141, fullName: 'Mookie Betts' }, value: '16', team: { id: 119, name: 'Dodgers' } },
+  { person: { id: 641820, fullName: 'Manny Machado' }, value: '16', team: { id: 135, name: 'Padres' } },
+  { person: { id: 547180, fullName: 'Bryce Harper' }, value: '15', team: { id: 143, name: 'Phillies' } },
+  { person: { id: 668227, fullName: 'William Contreras' }, value: '15', team: { id: 158, name: 'Brewers' } },
+  { person: { id: 650402, fullName: 'Rafael Devers' }, value: '14', team: { id: 111, name: 'Red Sox' } },
+  { person: { id: 669221, fullName: 'Bobby Witt Jr.' }, value: '14', team: { id: 118, name: 'Royals' } }
 ];
 
 // Fire application initialization
