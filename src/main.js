@@ -4974,25 +4974,32 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
         row.barOuter.classList.add('pulse-new-hr');
         
         // Spawn first floating +1 / +X bubble immediately
+        let spawnCount = 0;
         const spawnBubble = () => {
           const bubble = document.createElement('span');
           bubble.className = 'float-up-fade';
           bubble.style.cssText = `
             position: absolute;
-            left: calc(${row.baseWidth + row.todayAddedWidth / 2}% - 12px);
+            left: calc(${row.baseWidth + row.todayAddedWidth / 2}% - 16px);
             top: -8px;
             background: #ff5a00;
             color: #ffffff;
             font-size: 9px;
             font-weight: 800;
-            padding: 2px 5px;
+            padding: 2px 6px;
             border-radius: 6px;
             box-shadow: 0 0 6px rgba(255, 90, 0, 0.6);
             pointer-events: none;
             z-index: 10;
             font-family: var(--font-title);
+            white-space: nowrap;
           `;
-          bubble.innerText = `+${row.todayHRs}`;
+          if (spawnCount % 2 === 0) {
+            bubble.innerText = `+${row.todayHRs}`;
+          } else {
+            bubble.innerText = `${row.yesterdayHR} > ${row.totalHR}`;
+          }
+          spawnCount++;
           row.barCol.appendChild(bubble);
           setTimeout(() => bubble.remove(), 1400);
         };
