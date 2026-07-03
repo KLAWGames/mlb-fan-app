@@ -6035,9 +6035,10 @@ function createHRRaceView() {
   yesterdayLabel.style.cssText = 'font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;';
   yesterdayLabel.innerText = `${fmtMD(yesterdayDate)} (Yesterday)`;
   
-  const yesterdayVal = document.createElement('span');
-  yesterdayVal.style.cssText = 'font-size: 32px; font-weight: 800; color: var(--color-gold); font-family: var(--font-title);';
-  yesterdayVal.innerHTML = `<span style="font-size:16px; color:var(--text-muted);">Loading...</span>`;
+  const yesterdayVal = document.createElement('button');
+  yesterdayVal.setAttribute('type', 'button');
+  yesterdayVal.style.cssText = 'display: inline-flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 20px; border-radius: 12px; background: rgba(245, 158, 11, 0.04); border: 1.5px solid rgba(245, 158, 11, 0.18); color: var(--color-gold); font-size: 32px; font-weight: 800; font-family: var(--font-title); cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); width: fit-content; margin: 4px auto; outline: none; box-shadow: 0 2px 4px rgba(0,0,0,0.02);';
+  yesterdayVal.innerHTML = `<span style="font-size:16px; color:var(--text-muted);">...</span>`;
   
   yesterdayCol.appendChild(yesterdayLabel);
   yesterdayCol.appendChild(yesterdayVal);
@@ -6050,9 +6051,10 @@ function createHRRaceView() {
   todayLabel.style.cssText = 'font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;';
   todayLabel.innerText = `${fmtMD(todayDate)} (Today)`;
   
-  const todayVal = document.createElement('span');
-  todayVal.style.cssText = 'font-size: 32px; font-weight: 800; color: var(--color-win); font-family: var(--font-title);';
-  todayVal.innerHTML = `<span style="font-size:16px; color:var(--text-muted);">Loading...</span>`;
+  const todayVal = document.createElement('button');
+  todayVal.setAttribute('type', 'button');
+  todayVal.style.cssText = 'display: inline-flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 20px; border-radius: 12px; background: rgba(6, 95, 70, 0.04); border: 1.5px solid rgba(6, 95, 70, 0.18); color: var(--color-win); font-size: 32px; font-weight: 800; font-family: var(--font-title); cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); width: fit-content; margin: 4px auto; outline: none; box-shadow: 0 2px 4px rgba(0,0,0,0.02);';
+  todayVal.innerHTML = `<span style="font-size:16px; color:var(--text-muted);">...</span>`;
   
   const todaySub = document.createElement('span');
   todaySub.style.cssText = 'font-size: 9px; color: var(--text-muted); font-weight: 600; min-height: 12px;';
@@ -6065,21 +6067,51 @@ function createHRRaceView() {
   container.appendChild(statsCard);
   
   getDailyHRStats(yesterdayDate).then(data => {
-    yesterdayVal.innerText = data.count;
     if (data.count > 0) {
+      yesterdayVal.innerHTML = `
+        ${data.count}
+        <span style="font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8; display: flex; align-items: center; gap: 3px; color: var(--color-gold);">
+          🔍 View List
+        </span>
+      `;
       yesterdayVal.style.cursor = 'pointer';
-      yesterdayVal.style.transition = 'opacity 0.2s';
       yesterdayVal.title = 'Click to see players who hit these HRs';
       yesterdayVal.addEventListener('click', () => {
         showDailyHRsModal(yesterdayDate, `${fmtMD(yesterdayDate)} (Yesterday)`);
       });
-      yesterdayVal.addEventListener('mouseenter', () => yesterdayVal.style.opacity = '0.7');
-      yesterdayVal.addEventListener('mouseleave', () => yesterdayVal.style.opacity = '1');
+      yesterdayVal.addEventListener('mouseenter', () => {
+        yesterdayVal.style.background = 'rgba(245, 158, 11, 0.09)';
+        yesterdayVal.style.borderColor = 'rgba(245, 158, 11, 0.35)';
+        yesterdayVal.style.transform = 'translateY(-1px)';
+      });
+      yesterdayVal.addEventListener('mouseleave', () => {
+        yesterdayVal.style.background = 'rgba(245, 158, 11, 0.04)';
+        yesterdayVal.style.borderColor = 'rgba(245, 158, 11, 0.18)';
+        yesterdayVal.style.transform = 'none';
+      });
+      yesterdayVal.addEventListener('mousedown', () => {
+        yesterdayVal.style.transform = 'scale(0.96)';
+      });
+      yesterdayVal.addEventListener('mouseup', () => {
+        yesterdayVal.style.transform = 'translateY(-1px)';
+      });
+    } else {
+      yesterdayVal.innerHTML = `
+        0
+        <span style="font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">
+          No HRs
+        </span>
+      `;
+      yesterdayVal.style.background = 'rgba(0,0,0,0.02)';
+      yesterdayVal.style.borderColor = 'var(--border-glass)';
+      yesterdayVal.style.color = 'var(--text-muted)';
+      yesterdayVal.style.cursor = 'default';
+      yesterdayVal.style.boxShadow = 'none';
+      yesterdayVal.disabled = true;
     }
   });
 
   getDailyHRStats(todayDate).then(data => {
-    todayVal.innerText = data.count;
     if (data.totalGames === 0) {
       todaySub.innerText = 'No games scheduled';
     } else {
@@ -6087,14 +6119,46 @@ function createHRRaceView() {
     }
     
     if (data.count > 0) {
+      todayVal.innerHTML = `
+        ${data.count}
+        <span style="font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8; display: flex; align-items: center; gap: 3px; color: var(--color-win);">
+          🔍 View List
+        </span>
+      `;
       todayVal.style.cursor = 'pointer';
-      todayVal.style.transition = 'opacity 0.2s';
       todayVal.title = 'Click to see players who hit these HRs';
       todayVal.addEventListener('click', () => {
         showDailyHRsModal(todayDate, `${fmtMD(todayDate)} (Today)`);
       });
-      todayVal.addEventListener('mouseenter', () => todayVal.style.opacity = '0.7');
-      todayVal.addEventListener('mouseleave', () => todayVal.style.opacity = '1');
+      todayVal.addEventListener('mouseenter', () => {
+        todayVal.style.background = 'rgba(6, 95, 70, 0.09)';
+        todayVal.style.borderColor = 'rgba(6, 95, 70, 0.35)';
+        todayVal.style.transform = 'translateY(-1px)';
+      });
+      todayVal.addEventListener('mouseleave', () => {
+        todayVal.style.background = 'rgba(6, 95, 70, 0.04)';
+        todayVal.style.borderColor = 'rgba(6, 95, 70, 0.18)';
+        todayVal.style.transform = 'none';
+      });
+      todayVal.addEventListener('mousedown', () => {
+        todayVal.style.transform = 'scale(0.96)';
+      });
+      todayVal.addEventListener('mouseup', () => {
+        todayVal.style.transform = 'translateY(-1px)';
+      });
+    } else {
+      todayVal.innerHTML = `
+        0
+        <span style="font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted);">
+          No HRs
+        </span>
+      `;
+      todayVal.style.background = 'rgba(0,0,0,0.02)';
+      todayVal.style.borderColor = 'var(--border-glass)';
+      todayVal.style.color = 'var(--text-muted)';
+      todayVal.style.cursor = 'default';
+      todayVal.style.boxShadow = 'none';
+      todayVal.disabled = true;
     }
   });
 
