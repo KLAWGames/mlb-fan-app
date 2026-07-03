@@ -1825,6 +1825,9 @@ function startAutoRefresh() {
 }
 
 function transitionToView(targetView, targetTeamId = null) {
+  // Always reset scroll position to the top on page switches
+  window.scrollTo(0, 0);
+
   // Build a list of valid switcher view targets
   const viewsList = [];
   state.selectedTeamIds.forEach(id => {
