@@ -3341,11 +3341,7 @@ function createDashboardView() {
         timeline.appendChild(info);
       }
     }
-    const divTeamIds = new Set(divTeams.map(t => t.id));
-    const divisionNote = document.createElement('div');
-    divisionNote.className = 'race-status-note';
-    divisionNote.innerHTML = `ℹ️ ${getRaceStatusNote(divTeamIds)}`;
-    timeline.appendChild(divisionNote);
+
 
     trackerCard.appendChild(timeline);
   } else {
@@ -3459,11 +3455,7 @@ function createDashboardView() {
         lastIdx = idx;
       });
     }
-    const leagueTeamIds = new Set(allLeague.map(t => t.id));
-    const wcNote = document.createElement('div');
-    wcNote.className = 'race-status-note';
-    wcNote.innerHTML = `ℹ️ ${getRaceStatusNote(leagueTeamIds)}`;
-    ladder.appendChild(wcNote);
+
 
     trackerCard.appendChild(ladder);
   }
