@@ -4292,6 +4292,20 @@ function createCreditsVersionView() {
   creditsText.innerHTML = 'All schedules, standings, division/wildcard structures, and game statuses are fetched dynamically from the official <strong>MLB Stats API</strong>.';
   creditsCard.appendChild(creditsText);
 
+  const visualCreditTitle = document.createElement('h3');
+  visualCreditTitle.innerText = 'Visualization Inspiration';
+  visualCreditTitle.style.fontFamily = 'var(--font-title)';
+  visualCreditTitle.style.fontSize = '16px';
+  visualCreditTitle.style.margin = '0';
+  creditsCard.appendChild(visualCreditTitle);
+
+  const visualCreditText = document.createElement('p');
+  visualCreditText.style.fontSize = '13px';
+  visualCreditText.style.color = 'var(--text-secondary)';
+  visualCreditText.style.lineHeight = '1.6';
+  visualCreditText.innerHTML = 'The division and wildcard race trend line graphs are inspired by <strong>Greg Stoll\'s MLB Division Race Charts</strong>. Check out his interactive project at <a href="https://gregstoll.com/baseball/stats/divisionrace/" target="_blank" style="color:var(--color-win); text-decoration:underline; font-weight:600;">gregstoll.com/baseball/stats/divisionrace/</a>.';
+  creditsCard.appendChild(visualCreditText);
+
   const appMetaTitle = document.createElement('h3');
   appMetaTitle.innerText = 'App Version';
   appMetaTitle.style.fontFamily = 'var(--font-title)';
