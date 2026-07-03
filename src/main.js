@@ -4928,18 +4928,30 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
     });
   });
 
-  const scaleRow = document.createElement('div');
-  scaleRow.style.cssText = 'display: flex; width: 100%; margin-top: 6px; padding-left: 110px; font-size: 9px; font-weight: 700; color: var(--text-muted); font-family: var(--font-body); justify-content: space-between; border-top: 1px solid var(--border-glass); padding-top: 6px; box-sizing: border-box;';
-  
-  scaleRow.innerHTML = `
-    <span>0</span>
-    <span style="transform:translateX(-50%);">40 HRs</span>
-    <span style="color:var(--color-gold); font-weight:900;">73 (Record)</span>
-    <span>83</span>
-  `;
-  graphContainer.appendChild(scaleRow);
+  let isAnimated = false;
 
   animBtn.addEventListener('click', () => {
+    if (isAnimated) {
+      // Reset state transition-less
+      animRows.forEach(row => {
+        if (row.hasChange) {
+          row.todayBar.style.transition = 'none';
+          row.todayBar.style.width = '0%';
+          row.todayBar.style.backgroundColor = '#ff5a00';
+          row.todayBar.style.boxShadow = '0 0 8px rgba(255, 90, 0, 0.4)';
+          row.valueSpan.innerText = row.yesterdayHR;
+        }
+      });
+      // Reflow
+      void animBtn.offsetHeight;
+      
+      animRows.forEach(row => {
+        if (row.hasChange) {
+          row.todayBar.style.transition = 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.8s ease';
+        }
+      });
+    }
+
     animBtn.disabled = true;
     animBtn.style.background = 'rgba(16, 185, 129, 0.15)';
     animBtn.style.color = '#10b981';
@@ -4970,7 +4982,12 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
     });
 
     setTimeout(() => {
-      animBtn.innerHTML = `✔ Today's Chase Locked In`;
+      isAnimated = true;
+      animBtn.disabled = false;
+      animBtn.style.background = 'rgba(255, 90, 0, 0.1)';
+      animBtn.style.color = '#ff5a00';
+      animBtn.style.borderColor = 'rgba(255, 90, 0, 0.35)';
+      animBtn.innerHTML = `🔄 Replay Animation`;
     }, 1800);
   });
 
