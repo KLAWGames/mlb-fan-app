@@ -1919,6 +1919,14 @@ function render() {
   // 2. Update Footer content (Persistent Bottom Navigation)
   updateFooterContent(footer);
 
+  if (state.showTeamsDropupAfterRender) {
+    state.showTeamsDropupAfterRender = false;
+    const teamsBtn = footer.querySelector('.footer-nav-item');
+    if (teamsBtn) {
+      setTimeout(() => showTeamsDropupMenu(teamsBtn), 50);
+    }
+  }
+
   // 3. Update Main view content
   main.innerHTML = '';
   
@@ -1957,13 +1965,124 @@ function render() {
   }
 }
 
+// Active auto-close timer variable so we can clear/reset it if needed
+let teamsDropupTimer = null;
+
+function showTeamsDropupMenu(anchorBtn) {
+  // If dropup already exists, remove it first
+  closeTeamsDropup();
+  
+  const dropup = document.createElement('div');
+  dropup.id = 'teams-dropup';
+  dropup.className = 'teams-dropup';
+  
+  // Position dropup above the anchor button
+  const rect = anchorBtn.getBoundingClientRect();
+  dropup.style.left = `${Math.max(16, rect.left + (rect.width / 2) - 110)}px`;
+  
+  state.selectedTeamIds.forEach(teamId => {
+    const team = teamsData[teamId];
+    if (!team) return;
+    
+    const itemBtn = document.createElement('button');
+    itemBtn.className = `teams-dropup-item ${teamId === state.activeTeamId ? 'active' : ''}`;
+    
+    const badge = document.createElement('div');
+    badge.className = 'team-badge-small';
+    badge.innerText = team.abbreviation;
+    badge.style.background = team.primaryColor;
+    badge.style.color = team.textColor;
+    badge.style.fontSize = '9px';
+    badge.style.fontWeight = '800';
+    badge.style.width = '24px';
+    badge.style.height = '24px';
+    badge.style.display = 'flex';
+    badge.style.alignItems = 'center';
+    badge.style.justifyContent = 'center';
+    badge.style.borderRadius = '6px';
+    badge.style.flexShrink = '0';
+    
+    const details = document.createElement('div');
+    details.style.display = 'flex';
+    details.style.flexDirection = 'column';
+    details.style.gap = '2px';
+    
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'team-name';
+    nameSpan.innerText = team.name;
+    
+    const leagueSpan = document.createElement('span');
+    leagueSpan.className = 'team-abbr';
+    leagueSpan.innerText = team.divisionName;
+    
+    details.appendChild(nameSpan);
+    details.appendChild(leagueSpan);
+    
+    itemBtn.appendChild(badge);
+    itemBtn.appendChild(details);
+    
+    itemBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (state.activeTeamId !== teamId) {
+        state.activeTeamId = teamId;
+        updateTeamTheme(teamId);
+        render();
+      }
+      closeTeamsDropup();
+    });
+    
+    dropup.appendChild(itemBtn);
+  });
+  
+  document.body.appendChild(dropup);
+  
+  // Fade and slide in
+  setTimeout(() => {
+    dropup.classList.add('show');
+  }, 10);
+  
+  // Start 1.5 seconds auto-close timer
+  teamsDropupTimer = setTimeout(() => {
+    closeTeamsDropup();
+  }, 1500);
+
+  // Prevent immediate close on window clicks during open event loop
+  setTimeout(() => {
+    window.addEventListener('click', outsideClickClose);
+  }, 50);
+}
+
+function outsideClickClose(e) {
+  const dropup = document.getElementById('teams-dropup');
+  if (dropup && !dropup.contains(e.target)) {
+    closeTeamsDropup();
+  }
+}
+
+function closeTeamsDropup() {
+  const dropup = document.getElementById('teams-dropup');
+  if (dropup) {
+    dropup.classList.remove('show');
+    setTimeout(() => {
+      dropup.remove();
+    }, 250);
+  }
+  window.removeEventListener('click', outsideClickClose);
+  if (teamsDropupTimer) {
+    clearTimeout(teamsDropupTimer);
+    teamsDropupTimer = null;
+  }
+}
+
 // Persistent Bottom Navigation Footer Builder
 function updateFooterContent(footer) {
   footer.innerHTML = '';
   
+  const teamsLabel = state.selectedTeamIds.length > 1 ? 'Teams' : 'Team';
+  
   // Footer menu items configuration
   const menuItems = [
-    { view: 'dashboard', label: 'Teams', emoji: '🧢' },
+    { view: 'dashboard', label: teamsLabel, emoji: '🧢' },
     { view: 'scores', label: 'Scores', emoji: '⚾' },
     { view: 'standings', label: 'Standings', emoji: '🏆' },
     { view: 'settings', label: 'Settings', emoji: '⚙️' }
@@ -2010,11 +2129,23 @@ function updateFooterContent(footer) {
     btn.appendChild(iconContainer);
     btn.appendChild(label);
     
-    btn.addEventListener('click', () => {
-      if (state.activeView !== item.view) {
-        if (item.view === 'dashboard') {
-          transitionToView('dashboard', state.activeTeamId);
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (item.view === 'dashboard') {
+        if (state.selectedTeamIds.length > 1) {
+          if (state.activeView !== 'dashboard') {
+            state.showTeamsDropupAfterRender = true;
+            transitionToView('dashboard', state.activeTeamId);
+          } else {
+            showTeamsDropupMenu(btn);
+          }
         } else {
+          if (state.activeView !== 'dashboard') {
+            transitionToView('dashboard', state.activeTeamId);
+          }
+        }
+      } else {
+        if (state.activeView !== item.view) {
           transitionToView(item.view);
         }
       }
@@ -3343,15 +3474,6 @@ function createDashboardView() {
           info.appendChild(trendBadge);
         }
         timeline.appendChild(info);
-        
-        const openGraphBtn = document.createElement('button');
-        openGraphBtn.style.cssText = 'width: 100%; margin-top: 14px; padding: 10px; font-size: 12px; font-weight: 700; border-radius: 8px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; border: 1px solid var(--border-glass-highlight); background: var(--bg-card-hover); color: var(--text-primary); outline: none;';
-        openGraphBtn.innerHTML = '📊 Open Division Graph';
-        openGraphBtn.addEventListener('click', () => {
-          const chart = createMultiTeamRaceChart(team, divTeams);
-          showStandingsGraphModal(`${divTeams[0]?.divisionName || 'Division'} Race Trend`, chart);
-        });
-        timeline.appendChild(openGraphBtn);
       }
     }
 
@@ -3466,16 +3588,6 @@ function createDashboardView() {
         ladder.appendChild(createLadderRow(tRec, idx < 3, tRec.id === state.activeTeamId));
         lastIdx = idx;
       });
-      
-      const openWCGraphBtn = document.createElement('button');
-      openWCGraphBtn.style.cssText = 'width: 100%; margin-top: 14px; padding: 10px; font-size: 12px; font-weight: 700; border-radius: 8px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; border: 1px solid var(--border-glass-highlight); background: var(--bg-card-hover); color: var(--text-primary); outline: none;';
-      openWCGraphBtn.innerHTML = '📊 Open Wild Card Graph';
-      openWCGraphBtn.addEventListener('click', () => {
-        const { selectedWCTeams } = getWildCardRaceTeams(team.leagueId, team, state.processedStandings);
-        const chart = createMultiTeamRaceChart(team, selectedWCTeams);
-        showStandingsGraphModal(`${team.leagueId === 103 ? 'AL' : 'NL'} Wild Card Race Trend`, chart);
-      });
-      ladder.appendChild(openWCGraphBtn);
     }
 
     trackerCard.appendChild(ladder);
