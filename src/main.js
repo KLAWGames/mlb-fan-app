@@ -2339,8 +2339,8 @@ function createAllTeamsView() {
   container.appendChild(tabGroup);
 
   const grid = document.createElement('div');
-  grid.className = 'team-list-grid';
-  grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px;';
+  grid.className = 'all-teams-grid';
+  grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 6px; padding: 2px;';
   container.appendChild(grid);
 
   state.allTeamsActiveTab = state.allTeamsActiveTab || 'AL';
@@ -2370,44 +2370,45 @@ function createAllTeamsView() {
 
       const teamCard = document.createElement('div');
       teamCard.className = 'glass-card';
-      teamCard.style.cssText = 'padding: 10px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.2s ease; border: 1px solid var(--border-glass); position: relative;';
+      teamCard.style.cssText = 'padding: 6px 8px; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s ease; border: 1px solid var(--border-glass); position: relative; margin-bottom: 0;';
       
       const badge = document.createElement('div');
       badge.className = 'team-badge-small';
       badge.innerText = team.abbreviation;
       badge.style.background = team.primaryColor;
       badge.style.color = team.textColor;
-      badge.style.fontSize = '9px';
-      badge.style.width = '24px';
-      badge.style.height = '24px';
+      badge.style.fontSize = '8px';
+      badge.style.width = '20px';
+      badge.style.height = '20px';
       badge.style.display = 'flex';
       badge.style.alignItems = 'center';
       badge.style.justifyContent = 'center';
-      badge.style.borderRadius = '5px';
+      badge.style.borderRadius = '4px';
+      badge.style.flexShrink = '0';
 
       const details = document.createElement('div');
       details.style.display = 'flex';
       details.style.flexDirection = 'column';
-      details.style.gap = '2px';
+      details.style.gap = '1px';
+      details.style.overflow = 'hidden';
 
       const name = document.createElement('span');
       name.innerText = team.shortName;
-      name.style.cssText = 'font-size: 12.5px; font-weight: 700; color: var(--text-primary);';
+      name.style.cssText = 'font-size: 11.5px; font-weight: 700; color: var(--text-primary); white-space: nowrap; text-overflow: ellipsis; overflow: hidden;';
 
       const division = document.createElement('span');
       division.innerText = team.divisionName;
-      division.style.cssText = 'font-size: 9px; color: var(--text-muted); font-weight: 600;';
+      division.style.cssText = 'font-size: 8px; color: var(--text-muted); font-weight: 600; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;';
 
       details.appendChild(name);
       details.appendChild(division);
       teamCard.appendChild(badge);
-      details.style.overflow = 'hidden';
       teamCard.appendChild(details);
 
       if (isFav) {
         const star = document.createElement('span');
         star.innerText = '★';
-        star.style.cssText = 'position: absolute; top: 4px; right: 6px; font-size: 10px; color: var(--color-gold);';
+        star.style.cssText = 'position: absolute; top: 2px; right: 4px; font-size: 8px; color: var(--color-gold);';
         teamCard.appendChild(star);
       }
 
