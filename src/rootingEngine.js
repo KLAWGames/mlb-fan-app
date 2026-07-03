@@ -289,7 +289,8 @@ export function analyzeMatchups(games, processedStandings, favoriteTeamId) {
       rootFor,
       explanation,
       priority,
-      threats: { away: awayThreat, home: homeThreat }
+      threats: { away: awayThreat, home: homeThreat },
+      teams: game.teams
     };
   }).sort((a, b) => b.priority - a.priority); // Sort by relevance to the fan!
 }
