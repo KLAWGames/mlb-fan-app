@@ -2032,6 +2032,7 @@ function showTeamsDropupMenu(anchorBtn) {
       if (state.activeTeamId !== teamId) {
         state.activeTeamId = teamId;
         updateTeamTheme(teamId);
+        syncDefaultTab();
         render();
       }
       closeTeamsDropup();
@@ -4516,6 +4517,7 @@ function filterTeamsList() {
           if (state.activeTeamId === team.id) {
             state.activeTeamId = state.selectedTeamIds[0];
             updateTeamTheme(state.activeTeamId);
+            syncDefaultTab();
           }
         } else {
           alert('You must track at least one team!');
@@ -4531,6 +4533,7 @@ function filterTeamsList() {
         // Automatically make it the active team
         state.activeTeamId = team.id;
         updateTeamTheme(team.id);
+        syncDefaultTab();
       }
 
       // Save choices
