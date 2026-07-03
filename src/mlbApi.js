@@ -218,7 +218,7 @@ export async function fetchStandings(dateStr = null) {
 
 export async function fetchSchedule(dateStr) {
   try {
-    const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${dateStr}&endDate=${dateStr}&hydrate=linescore`;
+    const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${dateStr}&endDate=${dateStr}&hydrate=linescore,probablePitcher`;
     const res = await fetch(url);
     if (!res.ok) throw new Error('API request failed');
     const data = await res.json();

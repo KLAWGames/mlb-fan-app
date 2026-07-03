@@ -2618,6 +2618,62 @@ function getRaceStatusNote(targetTeamIds) {
   }
 }
 
+const MOCK_PITCHERS_BY_TEAM = {
+  147: { fullName: "Gerrit Cole", wins: 12, losses: 6, era: "3.26" }, // Yankees
+  141: { fullName: "Kevin Gausman", wins: 11, losses: 8, era: "3.55" }, // Blue Jays
+  111: { fullName: "Brayan Bello", wins: 9, losses: 7, era: "4.12" }, // Red Sox
+  139: { fullName: "Zach Eflin", wins: 10, losses: 8, era: "3.82" }, // Rays
+  117: { fullName: "Framber Valdez", wins: 12, losses: 7, era: "3.34" }, // Astros
+  136: { fullName: "Luis Castillo", wins: 13, losses: 9, era: "3.48" }, // Mariners
+  110: { fullName: "Corbin Burnes", wins: 15, losses: 5, era: "2.92" }, // Orioles
+  143: { fullName: "Zack Wheeler", wins: 16, losses: 6, era: "2.74" }, // Phillies
+  140: { fullName: "Nathan Eovaldi", wins: 11, losses: 8, era: "3.61" }, // Rangers
+  158: { fullName: "Freddy Peralta", wins: 11, losses: 7, era: "3.75" }, // Brewers
+  121: { fullName: "Kodai Senga", wins: 9, losses: 4, era: "3.07" }, // Mets
+  144: { fullName: "Max Fried", wins: 10, losses: 6, era: "3.25" }, // Braves
+  119: { fullName: "Tyler Glasnow", wins: 11, losses: 5, era: "3.12" }, // Dodgers
+  115: { fullName: "Kyle Freeland", wins: 5, losses: 11, era: "4.88" }, // Rockies
+  137: { fullName: "Logan Webb", wins: 12, losses: 9, era: "3.22" } // Giants
+};
+
+async function fetchPitcherStats(pitcherId) {
+  if (!state.pitcherStatsCache) {
+    state.pitcherStatsCache = {};
+  }
+  if (state.pitcherStatsCache[pitcherId]) return;
+  state.pitcherStatsCache[pitcherId] = { loading: true };
+  try {
+    const res = await fetch(`https://statsapi.mlb.com/api/v1/people/${pitcherId}?hydrate=stats(group=[pitching],type=[season])`);
+    const data = await res.json();
+    if (data.people && data.people[0]) {
+      const p = data.people[0];
+      let statInfo = { wins: 0, losses: 0, era: '-.--' };
+      const seasonStats = p.stats?.find(s => s.type.displayName === 'season' && s.group.displayName === 'pitching');
+      const split = seasonStats?.splits?.[0]?.stat;
+      if (split) {
+        statInfo = {
+          wins: split.wins ?? 0,
+          losses: split.losses ?? 0,
+          era: split.era !== undefined ? parseFloat(split.era).toFixed(2) : '-.--'
+        };
+      }
+      state.pitcherStatsCache[pitcherId] = {
+        loading: false,
+        fullName: p.fullName,
+        wins: statInfo.wins,
+        losses: statInfo.losses,
+        era: statInfo.era
+      };
+    } else {
+      state.pitcherStatsCache[pitcherId] = { error: true };
+    }
+  } catch (err) {
+    console.error("Failed to fetch pitcher stats:", err);
+    state.pitcherStatsCache[pitcherId] = { error: true };
+  }
+  render();
+}
+
 // Helper to render cards
 function createGameCard(item, isNeutral) {
   const card = document.createElement('div');
@@ -2890,6 +2946,115 @@ function createGameCard(item, isNeutral) {
       rootingBanner.appendChild(badgeTarget);
       rootingBanner.appendChild(expl);
       card.appendChild(rootingBanner);
+    }
+
+    // 2. Probable Pitchers Matchup
+    let hasPitchers = false;
+    let awayPitcherData = null;
+    let homePitcherData = null;
+
+    const realAwayPitcher = item.teams?.away?.probablePitcher;
+    const realHomePitcher = item.teams?.home?.probablePitcher;
+
+    if (realAwayPitcher && realHomePitcher) {
+      hasPitchers = true;
+      if (!state.pitcherStatsCache) {
+        state.pitcherStatsCache = {};
+      }
+
+      const cacheAway = state.pitcherStatsCache[realAwayPitcher.id];
+      const cacheHome = state.pitcherStatsCache[realHomePitcher.id];
+
+      if (cacheAway && !cacheAway.loading && !cacheAway.error) {
+        awayPitcherData = cacheAway;
+      } else {
+        if (!cacheAway) {
+          fetchPitcherStats(realAwayPitcher.id);
+        }
+      }
+
+      if (cacheHome && !cacheHome.loading && !cacheHome.error) {
+        homePitcherData = cacheHome;
+      } else {
+        if (!cacheHome) {
+          fetchPitcherStats(realHomePitcher.id);
+        }
+      }
+    } else if (item.gamePk >= 1000) {
+      // Fallback for mock games
+      hasPitchers = true;
+      awayPitcherData = MOCK_PITCHERS_BY_TEAM[item.awayTeam.id] || { fullName: `${item.awayTeam.shortName} Starter`, wins: 7, losses: 7, era: "3.95" };
+      homePitcherData = MOCK_PITCHERS_BY_TEAM[item.homeTeam.id] || { fullName: `${item.homeTeam.shortName} Starter`, wins: 8, losses: 6, era: "3.80" };
+    }
+
+    if (hasPitchers) {
+      const pitcherCard = document.createElement('div');
+      pitcherCard.style.cssText = 'background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 8px; padding: 12px; margin-top: 10px; display: flex; flex-direction: column; gap: 8px;';
+      
+      const pHeader = document.createElement('div');
+      pHeader.style.cssText = 'display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px dashed var(--border-glass); padding-bottom: 6px;';
+      pHeader.innerHTML = `<span>⚾</span> <span>Probable Pitchers Matchup</span>`;
+      pitcherCard.appendChild(pHeader);
+
+      const pGrid = document.createElement('div');
+      pGrid.style.cssText = 'display: flex; gap: 16px;';
+
+      // Left Column (Away)
+      const pAwayCol = document.createElement('div');
+      pAwayCol.style.cssText = 'flex: 1; display: flex; flex-direction: column; text-align: left; border-right: 1px solid var(--border-glass); padding-right: 8px; min-width: 0;';
+      
+      const pAwayTeam = document.createElement('span');
+      pAwayTeam.style.cssText = `font-size: 9px; font-weight: 700; color: ${item.awayTeam.primaryColor || 'var(--text-muted)'}; margin-bottom: 2px; text-transform: uppercase;`;
+      pAwayTeam.innerText = `${item.awayTeam.abbreviation} (Away)`;
+      pAwayCol.appendChild(pAwayTeam);
+
+      if (awayPitcherData) {
+        const pAwayName = document.createElement('span');
+        pAwayName.style.cssText = 'font-size: 12px; font-weight: 700; color: var(--text-primary); font-family: var(--font-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
+        pAwayName.innerText = awayPitcherData.fullName || realAwayPitcher?.fullName || 'Pitcher';
+        pAwayCol.appendChild(pAwayName);
+
+        const pAwayStats = document.createElement('span');
+        pAwayStats.style.cssText = 'font-size: 9.5px; color: var(--text-muted); font-weight: 600; margin-top: 3px;';
+        pAwayStats.innerHTML = `${awayPitcherData.wins}-${awayPitcherData.losses} <span style="margin: 0 4px; opacity: 0.4;">|</span> <strong style="color: var(--text-primary);">${awayPitcherData.era} ERA</strong>`;
+        pAwayCol.appendChild(pAwayStats);
+      } else {
+        const pAwayLoading = document.createElement('span');
+        pAwayLoading.style.cssText = 'font-size: 11px; color: var(--text-muted); font-style: italic; margin-top: 2px;';
+        pAwayLoading.innerText = 'Loading stats...';
+        pAwayCol.appendChild(pAwayLoading);
+      }
+
+      // Right Column (Home)
+      const pHomeCol = document.createElement('div');
+      pHomeCol.style.cssText = 'flex: 1; display: flex; flex-direction: column; text-align: left; min-width: 0;';
+
+      const pHomeTeam = document.createElement('span');
+      pHomeTeam.style.cssText = `font-size: 9px; font-weight: 700; color: ${item.homeTeam.primaryColor || 'var(--text-muted)'}; margin-bottom: 2px; text-transform: uppercase;`;
+      pHomeTeam.innerText = `${item.homeTeam.abbreviation} (Home)`;
+      pHomeCol.appendChild(pHomeTeam);
+
+      if (homePitcherData) {
+        const pHomeName = document.createElement('span');
+        pHomeName.style.cssText = 'font-size: 12px; font-weight: 700; color: var(--text-primary); font-family: var(--font-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
+        pHomeName.innerText = homePitcherData.fullName || realHomePitcher?.fullName || 'Pitcher';
+        pHomeCol.appendChild(pHomeName);
+
+        const pHomeStats = document.createElement('span');
+        pHomeStats.style.cssText = 'font-size: 9.5px; color: var(--text-muted); font-weight: 600; margin-top: 3px;';
+        pHomeStats.innerHTML = `${homePitcherData.wins}-${homePitcherData.losses} <span style="margin: 0 4px; opacity: 0.4;">|</span> <strong style="color: var(--text-primary);">${homePitcherData.era} ERA</strong>`;
+        pHomeCol.appendChild(pHomeStats);
+      } else {
+        const pHomeLoading = document.createElement('span');
+        pHomeLoading.style.cssText = 'font-size: 11px; color: var(--text-muted); font-style: italic; margin-top: 2px;';
+        pHomeLoading.innerText = 'Loading stats...';
+        pHomeCol.appendChild(pHomeLoading);
+      }
+
+      pGrid.appendChild(pAwayCol);
+      pGrid.appendChild(pHomeCol);
+      pitcherCard.appendChild(pGrid);
+      card.appendChild(pitcherCard);
     }
 
     const analyticsBtnRow = document.createElement('div');
