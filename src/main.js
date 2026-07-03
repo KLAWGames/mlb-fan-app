@@ -2309,7 +2309,7 @@ function showTeamReplacementModal(newTeamId) {
 function createAllTeamsView() {
   const container = document.createElement('div');
   container.className = 'setup-container';
-  container.style.cssText = 'display: flex; flex-direction: column; gap: 20px; padding-bottom: 24px;';
+  container.style.cssText = 'display: flex; flex-direction: column; gap: 16px; padding-bottom: 24px;';
 
   const title = document.createElement('h2');
   title.className = 'setup-title';
@@ -2318,24 +2318,49 @@ function createAllTeamsView() {
   container.appendChild(title);
 
   const subtitle = document.createElement('p');
-  subtitle.style.cssText = 'font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; margin: 0; margin-top: -12px; margin-bottom: 4px;';
+  subtitle.style.cssText = 'font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; margin: 0; margin-top: -10px; margin-bottom: 4px;';
   subtitle.innerText = 'Select any team below to browse their page, run differential stats, schedule, and pitching analytics.';
   container.appendChild(subtitle);
 
-  const drawLeagueSection = (leagueName, leagueId) => {
-    const section = document.createElement('div');
-    section.style.cssText = 'display: flex; flex-direction: column; gap: 10px;';
+  // Tab switcher
+  const tabGroup = document.createElement('div');
+  tabGroup.style.cssText = 'display: flex; gap: 6px; padding: 4px; border-radius: 24px; border: 1.5px solid var(--border-glass); background: rgba(255,255,255,0.04); margin-bottom: 6px;';
 
-    const secTitle = document.createElement('h3');
-    secTitle.className = 'section-title';
-    secTitle.innerText = leagueName;
-    secTitle.style.cssText = 'font-size: 15px; color: var(--text-primary); margin-bottom: 4px; border-bottom: 1.5px solid var(--border-glass); padding-bottom: 4px;';
-    section.appendChild(secTitle);
+  const alBtn = document.createElement('button');
+  alBtn.style.cssText = 'flex: 1; padding: 10px; font-size: 13px; font-weight: 800; border-radius: 20px; border: none; cursor: pointer; transition: all 0.25s ease; font-family: var(--font-title); outline: none;';
+  alBtn.innerText = 'American League (AL)';
 
-    const grid = document.createElement('div');
-    grid.className = 'team-list-grid';
-    grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px;';
+  const nlBtn = document.createElement('button');
+  nlBtn.style.cssText = 'flex: 1; padding: 10px; font-size: 13px; font-weight: 800; border-radius: 20px; border: none; cursor: pointer; transition: all 0.25s ease; font-family: var(--font-title); outline: none;';
+  nlBtn.innerText = 'National League (NL)';
 
+  tabGroup.appendChild(alBtn);
+  tabGroup.appendChild(nlBtn);
+  container.appendChild(tabGroup);
+
+  const grid = document.createElement('div');
+  grid.className = 'team-list-grid';
+  grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px;';
+  container.appendChild(grid);
+
+  state.allTeamsActiveTab = state.allTeamsActiveTab || 'AL';
+
+  const updateTabsUI = () => {
+    const isAL = state.allTeamsActiveTab === 'AL';
+    
+    // AL Style
+    alBtn.style.background = isAL ? 'var(--color-gold)' : 'transparent';
+    alBtn.style.color = isAL ? '#ffffff' : 'var(--text-secondary)';
+    alBtn.style.boxShadow = isAL ? '0 4px 10px rgba(245, 158, 11, 0.3)' : 'none';
+
+    // NL Style
+    nlBtn.style.background = !isAL ? 'var(--color-gold)' : 'transparent';
+    nlBtn.style.color = !isAL ? '#ffffff' : 'var(--text-secondary)';
+    nlBtn.style.boxShadow = !isAL ? '0 4px 10px rgba(245, 158, 11, 0.3)' : 'none';
+  };
+
+  const renderGrid = (leagueId) => {
+    grid.innerHTML = '';
     const leagueTeams = Object.values(teamsData)
       .filter(t => t.leagueId === leagueId)
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -2394,13 +2419,27 @@ function createAllTeamsView() {
 
       grid.appendChild(teamCard);
     });
-
-    section.appendChild(grid);
-    return section;
   };
 
-  container.appendChild(drawLeagueSection('American League (AL)', 103));
-  container.appendChild(drawLeagueSection('National League (NL)', 104));
+  alBtn.addEventListener('click', () => {
+    if (state.allTeamsActiveTab !== 'AL') {
+      state.allTeamsActiveTab = 'AL';
+      updateTabsUI();
+      renderGrid(103);
+    }
+  });
+
+  nlBtn.addEventListener('click', () => {
+    if (state.allTeamsActiveTab !== 'NL') {
+      state.allTeamsActiveTab = 'NL';
+      updateTabsUI();
+      renderGrid(104);
+    }
+  });
+
+  // Initial draw
+  updateTabsUI();
+  renderGrid(state.allTeamsActiveTab === 'AL' ? 103 : 104);
 
   return container;
 }
