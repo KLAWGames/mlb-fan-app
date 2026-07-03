@@ -2164,7 +2164,7 @@ function closeTeamsDropup() {
 function updateFooterContent(footer) {
   footer.innerHTML = '';
   
-  const teamsLabel = state.selectedTeamIds.length > 1 ? 'Teams' : 'Team';
+  const teamsLabel = 'Teams';
   
   // Footer menu items configuration
   const menuItems = [
@@ -2219,17 +2219,11 @@ function updateFooterContent(footer) {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (item.view === 'dashboard') {
-        if (state.selectedTeamIds.length > 1) {
-          if (state.activeView !== 'dashboard') {
-            state.showTeamsDropupAfterRender = true;
-            transitionToView('dashboard', state.activeTeamId);
-          } else {
-            showTeamsDropupMenu(btn);
-          }
+        if (state.activeView !== 'dashboard') {
+          state.showTeamsDropupAfterRender = true;
+          transitionToView('dashboard', state.activeTeamId);
         } else {
-          if (state.activeView !== 'dashboard') {
-            transitionToView('dashboard', state.activeTeamId);
-          }
+          showTeamsDropupMenu(btn);
         }
       } else {
         if (state.activeView !== item.view) {
