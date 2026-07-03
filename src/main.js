@@ -4848,6 +4848,21 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
   
   graphContainer.appendChild(btnContainer);
 
+  // Find the first AL player and first NL player to tag them as leaders
+  let alLeaderId = null;
+  let nlLeaderId = null;
+  for (const leader of leaders) {
+    const teamId = leader.team?.id;
+    const staticTeam = teamsData[teamId] || {};
+    const leagueId = leader.league?.id || staticTeam.leagueId;
+    if (leagueId === 103 && !alLeaderId) {
+      alLeaderId = leader.person?.id;
+    } else if (leagueId === 104 && !nlLeaderId) {
+      nlLeaderId = leader.person?.id;
+    }
+    if (alLeaderId && nlLeaderId) break;
+  }
+
   // Render player rows
   const animRows = [];
 
@@ -4878,8 +4893,20 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
     nameSpan.innerText = leader.person?.fullName || 'Player';
     
     const teamSpan = document.createElement('span');
-    teamSpan.style.cssText = 'font-size: 9.5px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;';
+    teamSpan.style.cssText = 'font-size: 9.5px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; display: flex; align-items: center; gap: 6px;';
     teamSpan.innerText = `${idx + 1}. ${staticTeam.abbreviation || leader.team?.name || 'MLB'}`;
+
+    if (pId === alLeaderId) {
+      const tag = document.createElement('span');
+      tag.style.cssText = 'font-size: 8px; font-weight: 800; padding: 0.5px 4px; border-radius: 3px; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35); font-family: var(--font-title); line-height: 1;';
+      tag.innerText = 'AL LEADER';
+      teamSpan.appendChild(tag);
+    } else if (pId === nlLeaderId) {
+      const tag = document.createElement('span');
+      tag.style.cssText = 'font-size: 8px; font-weight: 800; padding: 0.5px 4px; border-radius: 3px; background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.35); font-family: var(--font-title); line-height: 1;';
+      tag.innerText = 'NL LEADER';
+      teamSpan.appendChild(tag);
+    }
 
     labelCol.appendChild(nameSpan);
     labelCol.appendChild(teamSpan);
