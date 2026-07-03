@@ -3339,9 +3339,17 @@ function createDashboardView() {
           info.appendChild(trendBadge);
         }
         timeline.appendChild(info);
+        
+        const openGraphBtn = document.createElement('button');
+        openGraphBtn.style.cssText = 'width: 100%; margin-top: 14px; padding: 10px; font-size: 12px; font-weight: 700; border-radius: 8px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; border: 1px solid var(--border-glass-highlight); background: var(--bg-card-hover); color: var(--text-primary); outline: none;';
+        openGraphBtn.innerHTML = '📊 Open Division Graph';
+        openGraphBtn.addEventListener('click', () => {
+          const chart = createMultiTeamRaceChart(team, divTeams);
+          showStandingsGraphModal(`${divTeams[0]?.divisionName || 'Division'} Race Trend`, chart);
+        });
+        timeline.appendChild(openGraphBtn);
       }
     }
-
 
     trackerCard.appendChild(timeline);
   } else {
@@ -3454,8 +3462,17 @@ function createDashboardView() {
         ladder.appendChild(createLadderRow(tRec, idx < 3, tRec.id === state.activeTeamId));
         lastIdx = idx;
       });
+      
+      const openWCGraphBtn = document.createElement('button');
+      openWCGraphBtn.style.cssText = 'width: 100%; margin-top: 14px; padding: 10px; font-size: 12px; font-weight: 700; border-radius: 8px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; border: 1px solid var(--border-glass-highlight); background: var(--bg-card-hover); color: var(--text-primary); outline: none;';
+      openWCGraphBtn.innerHTML = '📊 Open Wild Card Graph';
+      openWCGraphBtn.addEventListener('click', () => {
+        const { selectedWCTeams } = getWildCardRaceTeams(team.leagueId, team, state.processedStandings);
+        const chart = createMultiTeamRaceChart(team, selectedWCTeams);
+        showStandingsGraphModal(`${team.leagueId === 103 ? 'AL' : 'NL'} Wild Card Race Trend`, chart);
+      });
+      ladder.appendChild(openWCGraphBtn);
     }
-
 
     trackerCard.appendChild(ladder);
   }
@@ -3896,68 +3913,195 @@ function createScoresView() {
 }
 
 // Standings View
+// Helper to filter wildcard race graph teams cleanly
+function getWildCardRaceTeams(leagueId, activeTeam, processedStandings) {
+  const allLeague = processedStandings?.leagueTeams?.[leagueId] || [];
+  const wcPool = allLeague.filter(t => !t.divisionLeader).sort((a, b) => a.wildCardRank - b.wildCardRank);
+  
+  const selectedWCTeams = [];
+  const activeIdx = wcPool.findIndex(t => t.id === activeTeam.id);
+  
+  if (activeIdx >= 0) {
+    for (let i = 0; i < Math.min(3, wcPool.length); i++) {
+      selectedWCTeams.push(wcPool[i]);
+    }
+    selectedWCTeams.push(wcPool[activeIdx]);
+    if (activeIdx + 1 < wcPool.length) {
+      selectedWCTeams.push(wcPool[activeIdx + 1]);
+    }
+    wcPool.forEach(t => {
+      if (t.wildCardGamesBack === wcPool[activeIdx].wildCardGamesBack) {
+        selectedWCTeams.push(t);
+      }
+    });
+  } else {
+    for (let i = 0; i < Math.min(5, wcPool.length); i++) {
+      selectedWCTeams.push(wcPool[i]);
+    }
+  }
+  return { wcPool, selectedWCTeams };
+}
+
+// Modal popup showing stand-alone SVG trend graphs in full screen
+function showStandingsGraphModal(title, chartNode) {
+  const backdrop = document.createElement('div');
+  backdrop.className = 'recap-backdrop show';
+  backdrop.style.zIndex = '100000';
+  
+  const modal = document.createElement('div');
+  modal.className = 'recap-modal';
+  modal.style.cssText = 'width: 100%; max-width: 480px; max-height: 85vh; padding: 24px; display: flex; flex-direction: column; gap: 16px; position: relative;';
+  
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'recap-close-btn';
+  closeBtn.innerHTML = '×';
+  closeBtn.addEventListener('click', () => {
+    backdrop.classList.remove('show');
+    setTimeout(() => backdrop.remove(), 300);
+  });
+  modal.appendChild(closeBtn);
+  
+  const modalTitle = document.createElement('h2');
+  modalTitle.className = 'recap-title';
+  modalTitle.style.cssText = 'font-size: 20px; color: var(--color-gold); text-align: center; margin: 0; font-family: var(--font-title);';
+  modalTitle.innerText = title;
+  modal.appendChild(modalTitle);
+  
+  const chartWrapper = document.createElement('div');
+  chartWrapper.style.cssText = 'background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center;';
+  chartWrapper.appendChild(chartNode);
+  modal.appendChild(chartWrapper);
+  
+  const desc = document.createElement('p');
+  desc.style.cssText = 'font-size: 12px; color: var(--text-secondary); line-height: 1.5; text-align: center; margin: 0; font-family: var(--font-body);';
+  desc.innerText = 'Trend graph shows relative games above or below .500 (Wins - Losses surplus) over the last 10 games.';
+  modal.appendChild(desc);
+  
+  backdrop.appendChild(modal);
+  document.body.appendChild(backdrop);
+}
+
+// Standings View
 function createStandingsView() {
   const container = document.createElement('div');
+  container.className = 'setup-container';
+  container.style.cssText = 'display: flex; flex-direction: column; gap: 20px;';
+
   const favTeam = state.processedStandings?.teamsMap?.[state.activeTeamId] || teamsData[state.activeTeamId];
   if (!favTeam) return container;
 
-  // Render division standings
-  const divTitle = document.createElement('h3');
-  divTitle.className = 'section-title';
-  divTitle.innerText = `${favTeam.divisionName} Standings`;
-  container.appendChild(divTitle);
+  // Initialize league filter state to favor active team's league
+  if (!state.standingsLeagueId) {
+    state.standingsLeagueId = favTeam.leagueId;
+  }
 
-  const divCard = document.createElement('div');
-  divCard.className = 'glass-card';
-  const divTable = document.createElement('table');
-  divTable.className = 'standings-table';
-  divTable.innerHTML = `
-    <thead>
-      <tr>
-        <th>Team</th>
-        <th>W</th>
-        <th>L</th>
-        <th>Pct</th>
-        <th>GB</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  `;
-  const divBody = divTable.querySelector('tbody');
-  
-  const divisionId = favTeam.divisionId;
-  const divTeams = state.processedStandings?.divisionTeams?.[divisionId] || [];
-  
-  divTeams.forEach(team => {
-    const tr = document.createElement('tr');
-    if (team.id === state.activeTeamId) tr.className = 'highlight';
+  // 1. League Selection Tabs
+  const tabContainer = document.createElement('div');
+  tabContainer.className = 'standings-tab-container';
+  tabContainer.style.cssText = 'display: flex; gap: 8px; margin-bottom: 4px; background: rgba(255,255,255,0.06); padding: 4px; border-radius: 10px; border: 1px solid var(--border-glass-highlight);';
+
+  const leagues = [
+    { id: 103, name: 'American League (AL)' },
+    { id: 104, name: 'National League (NL)' }
+  ];
+
+  leagues.forEach(league => {
+    const tab = document.createElement('button');
+    const isActive = state.standingsLeagueId === league.id;
+    tab.innerText = league.name;
+    tab.style.cssText = `flex: 1; padding: 10px; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s ease; font-family: var(--font-title); text-align: center; outline: none; background: ${isActive ? 'var(--text-primary)' : 'transparent'}; color: ${isActive ? 'var(--bg-dark)' : 'var(--text-secondary)'};`;
     
-    tr.innerHTML = `
-      <td>
-        <div class="standings-team-cell">
-          <div class="team-badge-small" style="background:${team.primaryColor}; color:${team.textColor}; font-size:9px;">${team.abbreviation}</div>
-          <span>${team.name}</span>
-        </div>
-      </td>
-      <td>${team.wins}</td>
-      <td>${team.losses}</td>
-      <td>${team.pct}</td>
-      <td>${team.gamesBack === 0 ? '-' : team.gamesBack}</td>
-    `;
-    divBody.appendChild(tr);
+    tab.addEventListener('click', () => {
+      if (state.standingsLeagueId !== league.id) {
+        state.standingsLeagueId = league.id;
+        render();
+      }
+    });
+    tabContainer.appendChild(tab);
   });
-  divCard.appendChild(divTable);
-  container.appendChild(divCard);
+  container.appendChild(tabContainer);
 
-  // Render Wild Card Standings for active league
-  const leagueName = favTeam.leagueId === 103 ? 'AL' : 'NL';
+  const leagueId = state.standingsLeagueId;
+  const leagueName = leagueId === 103 ? 'AL' : 'NL';
+
+  // 2. Render all division tables in the selected league
+  const divisionIds = leagueId === 103 ? [201, 202, 200] : [204, 205, 203];
+
+  divisionIds.forEach(divId => {
+    const divTeams = state.processedStandings?.divisionTeams?.[divId] || [];
+    if (divTeams.length === 0) return;
+
+    const divName = divTeams[0].divisionName;
+    const divTitle = document.createElement('h3');
+    divTitle.className = 'section-title';
+    divTitle.innerText = `${divName} Standings`;
+    divTitle.style.cssText = 'margin-bottom: 2px; font-size: 16px; color: var(--text-primary);';
+    container.appendChild(divTitle);
+
+    const divCard = document.createElement('div');
+    divCard.className = 'glass-card';
+    divCard.style.padding = '12px';
+
+    const divTable = document.createElement('table');
+    divTable.className = 'standings-table';
+    divTable.innerHTML = `
+      <thead>
+        <tr>
+          <th>Team</th>
+          <th>W</th>
+          <th>L</th>
+          <th>Pct</th>
+          <th>GB</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    `;
+    const divBody = divTable.querySelector('tbody');
+    
+    divTeams.forEach(team => {
+      const tr = document.createElement('tr');
+      if (team.id === state.activeTeamId) tr.className = 'highlight';
+      
+      tr.innerHTML = `
+        <td>
+          <div class="standings-team-cell">
+            <div class="team-badge-small" style="background:${team.primaryColor}; color:${team.textColor}; font-size:9px;">${team.abbreviation}</div>
+            <span>${team.name}</span>
+          </div>
+        </td>
+        <td>${team.wins}</td>
+        <td>${team.losses}</td>
+        <td>${team.pct}</td>
+        <td>${team.gamesBack === 0 ? '-' : team.gamesBack}</td>
+      `;
+      divBody.appendChild(tr);
+    });
+    divCard.appendChild(divTable);
+
+    // Open division graph button
+    const openGraphBtn = document.createElement('button');
+    openGraphBtn.style.cssText = 'width: 100%; margin-top: 12px; padding: 10px; font-size: 12.5px; font-weight: 700; border-radius: 8px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; border: 1px solid var(--border-glass-highlight); background: var(--bg-card-hover); color: var(--text-primary); outline: none;';
+    openGraphBtn.innerHTML = '📊 Open Division Graph';
+    openGraphBtn.addEventListener('click', () => {
+      const chartNode = createMultiTeamRaceChart(favTeam, divTeams);
+      showStandingsGraphModal(`${divName} Race Trend`, chartNode);
+    });
+    divCard.appendChild(openGraphBtn);
+
+    container.appendChild(divCard);
+  });
+
+  // 3. Render Wild Card Standings for selected league
   const wcTitle = document.createElement('h3');
   wcTitle.className = 'section-title';
   wcTitle.innerText = `${leagueName} Wild Card Race`;
+  wcTitle.style.cssText = 'margin-bottom: 2px; font-size: 16px; color: var(--text-primary);';
   container.appendChild(wcTitle);
 
   const wcCard = document.createElement('div');
   wcCard.className = 'glass-card';
+  wcCard.style.padding = '12px';
+
   const wcTable = document.createElement('table');
   wcTable.className = 'standings-table';
   wcTable.innerHTML = `
@@ -3974,16 +4118,12 @@ function createStandingsView() {
   `;
   const wcBody = wcTable.querySelector('tbody');
 
-  const leagueId = favTeam.leagueId;
-  const allLeague = state.processedStandings?.leagueTeams?.[leagueId] || [];
-  // Non-division leaders sorted by wildcard rank
-  const wcPool = allLeague.filter(t => !t.divisionLeader).sort((a, b) => a.wildCardRank - b.wildCardRank);
+  const { wcPool, selectedWCTeams } = getWildCardRaceTeams(leagueId, favTeam, state.processedStandings);
 
   wcPool.forEach(team => {
     const tr = document.createElement('tr');
     if (team.id === state.activeTeamId) tr.className = 'highlight';
 
-    // Show plus sign for teams ahead, minus/blank for others
     let gbText = '-';
     if (team.wildCardGamesBack < 0) {
       gbText = `+${Math.abs(team.wildCardGamesBack)}`;
@@ -3991,7 +4131,6 @@ function createStandingsView() {
       gbText = `${team.wildCardGamesBack}`;
     }
 
-    // Highlight top 3 teams in wildcard position
     const rowStyle = team.isWildCardSpot ? 'font-style: italic; border-left: 2px solid var(--color-win);' : '';
     tr.style.cssText = rowStyle;
 
@@ -4010,6 +4149,17 @@ function createStandingsView() {
     wcBody.appendChild(tr);
   });
   wcCard.appendChild(wcTable);
+
+  // Open wildcard graph button
+  const openWCGraphBtn = document.createElement('button');
+  openWCGraphBtn.style.cssText = 'width: 100%; margin-top: 12px; padding: 10px; font-size: 12.5px; font-weight: 700; border-radius: 8px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; border: 1px solid var(--border-glass-highlight); background: var(--bg-card-hover); color: var(--text-primary); outline: none;';
+  openWCGraphBtn.innerHTML = '📊 Open Wild Card Graph';
+  openWCGraphBtn.addEventListener('click', () => {
+    const chartNode = createMultiTeamRaceChart(favTeam, selectedWCTeams);
+    showStandingsGraphModal(`${leagueName} Wild Card Race Trend`, chartNode);
+  });
+  wcCard.appendChild(openWCGraphBtn);
+
   container.appendChild(wcCard);
 
   return container;
