@@ -4,6 +4,18 @@ import { fetchStandings, fetchSchedule, formatLocalDate } from './mlbApi.js';
 import { processStandings, analyzeMatchups } from './rootingEngine.js';
 import { openGameAnalyticsCenter, reconstructGameFromSeasonGame } from './gameAnalytics.js';
 
+function formatOffDayDate(dateStr) {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+  const options = { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' };
+  let formatted = d.toLocaleDateString('en-US', options);
+  if (formatted.startsWith('Thu,')) {
+    formatted = formatted.replace('Thu,', 'Thurs,');
+  }
+  return formatted;
+}
+
 // Global error handler for diagnostic alerts on mobile devices
 window.onerror = function (message, source, lineno, colno, error) {
   alert("GLOBAL ERROR: " + message + " at " + source + ":" + lineno + (error ? "\n" + error.stack : ""));
@@ -676,6 +688,7 @@ function generateSeasonGames(teamId, wins, losses) {
           gamePk: g.gamePk,
           gameNumber: idx + 1,
           dateStr,
+          gameDateISO: g.officialDate,
           opponent: opponentData.name,
           opponentAbbr: opponentData.abbreviation,
           opponentId: opponentObj.id,
@@ -745,6 +758,7 @@ function generateSeasonGames(teamId, wins, losses) {
     gamesList.push({
       gameNumber: i + 1,
       dateStr: gameDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      gameDateISO: formatLocalDate(gameDate),
       opponent: opponent.name,
       opponentAbbr: opponent.abbreviation,
       opponentId: oppId,
@@ -3156,9 +3170,13 @@ function createDashboardView() {
       const resultColor = g.isWin ? '#6ee7b7' : '#fca5a5';
       const diffText = g.runDiff > 0 ? `+${g.runDiff}` : `${g.runDiff}`;
       
+      const yesterdayStr = getBaseballDate(-1);
+      const isTrulyYesterday = g.gameDateISO === yesterdayStr;
+      const dateDisplay = isTrulyYesterday ? `${g.dateStr} (Yesterday)` : g.dateStr;
+      
       textContainer.innerHTML = `
         <div style="font-size: 9px; color: rgba(255,255,255,0.65); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; margin-bottom: 2px;">
-          Game ${g.gameNumber} • ${g.dateStr}
+          Game ${g.gameNumber} • ${dateDisplay}
         </div>
         <div style="font-size: 13px; font-weight: 800; color: #ffffff;">
           <span style="color: ${resultColor};">${resultText} ${g.teamScore}-${g.oppScore}</span> vs ${g.opponent}
@@ -3195,7 +3213,8 @@ function createDashboardView() {
     const noGameCard = document.createElement('div');
     noGameCard.className = 'glass-card';
     noGameCard.style.cssText = 'margin-top: 14px; padding: 16px; text-align: center; color: var(--text-secondary); font-size: 13px; font-weight: 600; border: 1px solid var(--border-glass-highlight);';
-    noGameCard.innerText = `⚾ The ${activeTeamName} do not have a game today.`;
+    const formattedDate = formatOffDayDate(state.selectedDate);
+    noGameCard.innerText = `⚾ The ${activeTeamName} does not have a game today (${formattedDate}).`;
     container.appendChild(noGameCard);
   }
 
