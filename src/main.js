@@ -4886,10 +4886,10 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
     row.appendChild(labelCol);
 
     const barCol = document.createElement('div');
-    barCol.style.cssText = 'flex: 1; display: flex; align-items: center; gap: 8px;';
+    barCol.style.cssText = 'flex: 1; display: flex; align-items: center; gap: 8px; position: relative;';
 
     const barOuter = document.createElement('div');
-    barOuter.style.cssText = 'flex: 1; height: 16px; background: rgba(255,255,255,0.06); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-glass); display: flex;';
+    barOuter.style.cssText = 'flex: 1; height: 16px; background: rgba(255,255,255,0.06); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-glass); display: flex; transition: all 0.3s;';
 
     // Base segment (Yesterday)
     const baseBar = document.createElement('div');
@@ -4924,7 +4924,11 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
       yesterdayHR,
       totalHR,
       teamColor,
-      hasChange: todayHRs > 0
+      hasChange: todayHRs > 0,
+      todayHRs,
+      baseWidth,
+      barOuter,
+      barCol
     });
   });
 
@@ -4960,6 +4964,30 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
 
     animRows.forEach((row, idx) => {
       if (row.hasChange) {
+        row.barOuter.classList.add('pulse-new-hr');
+        
+        // Spawn animating +1 / +X bubble
+        const bubble = document.createElement('span');
+        bubble.className = 'float-up-fade';
+        bubble.style.cssText = `
+          position: absolute;
+          left: calc(${row.baseWidth + row.todayAddedWidth / 2}% - 12px);
+          top: -8px;
+          background: #ff5a00;
+          color: #ffffff;
+          font-size: 9px;
+          font-weight: 800;
+          padding: 2px 5px;
+          border-radius: 6px;
+          box-shadow: 0 0 6px rgba(255, 90, 0, 0.6);
+          pointer-events: none;
+          z-index: 10;
+          font-family: var(--font-title);
+        `;
+        bubble.innerText = `+${row.todayHRs}`;
+        row.barCol.appendChild(bubble);
+        setTimeout(() => bubble.remove(), 1400);
+
         setTimeout(() => {
           row.todayBar.style.width = `${row.todayAddedWidth}%`;
           
@@ -4978,6 +5006,10 @@ function renderMLBLeadersGraph(leaders, card, spinner) {
           row.todayBar.style.backgroundColor = row.teamColor;
           row.todayBar.style.boxShadow = 'none';
         }, 1600);
+
+        setTimeout(() => {
+          row.barOuter.classList.remove('pulse-new-hr');
+        }, 2500);
       }
     });
 

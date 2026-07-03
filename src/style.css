@@ -2245,3 +2245,21 @@ header {
   50% { transform: translateX(10px); }
   100% { transform: translateX(-10px); }
 }
+
+@keyframes hrPulseGlow {
+  0% { box-shadow: 0 0 4px rgba(255, 90, 0, 0.4); filter: brightness(1); }
+  50% { box-shadow: 0 0 16px rgba(255, 90, 0, 0.85); filter: brightness(1.35); }
+  100% { box-shadow: 0 0 4px rgba(255, 90, 0, 0.4); filter: brightness(1); }
+}
+.pulse-new-hr {
+  animation: hrPulseGlow 0.8s ease-in-out infinite;
+}
+
+@keyframes floatUpFade {
+  0% { transform: translateY(0) scale(0.8); opacity: 0; }
+  20% { transform: translateY(-6px) scale(1.15); opacity: 1; }
+  100% { transform: translateY(-24px) scale(0.9); opacity: 0; }
+}
+.float-up-fade {
+  animation: floatUpFade 1.4s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+}
