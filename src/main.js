@@ -3150,7 +3150,7 @@ function createDashboardView() {
     const noGameCard = document.createElement('div');
     noGameCard.className = 'glass-card';
     noGameCard.style.cssText = 'margin-top: 14px; padding: 16px; text-align: center; color: var(--text-secondary); font-size: 13px; font-weight: 600; border: 1px solid var(--border-glass-highlight);';
-    noGameCard.innerText = `⚾ ${activeTeamName} does not play today.`;
+    noGameCard.innerText = `⚾ The ${activeTeamName} do not have a game today.`;
     container.appendChild(noGameCard);
   }
 
