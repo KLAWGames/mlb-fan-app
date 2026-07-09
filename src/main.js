@@ -2699,6 +2699,7 @@ function showLeagueNewsModal() {
   mainCard.appendChild(spinner);
   body.appendChild(mainCard);
   content.appendChild(body);
+  backdrop.appendChild(content);
   document.body.appendChild(backdrop);
   backdrop.offsetHeight;
   backdrop.classList.add('show');
@@ -7127,16 +7128,44 @@ function createDeveloperNotesView() {
 
   const desc = document.createElement('p');
   desc.style.cssText = 'font-size: 12.5px; color: var(--text-secondary); line-height: 1.55; margin: 0; margin-top: -12px; margin-bottom: 4px;';
-  desc.innerText = 'Chronological log of changes and feature updates implemented starting this morning.';
+  desc.innerText = 'Chronological log of the entire development experience, milestones, and version releases.';
   container.appendChild(desc);
 
   const notesCard = document.createElement('div');
   notesCard.className = 'glass-card';
-  notesCard.style.cssText = 'padding: 20px; display: flex; flex-direction: column; gap: 18px; border: 1px solid var(--border-glass-highlight); margin-bottom: 0;';
+  notesCard.style.cssText = 'padding: 20px; display: flex; flex-direction: column; gap: 18px; border: 1px solid var(--border-glass-highlight); margin-bottom: 0; max-height: 60vh; overflow-y: auto;';
 
   notesCard.innerHTML = `
     <div>
-      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(245, 158, 11, 0.2); padding-bottom: 4px;">v1.4.0 (Outside Impact & Spacing Updates) — Afternoon</h4>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(16, 185, 129, 0.2); padding-bottom: 4px;">v1.7.0 (MLB Service Time & Hitter Splits)</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Implemented strict Major League service-time filters (<code>sportId = 1</code>) to ignore minor league splits.</li>
+        <li>Segregated <strong>Who's Hot</strong> position players into Everyday Starters (first 4, sorted by MLB OPS) and Recent Call-ups (highlighted in a distinct dashed card showing games played).</li>
+      </ul>
+    </div>
+    <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(245, 158, 11, 0.2); padding-bottom: 4px;">v1.6.5 (Live League-Wide Milestones & Stats)</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Replaced hardcoded milestone watches with dynamic API endpoints querying real-time home runs, hits, and stolen bases league leaders.</li>
+        <li>Integrated dynamic player active roster hydration to display real, up-to-the-minute 2026 baseball season statistics.</li>
+      </ul>
+    </div>
+    <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(59, 130, 246, 0.2); padding-bottom: 4px;">v1.6.0 (League-Wide Watchlist Overhaul)</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Refactored <strong>What to Watch Now</strong> to show exciting league-wide events (no-hitters, thrillers, streaks) rather than being favorite-team centric.</li>
+        <li>Separated live/upcoming watches from completed recaps, automatically updating finished outcomes chronologically.</li>
+      </ul>
+    </div>
+    <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(168, 85, 247, 0.2); padding-bottom: 4px;">v1.5.0 (Two-Section Streaks & Records)</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Restructured Streaks & Records modal into two clean sections: Active/Upcoming and Ended/Broken.</li>
+        <li>Implemented dynamic next-day start auto-expiration logic for team scoreless streaks and player hitting streaks.</li>
+      </ul>
+    </div>
+    <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid var(--border-glass); padding-bottom: 4px;">v1.4.0 (Outside Impact & Spacing Updates)</h4>
       <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
         <li>Implemented a visual <strong>Outside Impact</strong> meter in the <em>Games That Matter</em> sections to track standings help/drag from rival matchups (green for wins, red for losses, gray for active).</li>
         <li>Converted the <strong>All Teams</strong> list into a single full-page grid switcher (AL / NL) with compact card paddings, eliminating nested scrolling.</li>
@@ -7144,7 +7173,7 @@ function createDeveloperNotesView() {
       </ul>
     </div>
     <div>
-      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(6, 95, 70, 0.2); padding-bottom: 4px;">v1.3.5 (Real-Time Live HR & Click Modals) — Midday</h4>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid var(--border-glass); padding-bottom: 4px;">v1.3.5 (Real-Time Live HR & Click Modals)</h4>
       <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
         <li>Fixed schedule filters (status code <code>P</code>) to query all 13 games instead of 5, enabling in-progress game boxscore parsing.</li>
         <li>Formatted daily HR counts as pressable button cards. Clicking them triggers a play-by-play HR scorers details modal.</li>
@@ -7152,10 +7181,31 @@ function createDeveloperNotesView() {
       </ul>
     </div>
     <div>
-      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid var(--border-glass); padding-bottom: 4px;">v1.3.0 (Pitching Analytics & Matchups) — Morning</h4>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid var(--border-glass); padding-bottom: 4px;">v1.3.0 (Pitching Analytics & Matchups)</h4>
       <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
         <li>Designed interactive <strong>Pitcher Sankey Flow Charts</strong> inside visual drawer details.</li>
         <li>Added dynamic <strong>Probable Pitchers Matchup</strong> stats showing W-L and ERA statistics on expanded cards.</li>
+      </ul>
+    </div>
+    <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid var(--border-glass); padding-bottom: 4px;">v1.2.0 (Navigation, Settings & Diagnostics)</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Redesigned navigation to feature a two-tab floating bottom navigation bar with scroll-to-hide functionality.</li>
+        <li>Added a header Settings cog with tracked team grid control and force reload diagnostics button.</li>
+      </ul>
+    </div>
+    <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid var(--border-glass); padding-bottom: 4px;">v1.1.0 (Light Mode & Baseball Savant Aesthetic)</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Redesigned visual themes to light mode using Slate gray typography and thin border cards.</li>
+        <li>Added active team branding banner, horizontal standings ticker, and run differential spark-bar chart with zoom toggle.</li>
+      </ul>
+    </div>
+    <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid var(--border-glass); padding-bottom: 4px;">v1.0.0 (Core Relevance & Rooting Engine)</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Built the core division/wildcard rooting threat engine separating games into relevance lists.</li>
+        <li>Added rooting indicator badges, completed outcome smiley capsules, and pull-to-refresh.</li>
       </ul>
     </div>
   `;
