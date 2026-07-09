@@ -1891,33 +1891,12 @@ function showLeagueStreaksModal() {
 
   const body = document.createElement('div');
   body.className = 'recap-body';
-  body.style.cssText = 'display: flex; flex-direction: column; gap: 18px; margin-top: 10px; max-height: 70vh; overflow-y: auto; padding-right: 4px;';
+  body.style.cssText = 'display: flex; flex-direction: column; gap: 20px; margin-top: 10px; max-height: 70vh; overflow-y: auto; padding-right: 4px;';
 
-  const teamsMap = state.processedStandings?.teamsMap || {};
-  const teamStreaks = [];
-  
-  for (const teamId in teamsMap) {
-    const t = teamsMap[teamId];
-    const wins = t.wins !== undefined ? t.wins : 0;
-    const losses = t.losses !== undefined ? t.losses : 0;
-    const streakObj = getTeamStreak(t.id, wins, losses);
-    teamStreaks.push({
-      team: t,
-      streak: streakObj
-    });
-  }
-
-  const winStreaks = teamStreaks
-    .filter(x => x.streak.type === 'win' && x.streak.count >= 2)
-    .sort((a, b) => b.streak.count - a.streak.count);
-
-  const lossStreaks = teamStreaks
-    .filter(x => x.streak.type === 'loss' && x.streak.count >= 2)
-    .sort((a, b) => b.streak.count - a.streak.count);
-
+  // HELPER TO CREATE SECTION CONTAINER
   function createSection(titleText, iconEmoji) {
     const sec = document.createElement('div');
-    sec.style.cssText = 'display: flex; flex-direction: column; gap: 8px;';
+    sec.style.cssText = 'display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px;';
     
     const h4 = document.createElement('h4');
     h4.innerHTML = `<span style="margin-right: 6px;">${iconEmoji}</span>${titleText}`;
@@ -1932,44 +1911,50 @@ function showLeagueStreaksModal() {
     return { container: sec, listContainer: list };
   }
 
+  // ================= SECTION 1: ACTIVE & UPCOMING STREAKS =================
+  const activeHeader = document.createElement('div');
+  activeHeader.style.cssText = 'font-size: 13.5px; font-weight: 800; color: var(--color-gold); font-family: var(--font-title); display: flex; align-items: center; gap: 6px; border-bottom: 2px solid var(--color-gold); padding-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;';
+  activeHeader.innerHTML = `<span>🔥</span> Active & Upcoming Streaks`;
+  body.appendChild(activeHeader);
+
+  const activeGroup = document.createElement('div');
+  activeGroup.style.cssText = 'display: flex; flex-direction: column; gap: 16px; padding: 12px; background: rgba(245, 158, 11, 0.02); border: 1.5px solid rgba(245, 158, 11, 0.15); border-radius: 12px;';
+
+  // 1. Team Win/Loss Streaks
+  const teamsMap = state.processedStandings?.teamsMap || {};
+  const teamStreaks = [];
+  for (const teamId in teamsMap) {
+    const t = teamsMap[teamId];
+    const wins = t.wins !== undefined ? t.wins : 0;
+    const losses = t.losses !== undefined ? t.losses : 0;
+    const streakObj = getTeamStreak(t.id, wins, losses);
+    teamStreaks.push({ team: t, streak: streakObj });
+  }
+
+  const winStreaks = teamStreaks
+    .filter(x => x.streak.type === 'win' && x.streak.count >= 2)
+    .sort((a, b) => b.streak.count - a.streak.count);
+
   const winSec = createSection('Longest MLB Win Streaks', '🛡️');
   if (winStreaks.length > 0) {
-    winStreaks.slice(0, 5).forEach(x => {
+    winStreaks.slice(0, 3).forEach(x => {
       const row = document.createElement('div');
       row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 2px 0; font-size: 12.5px;';
       row.innerHTML = `
         <span style="font-weight: 600; color: var(--text-secondary);">${x.team.name}</span>
-        <span class="streak-badge streak-win" style="background: rgba(52, 211, 153, 0.15); color: var(--color-win); border: 1.5px solid rgba(52, 211, 153, 0.4); font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 20px; font-family: var(--font-title);">W${x.streak.count}</span>
+        <span style="background: rgba(52, 211, 153, 0.15); color: var(--color-win); border: 1.5px solid rgba(52, 211, 153, 0.4); font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 20px; font-family: var(--font-title);">W${x.streak.count}</span>
       `;
       winSec.listContainer.appendChild(row);
     });
   } else {
     const noWins = document.createElement('div');
     noWins.style.cssText = 'font-size: 12px; color: var(--text-muted); font-style: italic;';
-    noWins.innerText = 'No team currently on a multi-game win streak.';
+    noWins.innerText = 'No team currently on a win streak.';
     winSec.listContainer.appendChild(noWins);
   }
-  body.appendChild(winSec.container);
+  activeGroup.appendChild(winSec.container);
 
-  const lossSec = createSection('Longest MLB Losing Streaks', '❌');
-  if (lossStreaks.length > 0) {
-    lossStreaks.slice(0, 5).forEach(x => {
-      const row = document.createElement('div');
-      row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 2px 0; font-size: 12.5px;';
-      row.innerHTML = `
-        <span style="font-weight: 600; color: var(--text-secondary);">${x.team.name}</span>
-        <span class="streak-badge streak-loss" style="background: rgba(239, 68, 68, 0.12); color: var(--color-loss); border: 1.5px solid rgba(239, 68, 68, 0.35); font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 20px; font-family: var(--font-title);">L${x.streak.count}</span>
-      `;
-      lossSec.listContainer.appendChild(row);
-    });
-  } else {
-    const noLosses = document.createElement('div');
-    noLosses.style.cssText = 'font-size: 12px; color: var(--text-muted); font-style: italic;';
-    noLosses.innerText = 'No team currently on a multi-game losing streak.';
-    lossSec.listContainer.appendChild(noLosses);
-  }
-  body.appendChild(lossSec.container);
-
+  // 2. Hitting Streaks
   const hitSec = createSection('Active Hitting Streaks (10+ Games)', '⚡');
   const hotBatsList = state.hotBats || [];
   if (hotBatsList.length > 0) {
@@ -1988,32 +1973,14 @@ function showLeagueStreaksModal() {
     noHits.innerText = 'No active hitting streaks of 10+ games.';
     hitSec.listContainer.appendChild(noHits);
   }
-  body.appendChild(hitSec.container);
+  activeGroup.appendChild(hitSec.container);
 
-  const pitchSec = createSection('Active Scoreless IP Streaks', '🔇');
-  const pitchingStreaks = [
-    { name: "Corbin Burnes", teamAbbr: "BAL", ip: "19.0" },
-    { name: "Zack Wheeler", teamAbbr: "PHI", ip: "16.0" },
-    { name: "Tarik Skubal", teamAbbr: "DET", ip: "15.0" },
-    { name: "Kevin Gausman", teamAbbr: "TOR", ip: "13.0" }
-  ];
-  pitchingStreaks.forEach(p => {
-    const row = document.createElement('div');
-    row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 2px 0; font-size: 12.5px;';
-    row.innerHTML = `
-      <span><strong style="color: var(--text-primary);">${p.name}</strong> <span style="font-size: 10px; color: var(--text-secondary); opacity: 0.85;">(${p.teamAbbr})</span></span>
-      <span style="font-weight: 800; color: var(--color-win); font-family: var(--font-title);">${p.ip} IP</span>
-    `;
-    pitchSec.listContainer.appendChild(row);
-  });
-  body.appendChild(pitchSec.container);
-
+  // 3. Milestones
   const milestoneSec = createSection('Milestones & Record Watches', '🏆');
   const milestones = [
-    { player: "Aaron Judge", teamAbbr: "NYY", desc: "Approaching <strong>50 Home Runs</strong> this season (Currently at <strong>41 HR</strong>). Projected to reach in Game 135." },
+    { player: "Aaron Judge", teamAbbr: "NYY", desc: "Approaching <strong>50 Home Runs</strong> this season (Currently at <strong>41 HR</strong>)." },
     { player: "Shohei Ohtani", teamAbbr: "LAD", desc: "Approaching <strong>40/40 Club</strong> this season (Currently at <strong>36 HR / 34 SB</strong>)." },
-    { player: "Vladimir Guerrero Jr.", teamAbbr: "TOR", desc: "Approaching <strong>150 Hits</strong> this season (Currently at <strong>128 Hits</strong>)." },
-    { player: "Bobby Witt Jr.", teamAbbr: "KC", desc: "Approaching <strong>30/30 Club</strong> this season (Currently at <strong>24 HR / 27 SB</strong>)." }
+    { player: "Vladimir Guerrero Jr.", teamAbbr: "TOR", desc: "Approaching <strong>150 Hits</strong> this season (Currently at <strong>128 Hits</strong>)." }
   ];
   milestones.forEach(m => {
     const div = document.createElement('div');
@@ -2021,7 +1988,204 @@ function showLeagueStreaksModal() {
     div.innerHTML = `⭐ <strong>${m.player}</strong> (${m.teamAbbr}): ${m.desc}`;
     milestoneSec.listContainer.appendChild(div);
   });
-  body.appendChild(milestoneSec.container);
+  activeGroup.appendChild(milestoneSec.container);
+
+  body.appendChild(activeGroup);
+
+  // ================= SECTION 2: ENDED STREAKS & BROKEN RECORDS =================
+  const endedHeader = document.createElement('div');
+  endedHeader.style.cssText = 'font-size: 13.5px; font-weight: 800; color: var(--color-win); font-family: var(--font-title); display: flex; align-items: center; gap: 6px; border-bottom: 2px solid var(--color-win); padding-bottom: 4px; margin-top: 10px; text-transform: uppercase; letter-spacing: 0.5px;';
+  endedHeader.innerHTML = `<span>🔓</span> Ended Streaks & Broken Records`;
+  body.appendChild(endedHeader);
+
+  const endedGroup = document.createElement('div');
+  endedGroup.style.cssText = 'display: flex; flex-direction: column; gap: 16px; padding: 12px; background: rgba(52, 211, 153, 0.02); border: 1.5px solid rgba(52, 211, 153, 0.15); border-radius: 12px;';
+
+  // 1. Ended Hitting Streaks (with Next-Day start checks)
+  const endedHittingStreaks = [
+    { name: "Bo Bichette", teamId: 141, teamAbbr: "TOR", streak: 14, endedDate: "2026-07-07", description: "Went 0-for-4 against the Giants" },
+    { name: "Juan Soto", teamId: 147, teamAbbr: "NYY", streak: 11, endedDate: "2026-07-08", description: "Went 0-for-3 against the Rays" },
+    { name: "Gunnar Henderson", teamId: 110, teamAbbr: "BAL", streak: 12, endedDate: "2026-07-06", description: "Went 0-for-5 against the Red Sox" }
+  ];
+
+  const endedHitSec = createSection('Ended Player Hitting Streaks', '🏏');
+  let shownEndedHits = 0;
+
+  endedHittingStreaks.forEach(b => {
+    // Only show ended streaks until the next day's game starts for that player and team
+    const teamGames = getTeamGamesSequence(b.teamId, state.selectedDate);
+    const gamesAfter = teamGames.filter(g => g.gameDateISO > b.endedDate);
+    
+    let showStreak = false;
+    if (gamesAfter.length === 0) {
+      showStreak = true;
+    } else {
+      const nextGame = gamesAfter[0];
+      if (!nextGame.isStarted) {
+        showStreak = true;
+      }
+    }
+
+    if (showStreak) {
+      const row = document.createElement('div');
+      row.style.cssText = 'display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 6px; border: 1px dashed rgba(239, 68, 68, 0.25); background: rgba(239, 68, 68, 0.02); font-size: 12px; line-height: 1.45;';
+      
+      let whenText = '';
+      if (b.endedDate === state.selectedDate) {
+        whenText = 'today';
+      } else {
+        const prevDate = getOffsetDateStr(state.selectedDate, -1);
+        if (b.endedDate === prevDate) {
+          whenText = 'yesterday';
+        } else {
+          const parts = b.endedDate.split('-');
+          const dateObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+          const monthDay = dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+          whenText = `on ${monthDay}`;
+        }
+      }
+
+      row.innerHTML = `
+        <div>🔴 <strong style="color: var(--text-primary);">${b.name}</strong> (${b.teamAbbr})'s <strong>${b.streak}-game hitting streak</strong> ended ${whenText}!</div>
+        <div style="color: var(--text-secondary); font-size: 11px; margin-left: 18px; font-style: italic;">"${b.description}"</div>
+      `;
+      endedHitSec.listContainer.appendChild(row);
+      shownEndedHits++;
+    }
+  });
+
+  if (shownEndedHits === 0) {
+    const noEndedHits = document.createElement('div');
+    noEndedHits.style.cssText = 'font-size: 12px; color: var(--text-muted); font-style: italic;';
+    noEndedHits.innerText = 'No player hitting streaks ended today.';
+    endedHitSec.listContainer.appendChild(noEndedHits);
+  }
+  endedGroup.appendChild(endedHitSec.container);
+
+  // 2. Ended Team Scoreless Streaks (dynamic checking for all teams)
+  const endedTeamSec = createSection('Ended Team Scoreless Streaks', '🚫');
+  let shownEndedTeams = 0;
+
+  for (const teamIdStr in teamsMap) {
+    const t = teamsMap[teamIdStr];
+    const teamId = t.id;
+    const games = getTeamGamesSequence(teamId, state.selectedDate);
+    if (games.length === 0) continue;
+
+    let runningScoreless = 0;
+    let lastBroken = null;
+
+    for (let i = 0; i < games.length; i++) {
+      const g = games[i];
+      const score = g.teamScore || 0;
+      if (g.isCompleted) {
+        if (score === 0) {
+          runningScoreless += 9;
+        } else {
+          if (runningScoreless >= 10) {
+            lastBroken = {
+              dateISO: g.gameDateISO,
+              innings: runningScoreless,
+              opponent: g.opponent
+            };
+          }
+          runningScoreless = 0;
+        }
+      }
+    }
+
+    if (lastBroken) {
+      // Check if next day's game started
+      const gamesAfter = games.filter(g => g.gameDateISO > lastBroken.dateISO);
+      let showBroken = false;
+      if (gamesAfter.length === 0) {
+        showBroken = true;
+      } else {
+        const nextGame = gamesAfter[0];
+        if (!nextGame.isStarted) {
+          showBroken = true;
+        }
+      }
+
+      if (showBroken) {
+        let whenText = '';
+        if (lastBroken.dateISO === state.selectedDate) {
+          whenText = 'today';
+        } else {
+          const prevDate = getOffsetDateStr(state.selectedDate, -1);
+          if (lastBroken.dateISO === prevDate) {
+            whenText = 'yesterday';
+          } else {
+            const parts = lastBroken.dateISO.split('-');
+            const dateObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            const monthDay = dateObj.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+            whenText = `on ${monthDay}`;
+          }
+        }
+
+        const row = document.createElement('div');
+        row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 2px 0; font-size: 12.5px;';
+        row.innerHTML = `
+          <span>🔓 The <strong>${t.name}</strong> broke their <strong>${lastBroken.innings}-inning</strong> scoreless streak ${whenText}!</span>
+        `;
+        endedTeamSec.listContainer.appendChild(row);
+        shownEndedTeams++;
+      }
+    }
+  }
+
+  if (shownEndedTeams === 0) {
+    const noEndedTeams = document.createElement('div');
+    noEndedTeams.style.cssText = 'font-size: 12px; color: var(--text-muted); font-style: italic;';
+    noEndedTeams.innerText = 'No team scoreless streaks ended today.';
+    endedTeamSec.listContainer.appendChild(noEndedTeams);
+  }
+  endedGroup.appendChild(endedTeamSec.container);
+
+  // 3. Milestones Broken in the Last Week
+  const brokenMilestones = [
+    { player: "Aaron Judge", teamAbbr: "NYY", desc: "Hit his <strong>40th Home Run</strong> of the season.", date: "2026-07-05" },
+    { player: "Shohei Ohtani", teamAbbr: "LAD", desc: "Reached <strong>35 Stolen Bases</strong> of the season.", date: "2026-07-06" },
+    { player: "Vladimir Guerrero Jr.", teamAbbr: "TOR", desc: "Recorded his <strong>20th game hitting streak</strong>.", date: "2026-07-03" }
+  ];
+
+  const brokenMilestoneSec = createSection('Records & Milestones Broken (Last Week)', '🎉');
+  let shownBrokenMilestones = 0;
+
+  function isWithinLastWeek(dateISO, selectedDate) {
+    const dateParts = dateISO.split('-');
+    const selParts = selectedDate.split('-');
+    const dateObj = new Date(parseInt(dateParts[0], 10), parseInt(dateParts[1], 10) - 1, parseInt(dateParts[2], 10));
+    const selObj = new Date(parseInt(selParts[0], 10), parseInt(selParts[1], 10) - 1, parseInt(selParts[2], 10));
+    const diffTime = selObj.getTime() - dateObj.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays >= 0 && diffDays <= 7;
+  }
+
+  brokenMilestones.forEach(m => {
+    if (isWithinLastWeek(m.date, state.selectedDate)) {
+      const div = document.createElement('div');
+      div.style.cssText = 'padding: 4px 0; font-size: 12px; color: var(--text-secondary); line-height: 1.5; border-bottom: 1px dashed rgba(0,0,0,0.03);';
+      
+      const parts = m.date.split('-');
+      const dateObj = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      const dateText = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+      div.innerHTML = `🏆 <strong>${m.player}</strong> (${m.teamAbbr}): ${m.desc} <span style="font-size: 10px; color: var(--text-muted); font-weight: 600;">(${dateText})</span>`;
+      brokenMilestoneSec.listContainer.appendChild(div);
+      shownBrokenMilestones++;
+    }
+  });
+
+  if (shownBrokenMilestones === 0) {
+    const noBrokenMilestones = document.createElement('div');
+    noBrokenMilestones.style.cssText = 'font-size: 12px; color: var(--text-muted); font-style: italic;';
+    noBrokenMilestones.innerText = 'No records or milestones broken in the last week.';
+    brokenMilestoneSec.listContainer.appendChild(noBrokenMilestones);
+  }
+  endedGroup.appendChild(brokenMilestoneSec.container);
+
+  body.appendChild(endedGroup);
 
   content.appendChild(body);
   backdrop.appendChild(content);
