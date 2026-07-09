@@ -1779,7 +1779,7 @@ function showWhosHotModal() {
 
   const body = document.createElement('div');
   body.className = 'recap-body';
-  body.style.cssText = 'display: flex; flex-direction: column; gap: 14px; margin-top: 10px;';
+  body.style.cssText = 'display: flex; flex-direction: column; gap: 14px; margin-top: 10px; max-height: 70vh; overflow-y: auto; padding-right: 4px;';
 
   const desc = document.createElement('p');
   desc.style.cssText = 'font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin: 0 0 4px 0; text-align: left;';
@@ -1805,24 +1805,76 @@ function showWhosHotModal() {
     });
 
     performersGrid.innerHTML = '';
-    const performers = getHotPerformersForTeam(state.activeTeamId, selectedOpt);
-    performers.forEach(p => {
-      const card = HotPerformerCard(
-        p.playerName,
-        selectedOpt,
-        p.wrcPlus,
-        p.barrelPercent,
-        p.babip,
-        p.dailyIntel,
-        p.walkRate,
-        p.strikeoutRate,
-        p.whiffRate,
-        p.disciplineIntel,
-        p.leagueRank,
-        teamName
-      );
-      performersGrid.appendChild(card);
-    });
+
+    const spinner = document.createElement('div');
+    spinner.style.cssText = 'text-align: center; color: var(--text-secondary); font-size: 13px; font-style: italic; padding: 20px;';
+    spinner.innerText = 'Analyzing batting metrics...';
+    performersGrid.appendChild(spinner);
+
+    let hydrateQuery = "";
+    if (selectedOpt === 'Last 10 Games') {
+      hydrateQuery = 'person(stats(type=lastXGames,limit=10,group=batting))';
+    } else if (selectedOpt === 'Last 30 Games') {
+      hydrateQuery = 'person(stats(type=lastXGames,limit=30,group=batting))';
+    } else {
+      hydrateQuery = 'person(stats(type=season,season=2026,group=batting))';
+    }
+
+    const url = `https://statsapi.mlb.com/api/v1/teams/${activeTeamId}/roster?rosterType=active&season=2026&hydrate=${hydrateQuery}`;
+
+    fetch(url)
+      .then(res => {
+        if (!res.ok) throw new Error('API failure');
+        return res.json();
+      })
+      .then(data => {
+        performersGrid.innerHTML = '';
+        if (!data.roster || data.roster.length === 0) {
+          performersGrid.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:12px;padding:20px;">No roster data found.</div>';
+          return;
+        }
+
+        const hitters = data.roster
+          .filter(r => r.position.code !== '1') // Exclude pitchers
+          .map(r => {
+            const p = r.person;
+            const stats = p.stats?.[0]?.splits?.[0]?.stat || null;
+            return {
+              id: p.id,
+              name: p.fullName,
+              position: r.position.abbreviation,
+              stats
+            };
+          })
+          .filter(h => {
+            if (!h.stats) return false;
+            if (selectedOpt === 'Last 10 Games') return h.stats.plateAppearances >= 5;
+            if (selectedOpt === 'Last 30 Games') return h.stats.plateAppearances >= 12;
+            return h.stats.plateAppearances >= 40;
+          });
+
+        hitters.sort((a, b) => {
+          const opsA = parseFloat(a.stats.ops) || 0;
+          const opsB = parseFloat(b.stats.ops) || 0;
+          return opsB - opsA;
+        });
+
+        const topPerformers = hitters.slice(0, 5);
+
+        if (topPerformers.length === 0) {
+          performersGrid.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:12px;padding:20px;">No qualified hitters found for this timeframe.</div>';
+          return;
+        }
+
+        topPerformers.forEach(p => {
+          const card = HotPerformerCard(p, selectedOpt, teamName);
+          performersGrid.appendChild(card);
+        });
+      })
+      .catch(e => {
+        console.error(e);
+        performersGrid.innerHTML = '<div style="text-align:center;color:var(--color-loss);font-size:12px;font-weight:600;padding:20px;">Failed to load player stats.</div>';
+      });
   }
 
   timeframes.forEach(opt => {
@@ -1977,18 +2029,74 @@ function showLeagueStreaksModal() {
 
   // 3. Milestones
   const milestoneSec = createSection('Milestones & Record Watches', '🏆');
-  const milestones = [
-    { player: "Aaron Judge", teamAbbr: "NYY", desc: "Approaching <strong>50 Home Runs</strong> this season (Currently at <strong>41 HR</strong>)." },
-    { player: "Shohei Ohtani", teamAbbr: "LAD", desc: "Approaching <strong>40/40 Club</strong> this season (Currently at <strong>36 HR / 34 SB</strong>)." },
-    { player: "Vladimir Guerrero Jr.", teamAbbr: "TOR", desc: "Approaching <strong>150 Hits</strong> this season (Currently at <strong>128 Hits</strong>)." }
-  ];
-  milestones.forEach(m => {
-    const div = document.createElement('div');
-    div.style.cssText = 'padding: 4px 0; font-size: 12px; color: var(--text-secondary); line-height: 1.5; border-bottom: 1px dashed rgba(0,0,0,0.03);';
-    div.innerHTML = `⭐ <strong>${m.player}</strong> (${m.teamAbbr}): ${m.desc}`;
-    milestoneSec.listContainer.appendChild(div);
-  });
+  const milestoneSpinner = document.createElement('div');
+  milestoneSpinner.style.cssText = 'text-align: center; color: var(--text-secondary); font-size: 12px; font-style: italic; padding: 10px;';
+  milestoneSpinner.innerText = 'Loading milestones...';
+  milestoneSec.listContainer.appendChild(milestoneSpinner);
   activeGroup.appendChild(milestoneSec.container);
+
+  const selectedYear = state.selectedDate.split('-')[0];
+  const mlbHRLeadersUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=homeRuns&season=${selectedYear}&statType=season&limit=3`;
+  const mlbHitsLeadersUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=hits&season=${selectedYear}&statType=season&limit=3`;
+  const mlbSBLeadersUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=stolenBases&season=${selectedYear}&statType=season&limit=3`;
+
+  Promise.all([
+    fetch(mlbHRLeadersUrl).then(r => r.json()).catch(() => null),
+    fetch(mlbHitsLeadersUrl).then(r => r.json()).catch(() => null),
+    fetch(mlbSBLeadersUrl).then(r => r.json()).catch(() => null)
+  ]).then(([hrData, hitsData, sbData]) => {
+    milestoneSec.listContainer.innerHTML = '';
+    let milestoneCount = 0;
+
+    // Add HR milestones
+    const hrLeaders = hrData?.leagueLeaders?.[0]?.leaders || [];
+    hrLeaders.slice(0, 2).forEach(l => {
+      const val = parseInt(l.value, 10) || 0;
+      if (val > 0) {
+        const milestone = Math.ceil((val + 1) / 5) * 5;
+        const div = document.createElement('div');
+        div.style.cssText = 'padding: 4px 0; font-size: 12px; color: var(--text-secondary); line-height: 1.5; border-bottom: 1px dashed rgba(0,0,0,0.03);';
+        div.innerHTML = `⭐ <strong>${l.person.fullName}</strong> (${l.team.abbreviation || l.team.name}): Approaching <strong>${milestone} Home Runs</strong> this season (Currently at <strong>${val} HR</strong>).`;
+        milestoneSec.listContainer.appendChild(div);
+        milestoneCount++;
+      }
+    });
+
+    // Add Hits milestones
+    const hitsLeaders = hitsData?.leagueLeaders?.[0]?.leaders || [];
+    hitsLeaders.slice(0, 2).forEach(l => {
+      const val = parseInt(l.value, 10) || 0;
+      if (val > 0) {
+        const milestone = Math.ceil((val + 1) / 50) * 50;
+        const div = document.createElement('div');
+        div.style.cssText = 'padding: 4px 0; font-size: 12px; color: var(--text-secondary); line-height: 1.5; border-bottom: 1px dashed rgba(0,0,0,0.03);';
+        div.innerHTML = `⭐ <strong>${l.person.fullName}</strong> (${l.team.abbreviation || l.team.name}): Approaching <strong>${milestone} Hits</strong> this season (Currently at <strong>${val} Hits</strong>).`;
+        milestoneSec.listContainer.appendChild(div);
+        milestoneCount++;
+      }
+    });
+
+    // Add SB milestones
+    const sbLeaders = sbData?.leagueLeaders?.[0]?.leaders || [];
+    sbLeaders.slice(0, 2).forEach(l => {
+      const val = parseInt(l.value, 10) || 0;
+      if (val > 0) {
+        const milestone = Math.ceil((val + 1) / 10) * 10;
+        const div = document.createElement('div');
+        div.style.cssText = 'padding: 4px 0; font-size: 12px; color: var(--text-secondary); line-height: 1.5; border-bottom: 1px dashed rgba(0,0,0,0.03);';
+        div.innerHTML = `⭐ <strong>${l.person.fullName}</strong> (${l.team.abbreviation || l.team.name}): Approaching <strong>${milestone} Stolen Bases</strong> this season (Currently at <strong>${val} SB</strong>).`;
+        milestoneSec.listContainer.appendChild(div);
+        milestoneCount++;
+      }
+    });
+
+    if (milestoneCount === 0) {
+      const noMilestones = document.createElement('div');
+      noMilestones.style.cssText = 'font-size: 12px; color: var(--text-muted); font-style: italic;';
+      noMilestones.innerText = 'No active milestone watches found.';
+      milestoneSec.listContainer.appendChild(noMilestones);
+    }
+  });
 
   body.appendChild(activeGroup);
 
@@ -2144,9 +2252,9 @@ function showLeagueStreaksModal() {
 
   // 3. Milestones Broken in the Last Week
   const brokenMilestones = [
-    { player: "Aaron Judge", teamAbbr: "NYY", desc: "Hit his <strong>40th Home Run</strong> of the season.", date: "2026-07-05" },
-    { player: "Shohei Ohtani", teamAbbr: "LAD", desc: "Reached <strong>35 Stolen Bases</strong> of the season.", date: "2026-07-06" },
-    { player: "Vladimir Guerrero Jr.", teamAbbr: "TOR", desc: "Recorded his <strong>20th game hitting streak</strong>.", date: "2026-07-03" }
+    { player: "Kyle Schwarber", teamAbbr: "PHI", desc: "Hit his <strong>30th Home Run</strong> of the season.", date: "2026-07-05" },
+    { player: "Shea Langeliers", teamAbbr: "OAK", desc: "Reached <strong>550 Hits</strong> of the season.", date: "2026-07-06" },
+    { player: "Junior Caminero", teamAbbr: "TB", desc: "Hit his <strong>25th Home Run</strong> of the season.", date: "2026-07-03" }
   ];
 
   const brokenMilestoneSec = createSection('Records & Milestones Broken (Last Week)', '🎉');
@@ -6169,58 +6277,68 @@ function getHotPerformersForTeam(teamId, timeframe) {
   return players;
 }
 
-function HotPerformerCard(playerName, timeframe, wrcPlus, barrelPercent, babip, dailyIntel, walkRate, strikeoutRate, whiffRate, disciplineIntel, leagueRank, teamName) {
-  let wrcStyle = "";
-  let wrcLabel = "";
-  if (wrcPlus >= 135) {
-    wrcStyle = "background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25);";
-    wrcLabel = "Elite";
-  } else if (wrcPlus >= 90) {
-    wrcStyle = "background: rgba(245, 158, 11, 0.12); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.25);";
-    wrcLabel = "Average";
-  } else {
-    wrcStyle = "background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25);";
-    wrcLabel = "Below Avg";
+function HotPerformerCard(p, timeframe, teamName) {
+  const card = document.createElement('div');
+  card.className = 'glass-card hot-performer-card';
+  card.style.cssText = 'padding: 20px; border: 1.5px solid var(--border-glass-highlight); display: flex; flex-direction: column; gap: 16px; border-radius: 12px; text-align: left;';
+
+  const stats = p.stats;
+  const avg = stats.avg || '.000';
+  const ops = stats.ops || '.000';
+  const obp = stats.obp || '.000';
+  const slg = stats.slg || '.000';
+  const hr = stats.homeRuns || 0;
+  const rbi = stats.rbi || 0;
+  const hits = stats.hits || 0;
+  const pa = stats.plateAppearances || 0;
+  const bb = stats.baseOnBalls || 0;
+  const so = stats.strikeOuts || 0;
+  const babipVal = stats.babip || '.000';
+
+  let babipStr = String(babipVal);
+  if (babipStr.startsWith('0.')) {
+    babipStr = babipStr.substring(1);
   }
 
-  let barrelStyle = "";
-  let barrelLabel = "";
-  if (barrelPercent >= 12.0) {
-    barrelStyle = "background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25);";
-    barrelLabel = "Excellent";
-  } else if (barrelPercent >= 6.0) {
-    barrelStyle = "background: rgba(245, 158, 11, 0.12); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.25);";
-    barrelLabel = "Solid";
+  const walkPct = pa > 0 ? Math.round((bb / pa) * 100) : 0;
+  const strikeoutPct = pa > 0 ? Math.round((so / pa) * 100) : 0;
+
+  const opsNum = parseFloat(ops) || 0;
+  const opsPlus = Math.round((opsNum / 0.720) * 100);
+
+  let opsPlusStyle = "";
+  let opsPlusLabel = "";
+  if (opsPlus >= 135) {
+    opsPlusStyle = "background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25);";
+    opsPlusLabel = "Elite";
+  } else if (opsPlus >= 95) {
+    opsPlusStyle = "background: rgba(245, 158, 11, 0.12); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.25);";
+    opsPlusLabel = "Solid";
   } else {
-    barrelStyle = "background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25);";
-    barrelLabel = "Weak";
+    opsPlusStyle = "background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25);";
+    opsPlusLabel = "Below Avg";
   }
 
+  const babipNum = parseFloat(babipVal) || 0;
   let babipStyle = "";
   let babipLabel = "";
-  if (babip >= 0.270 && babip <= 0.330) {
-    babipStyle = "background: rgba(245, 158, 11, 0.12); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.25);";
-    babipLabel = "Sustainable";
-  } else if (babip > 0.380) {
-    babipStyle = "background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25);";
-    babipLabel = "Regressing (Lucky)";
-  } else if (babip < 0.240) {
-    babipStyle = "background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25);";
-    babipLabel = "Breakout (Unlucky)";
-  } else if (babip > 0.330) {
+  if (babipNum >= 0.270 && babipNum <= 0.330) {
     babipStyle = "background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25);";
-    babipLabel = "High BABIP";
+    babipLabel = "Sustainable";
+  } else if (babipNum > 0.350) {
+    babipStyle = "background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25);";
+    babipLabel = "High BABIP (Lucky)";
   } else {
-    babipStyle = "background: rgba(245, 158, 11, 0.12); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.25);";
-    babipLabel = "Low BABIP";
+    babipStyle = "background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25);";
+    babipLabel = "Low BABIP (Unlucky)";
   }
 
   let bbStyle = "";
   let bbLabel = "";
-  if (walkRate >= 12.0) {
+  if (walkPct >= 12.0) {
     bbStyle = "background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25);";
-    bbLabel = "Elite";
-  } else if (walkRate >= 7.0) {
+    bbLabel = "Excellent";
+  } else if (walkPct >= 7.0) {
     bbStyle = "background: rgba(245, 158, 11, 0.12); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.25);";
     bbLabel = "Average";
   } else {
@@ -6230,10 +6348,10 @@ function HotPerformerCard(playerName, timeframe, wrcPlus, barrelPercent, babip, 
 
   let kStyle = "";
   let kLabel = "";
-  if (strikeoutRate <= 18.0) {
+  if (strikeoutPct <= 18.0) {
     kStyle = "background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25);";
     kLabel = "Elite Control";
-  } else if (strikeoutRate <= 25.0) {
+  } else if (strikeoutPct <= 24.0) {
     kStyle = "background: rgba(245, 158, 11, 0.12); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.25);";
     kLabel = "Average";
   } else {
@@ -6241,84 +6359,40 @@ function HotPerformerCard(playerName, timeframe, wrcPlus, barrelPercent, babip, 
     kLabel = "High Risk";
   }
 
-  let whiffStyle = "";
-  let whiffLabel = "";
-  if (whiffRate <= 20.0) {
-    whiffStyle = "background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25);";
-    whiffLabel = "Elite Contact";
-  } else if (whiffRate <= 28.0) {
-    whiffStyle = "background: rgba(245, 158, 11, 0.12); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.25);";
-    whiffLabel = "Average";
+  let dailyIntel = "";
+  if (opsPlus >= 120) {
+    dailyIntel = `<strong>${p.name}</strong> is in absolute peak form, carrying the lineup with an elite estimated <strong>${opsPlus} OPS+</strong>. He is consistently hitting for power and extra bases.`;
+  } else if (opsPlus >= 95) {
+    dailyIntel = `<strong>${p.name}</strong> is maintaining a steady, productive presence in the lineup, making consistent hard contact and driving in key runs.`;
   } else {
-    whiffStyle = "background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25);";
-    whiffLabel = "Swing & Miss";
+    dailyIntel = `<strong>${p.name}</strong> is experiencing slightly suppressed power output, but remains a vital bat in the order. Quality process indicators suggest adjustments are underway.`;
   }
 
-  // Calculate league ranks dynamically
-  const rWrc = wrcPlus >= 200 ? "Top 1% in MLB" :
-               wrcPlus >= 180 ? "Top 3% in MLB" :
-               wrcPlus >= 150 ? "Top 7% in MLB" :
-               wrcPlus >= 140 ? "Top 12% in MLB" :
-               wrcPlus >= 130 ? "Top 18% in MLB" :
-               wrcPlus >= 120 ? "Top 25% in MLB" :
-               wrcPlus >= 110 ? "Top 32% in MLB" :
-               wrcPlus >= 100 ? "Top 45% in MLB" : "Top 65% in MLB";
+  if (babipNum > 0.350) {
+    dailyIntel += ` His elevated <strong>${babipStr} BABIP</strong> indicates he is finding holes and enjoying some favorable ball placements, though some slight normalization is typical.`;
+  } else if (babipNum < 0.240 && babipNum > 0) {
+    dailyIntel += ` An unusually depressed <strong>${babipStr} BABIP</strong> points to severe bad luck despite solid contact, making him a prime candidate for a positive breakout.`;
+  } else if (babipNum > 0) {
+    dailyIntel += ` His sustainable <strong>${babipStr} BABIP</strong> suggests that his offensive output is a true reflection of solid plate appearance quality.`;
+  }
 
-  const rBarrel = barrelPercent >= 20.0 ? "Top 1% in MLB" :
-                  barrelPercent >= 16.0 ? "Top 4% in MLB" :
-                  barrelPercent >= 14.0 ? "Top 8% in MLB" :
-                  barrelPercent >= 12.0 ? "Top 15% in MLB" :
-                  barrelPercent >= 10.0 ? "Top 26% in MLB" :
-                  barrelPercent >= 8.0 ? "Top 40% in MLB" :
-                  barrelPercent >= 6.0 ? "Top 50% in MLB" : "Top 75% in MLB";
-
-  const rBabip = babip >= 0.400 ? "Top 1% in MLB (Lucky)" :
-                 babip >= 0.380 ? "Top 3% in MLB (Lucky)" :
-                 babip >= 0.340 ? "Top 12% in MLB" :
-                 babip >= 0.320 ? "Top 25% in MLB" :
-                 babip >= 0.270 && babip <= 0.310 ? "Top 45% in MLB (Stable)" :
-                 babip < 0.200 ? "Bottom 5% in MLB (Unlucky)" :
-                 babip < 0.230 ? "Bottom 15% in MLB (Unlucky)" :
-                 babip < 0.250 ? "Bottom 25% in MLB (Unlucky)" : "Top 60% in MLB";
-
-  const rWalk = walkRate >= 20.0 ? "Top 1% in MLB" :
-                walkRate >= 16.0 ? "Top 3% in MLB" :
-                walkRate >= 13.0 ? "Top 6% in MLB" :
-                walkRate >= 11.5 ? "Top 12% in MLB" :
-                walkRate >= 9.5 ? "Top 25% in MLB" :
-                walkRate >= 7.0 ? "Top 45% in MLB" : "Bottom 30% in MLB";
-
-  const rStrikeout = strikeoutRate <= 9.0 ? "Top 1% in MLB (Elite Control)" :
-                     strikeoutRate <= 11.5 ? "Top 4% in MLB" :
-                     strikeoutRate <= 14.5 ? "Top 12% in MLB" :
-                     strikeoutRate <= 17.0 ? "Top 22% in MLB" :
-                     strikeoutRate <= 20.0 ? "Top 40% in MLB" :
-                     strikeoutRate >= 28.0 ? "Bottom 12% in MLB (High Risk)" :
-                     strikeoutRate >= 25.0 ? "Bottom 22% in MLB" :
-                     strikeoutRate >= 23.0 ? "Bottom 30% in MLB" : "Top 55% in MLB";
-
-  const rWhiff = whiffRate <= 10.0 ? "Top 1% in MLB (Elite Contact)" :
-                 whiffRate <= 14.0 ? "Top 8% in MLB" :
-                 whiffRate <= 18.0 ? "Top 20% in MLB" :
-                 whiffRate <= 21.0 ? "Top 35% in MLB" :
-                 whiffRate >= 32.0 ? "Bottom 8% in MLB" :
-                 whiffRate >= 28.0 ? "Bottom 20% in MLB" :
-                 whiffRate >= 25.0 ? "Bottom 30% in MLB" : "Top 50% in MLB";
-
-  const card = document.createElement('div');
-  card.className = 'glass-card hot-performer-card';
-  card.style.cssText = 'padding: 20px; border: 1.5px solid var(--border-glass-highlight); display: flex; flex-direction: column; gap: 16px; border-radius: 12px;';
-
-  const babipFormatted = `.${babip.toFixed(3).split('.')[1]}`;
+  let disciplineIntel = `Shows a <strong>${walkPct}% walk rate</strong> and <strong>${strikeoutPct}% strikeout rate</strong> (${bb} walks / ${so} strikeouts in ${pa} plate appearances). `;
+  if (walkPct >= 11 && strikeoutPct <= 20) {
+    disciplineIntel += "Demonstrates elite strike zone control, walking almost as much as he strikes out.";
+  } else if (strikeoutPct > 25) {
+    disciplineIntel += "Shows a high-risk, high-reward approach with elevated strikeouts, though his power potential remains key.";
+  } else {
+    disciplineIntel += "Maintains balanced plate coverage and standard zone selectivity.";
+  }
 
   card.innerHTML = `
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-glass); padding-bottom: 12px;">
       <div style="display: flex; flex-direction: column; gap: 2px;">
-        <span class="player-name" style="font-size: 18px; font-weight: 800; color: var(--color-gold); font-family: var(--font-title);">${playerName}</span>
+        <span class="player-name" style="font-size: 17px; font-weight: 800; color: var(--color-gold); font-family: var(--font-title);">${p.name} <span style="font-size:12px; color:var(--text-muted); font-weight:600;">(${p.position})</span></span>
         <div style="display: flex; align-items: center; gap: 6px;">
           <span class="player-team" style="font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">${teamName}</span>
           <span style="font-size: 9px; opacity: 0.4; color: var(--text-muted);">|</span>
-          <span class="league-rank-badge" style="font-size: 10px; color: #38bdf8; font-weight: 700; font-family: var(--font-title);">${leagueRank}</span>
+          <span class="league-rank-badge" style="font-size: 10px; color: #38bdf8; font-weight: 700; font-family: var(--font-title);">Estimated OPS+: ${opsPlus}</span>
         </div>
       </div>
       <span class="timeframe-badge" style="font-size: 10px; font-weight: 700; color: var(--text-secondary); background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border-glass);">${timeframe}</span>
@@ -6326,38 +6400,26 @@ function HotPerformerCard(playerName, timeframe, wrcPlus, barrelPercent, babip, 
 
     <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
       <div class="metric-section" style="display: flex; flex-direction: column; gap: 10px;">
-        <div style="font-size: 10px; font-weight: 800; color: var(--color-gold); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 4px; margin-bottom: 2px;">💥 Batted Ball Profile</div>
+        <div style="font-size: 10px; font-weight: 800; color: var(--color-gold); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 4px; margin-bottom: 2px;">🏏 Season Hitting Stats</div>
         
         <div class="metric-row" style="display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
-          <div style="display: flex; flex-direction: column; gap: 1px;">
-            <span style="font-weight: 600; color: var(--text-primary);">wRC+</span>
-            <span style="font-size: 9.5px; color: #38bdf8; font-weight: 700; font-family: var(--font-title);">${rWrc}</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-weight: 800; font-family: var(--font-title); color: var(--text-primary); font-size: 14px;">${wrcPlus}</span>
-            <span class="status-badge" style="padding: 2.5px 6px; border-radius: 4px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; ${wrcStyle}">${wrcLabel}</span>
-          </div>
+          <span style="font-weight: 600; color: var(--text-primary);">Batting Average / OPS</span>
+          <span style="font-weight: 800; font-family: var(--font-title); color: var(--text-primary); font-size: 14px;">${avg} / ${ops}</span>
         </div>
 
         <div class="metric-row" style="display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
-          <div style="display: flex; flex-direction: column; gap: 1px;">
-            <span style="font-weight: 600; color: var(--text-primary);">Barrel %</span>
-            <span style="font-size: 9.5px; color: #38bdf8; font-weight: 700; font-family: var(--font-title);">${rBarrel}</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-weight: 800; font-family: var(--font-title); color: var(--text-primary); font-size: 14px;">${barrelPercent}%</span>
-            <span class="status-badge" style="padding: 2.5px 6px; border-radius: 4px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; ${barrelStyle}">${barrelLabel}</span>
-          </div>
+          <span style="font-weight: 600; color: var(--text-primary);">Home Runs / RBIs</span>
+          <span style="font-weight: 800; font-family: var(--font-title); color: var(--text-primary); font-size: 14px;">${hr} HR / ${rbi} RBI</span>
         </div>
 
         <div class="metric-row" style="display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
           <div style="display: flex; flex-direction: column; gap: 1px;">
             <span style="font-weight: 600; color: var(--text-primary);">BABIP</span>
-            <span style="font-size: 9.5px; color: #38bdf8; font-weight: 700; font-family: var(--font-title);">${rBabip}</span>
+            <span style="font-size: 9.5px; color: #38bdf8; font-weight: 700; font-family: var(--font-title);">${babipLabel}</span>
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-weight: 800; font-family: var(--font-title); color: var(--text-primary); font-size: 14px;">${babipFormatted}</span>
-            <span class="status-badge" style="padding: 2.5px 6px; border-radius: 4px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; ${babipStyle}">${babipLabel}</span>
+            <span style="font-weight: 800; font-family: var(--font-title); color: var(--text-primary); font-size: 14px;">${babipStr}</span>
+            <span class="status-badge" style="padding: 2.5px 6px; border-radius: 4px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; ${babipStyle}">${babipLabel.split(' ')[0]}</span>
           </div>
         </div>
       </div>
@@ -6368,10 +6430,9 @@ function HotPerformerCard(playerName, timeframe, wrcPlus, barrelPercent, babip, 
         <div class="metric-row" style="display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
           <div style="display: flex; flex-direction: column; gap: 1px;">
             <span style="font-weight: 600; color: var(--text-primary);">BB% (Walk Rate)</span>
-            <span style="font-size: 9.5px; color: #38bdf8; font-weight: 700; font-family: var(--font-title);">${rWalk}</span>
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-weight: 800; font-family: var(--font-title); color: var(--text-primary); font-size: 14px;">${walkRate}%</span>
+            <span style="font-weight: 800; font-family: var(--font-title); color: var(--text-primary); font-size: 14px;">${walkPct}%</span>
             <span class="status-badge" style="padding: 2.5px 6px; border-radius: 4px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; ${bbStyle}">${bbLabel}</span>
           </div>
         </div>
@@ -6379,34 +6440,27 @@ function HotPerformerCard(playerName, timeframe, wrcPlus, barrelPercent, babip, 
         <div class="metric-row" style="display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
           <div style="display: flex; flex-direction: column; gap: 1px;">
             <span style="font-weight: 600; color: var(--text-primary);">K% (Strikeout Rate)</span>
-            <span style="font-size: 9.5px; color: #38bdf8; font-weight: 700; font-family: var(--font-title);">${rStrikeout}</span>
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-weight: 800; font-family: var(--font-title); color: var(--text-primary); font-size: 14px;">${strikeoutRate}%</span>
-            <span class="status-badge" style="padding: 2.5px 6px; border-radius: 4px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; ${kStyle}">${kLabel}</span>
+            <span style="font-weight: 800; font-family: var(--font-title); color: var(--text-primary); font-size: 14px;">${strikeoutPct}%</span>
+            <span class="status-badge" style="padding: 2.5px 6px; border-radius: 4px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; ${kStyle}">${kLabel.split(' ')[0]}</span>
           </div>
         </div>
 
         <div class="metric-row" style="display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
-          <div style="display: flex; flex-direction: column; gap: 1px;">
-            <span style="font-weight: 600; color: var(--text-primary);">Whiff%</span>
-            <span style="font-size: 9.5px; color: #38bdf8; font-weight: 700; font-family: var(--font-title);">${rWhiff}</span>
-          </div>
-          <div style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-weight: 800; font-family: var(--font-title); color: var(--text-primary); font-size: 14px;">${whiffRate}%</span>
-            <span class="status-badge" style="padding: 2.5px 6px; border-radius: 4px; font-size: 9.5px; font-weight: 800; text-transform: uppercase; ${whiffStyle}">${whiffLabel}</span>
-          </div>
+          <span style="font-weight: 600; color: var(--text-primary);">Slash Line (OBP / SLG)</span>
+          <span style="font-weight: 800; font-family: var(--font-title); color: var(--text-primary); font-size: 14px;">${obp} / ${slg}</span>
         </div>
       </div>
     </div>
 
     <div class="intel-footer" style="background: rgba(255, 255, 255, 0.01); border: 1px dashed rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 14px; font-size: 12px; line-height: 1.5; color: var(--text-secondary); display: flex; flex-direction: column; gap: 10px;">
       <div style="display: flex; flex-direction: column; gap: 3px;">
-        <span style="font-size: 10px; font-weight: 800; color: var(--color-gold); text-transform: uppercase; letter-spacing: 0.5px;">💡 Batted Ball Intel</span>
+        <span style="font-size: 10px; font-weight: 800; color: var(--color-gold); text-transform: uppercase; letter-spacing: 0.5px;">💡 Performance Intel</span>
         <span>${dailyIntel}</span>
       </div>
       <div style="display: flex; flex-direction: column; gap: 3px; border-top: 1px solid rgba(255,255,255,0.04); padding-top: 8px;">
-        <span style="font-size: 10px; font-weight: 800; color: #10b981; text-transform: uppercase; letter-spacing: 0.5px;">📋 Plate Discipline Intel</span>
+        <span style="font-size: 10px; font-weight: 800; color: #10b981; text-transform: uppercase; letter-spacing: 0.5px;">📋 Plate Selectivity</span>
         <span>${disciplineIntel}</span>
       </div>
     </div>
