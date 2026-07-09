@@ -5601,34 +5601,6 @@ function createDashboardView() {
     bentoGrid.appendChild(recapBtn);
   }
 
-  const whatToWatchBtn = document.createElement('button');
-  whatToWatchBtn.className = 'recap-trigger-btn';
-  whatToWatchBtn.style.marginTop = '0px';
-  whatToWatchBtn.style.marginBottom = '4px';
-  whatToWatchBtn.innerHTML = `
-    <span class="icon">👀</span>
-    <span>What to Watch Now</span>
-  `;
-  whatToWatchBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    showWhatToWatchModal();
-  });
-  bentoGrid.appendChild(whatToWatchBtn);
-
-  const leagueNewsBtn = document.createElement('button');
-  leagueNewsBtn.className = 'recap-trigger-btn';
-  leagueNewsBtn.style.marginTop = '0px';
-  leagueNewsBtn.style.marginBottom = '4px';
-  leagueNewsBtn.innerHTML = `
-    <span class="icon">📰</span>
-    <span>League News</span>
-  `;
-  leagueNewsBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    showLeagueNewsModal();
-  });
-  bentoGrid.appendChild(leagueNewsBtn);
-
   const hotBtn = document.createElement('button');
   hotBtn.className = 'recap-trigger-btn';
   hotBtn.style.background = 'linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(239, 68, 68, 0.12))';
@@ -5689,6 +5661,34 @@ function createDashboardView() {
     showHrChaseModal();
   });
   bentoGrid.appendChild(hrChaseBtn);
+
+  const whatToWatchBtn = document.createElement('button');
+  whatToWatchBtn.className = 'recap-trigger-btn';
+  whatToWatchBtn.style.marginTop = '0px';
+  whatToWatchBtn.style.marginBottom = '4px';
+  whatToWatchBtn.innerHTML = `
+    <span class="icon">👀</span>
+    <span>What to Watch Now</span>
+  `;
+  whatToWatchBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showWhatToWatchModal();
+  });
+  bentoGrid.appendChild(whatToWatchBtn);
+
+  const leagueNewsBtn = document.createElement('button');
+  leagueNewsBtn.className = 'recap-trigger-btn';
+  leagueNewsBtn.style.marginTop = '0px';
+  leagueNewsBtn.style.marginBottom = '4px';
+  leagueNewsBtn.innerHTML = `
+    <span class="icon">📰</span>
+    <span>League News</span>
+  `;
+  leagueNewsBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    showLeagueNewsModal();
+  });
+  bentoGrid.appendChild(leagueNewsBtn);
 
   container.appendChild(bentoGrid);
 
