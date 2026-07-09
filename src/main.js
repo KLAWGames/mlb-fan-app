@@ -7653,34 +7653,52 @@ function renderMLBLeadersGraph(leaders, card, spinner, yesterdayPlayerHRsMap = {
 
   // Animation Action Button Header
   const btnContainer = document.createElement('div');
-  btnContainer.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; margin-top: 4px;';
+  btnContainer.style.cssText = 'display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; margin-top: 4px;';
+  
+  const headerRow = document.createElement('div');
+  headerRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
   
   const btnTitle = document.createElement('span');
   btnTitle.style.cssText = 'font-size: 11px; font-weight: 800; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;';
   btnTitle.innerText = 'Challengers List';
-  btnContainer.appendChild(btnTitle);
+  headerRow.appendChild(btnTitle);
+  btnContainer.appendChild(headerRow);
 
-  const animBtn = document.createElement('button');
-  animBtn.className = 'action-btn';
-  animBtn.style.cssText = 'padding: 6px 12px; font-size: 11px; font-weight: 800; border-radius: 20px; text-transform: none; display: flex; align-items: center; gap: 6px; transition: all 0.3s; background: rgba(255, 90, 0, 0.1); border: 1px solid rgba(255, 90, 0, 0.35); color: #ff5a00; cursor: pointer;';
-  animBtn.innerHTML = `🔥 Show Yesterday to Today`;
+  const actionsRow = document.createElement('div');
+  actionsRow.style.cssText = 'display: flex; gap: 8px; width: 100%;';
 
-  const hasAnyChanges = leaders.some(leader => {
-    const pId = leader.person?.id;
-    return (yesterdayPlayerHRsMap[pId] || 0) > 0 || (todayPlayerHRsMap[pId] || 0) > 0;
-  });
+  const yesterdayBtn = document.createElement('button');
+  yesterdayBtn.style.cssText = 'flex: 1; padding: 6px 10px; font-size: 11px; font-weight: 800; border-radius: 20px; text-transform: none; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.3s; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.35); color: var(--color-gold); cursor: pointer; outline: none; font-family: var(--font-title);';
+  yesterdayBtn.innerHTML = `🟡 Yesterday's HRs`;
 
-  if (!hasAnyChanges) {
-    animBtn.disabled = true;
-    animBtn.style.opacity = '0.5';
-    animBtn.style.cursor = 'not-allowed';
-    animBtn.style.background = 'rgba(0, 0, 0, 0.05)';
-    animBtn.style.color = 'var(--text-muted)';
-    animBtn.style.borderColor = 'rgba(0, 0, 0, 0.1)';
-    animBtn.innerHTML = `🔒 No Recent HRs to Animate`;
+  const todayBtn = document.createElement('button');
+  todayBtn.style.cssText = 'flex: 1; padding: 6px 10px; font-size: 11px; font-weight: 800; border-radius: 20px; text-transform: none; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.3s; background: rgba(6, 95, 70, 0.1); border: 1px solid rgba(6, 95, 70, 0.35); color: var(--color-win); cursor: pointer; outline: none; font-family: var(--font-title);';
+  todayBtn.innerHTML = `🟢 Today's HRs`;
+
+  const hasYesterdayHRs = leaders.some(l => (yesterdayPlayerHRsMap[l.person?.id] || 0) > 0);
+  const hasTodayHRs = leaders.some(l => (todayPlayerHRsMap[l.person?.id] || 0) > 0);
+
+  if (!hasYesterdayHRs) {
+    yesterdayBtn.disabled = true;
+    yesterdayBtn.style.opacity = '0.5';
+    yesterdayBtn.style.cursor = 'not-allowed';
+    yesterdayBtn.style.background = 'rgba(0, 0, 0, 0.05)';
+    yesterdayBtn.style.color = 'var(--text-muted)';
+    yesterdayBtn.style.borderColor = 'rgba(0, 0, 0, 0.1)';
   }
 
-  btnContainer.appendChild(animBtn);
+  if (!hasTodayHRs) {
+    todayBtn.disabled = true;
+    todayBtn.style.opacity = '0.5';
+    todayBtn.style.cursor = 'not-allowed';
+    todayBtn.style.background = 'rgba(0, 0, 0, 0.05)';
+    todayBtn.style.color = 'var(--text-muted)';
+    todayBtn.style.borderColor = 'rgba(0, 0, 0, 0.1)';
+  }
+
+  actionsRow.appendChild(yesterdayBtn);
+  actionsRow.appendChild(todayBtn);
+  btnContainer.appendChild(actionsRow);
   
   graphContainer.appendChild(btnContainer);
 
@@ -7750,37 +7768,34 @@ function renderMLBLeadersGraph(leaders, card, spinner, yesterdayPlayerHRsMap = {
     const barOuter = document.createElement('div');
     barOuter.style.cssText = 'flex: 1; height: 16px; background: rgba(255,255,255,0.06); border-radius: 8px; overflow: hidden; border: 1px solid var(--border-glass); display: flex; transition: all 0.3s;';
 
-    // Base segment (Day before yesterday)
-    const baseBar = document.createElement('div');
     const baseWidth = (baseHR / maxScaleHR) * 100;
-    baseBar.style.cssText = `height: 100%; width: 0%; background: ${teamColor}; border-radius: 6px 0 0 6px; transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);`;
+    const yesterdayAddedWidth = (yesterdayHRs / maxScaleHR) * 100;
+    const todayAddedWidth = (todayHRs / maxScaleHR) * 100;
+
+    // Base segment (Day before yesterday) - drawn fully initially
+    const baseBar = document.createElement('div');
+    baseBar.style.cssText = `height: 100%; width: ${baseWidth}%; background: ${teamColor}; border-radius: 6px 0 0 6px;`;
     barOuter.appendChild(baseBar);
 
-    // Yesterday's added segment
+    // Yesterday's added segment - drawn fully initially
     const yesterdayBar = document.createElement('div');
-    const yesterdayAddedWidth = (yesterdayHRs / maxScaleHR) * 100;
-    yesterdayBar.style.cssText = `height: 100%; width: 0%; background: #eab308; transition: width 4.0s cubic-bezier(0.16, 1, 0.3, 1), background-color 1.5s ease; box-shadow: 0 0 8px rgba(234, 179, 8, 0.4);`;
+    yesterdayBar.style.cssText = `height: 100%; width: ${yesterdayAddedWidth}%; background: ${teamColor}; transition: width 3.0s cubic-bezier(0.16, 1, 0.3, 1), background-color 1.0s ease;`;
     barOuter.appendChild(yesterdayBar);
 
-    // Today's added segment
+    // Today's added segment - drawn fully initially
     const todayBar = document.createElement('div');
-    const todayAddedWidth = (todayHRs / maxScaleHR) * 100;
-    todayBar.style.cssText = `height: 100%; width: 0%; background: #ff5a00; border-radius: 0 6px 6px 0; transition: width 4.0s cubic-bezier(0.16, 1, 0.3, 1), background-color 1.5s ease; box-shadow: 0 0 8px rgba(255, 90, 0, 0.4);`;
+    todayBar.style.cssText = `height: 100%; width: ${todayAddedWidth}%; background: ${teamColor}; border-radius: 0 6px 6px 0; transition: width 3.0s cubic-bezier(0.16, 1, 0.3, 1), background-color 1.0s ease;`;
     barOuter.appendChild(todayBar);
 
     barCol.appendChild(barOuter);
 
     const valueSpan = document.createElement('span');
     valueSpan.style.cssText = 'font-size: 13px; font-weight: 800; color: var(--text-primary); width: 22px; text-align: right; font-family: var(--font-title);';
-    valueSpan.innerText = baseHR;
+    valueSpan.innerText = totalHR; // Most up-to-date final total initially!
     barCol.appendChild(valueSpan);
 
     row.appendChild(barCol);
     graphContainer.appendChild(row);
-
-    setTimeout(() => {
-      baseBar.style.width = `${baseWidth}%`;
-    }, 50);
 
     animRows.push({
       yesterdayBar,
@@ -7802,167 +7817,84 @@ function renderMLBLeadersGraph(leaders, card, spinner, yesterdayPlayerHRsMap = {
     });
   });
 
-  let isAnimated = false;
+  yesterdayBtn.addEventListener('click', () => {
+    yesterdayBtn.disabled = true;
+    todayBtn.disabled = true;
+    yesterdayBtn.innerHTML = `⚡ Animating...`;
 
-  animBtn.addEventListener('click', () => {
-    if (isAnimated) {
-      animRows.forEach(row => {
-        if (row.hasYesterdayChange || row.hasTodayChange) {
-          if (row.bubbleInterval) {
-            clearInterval(row.bubbleInterval);
-            row.bubbleInterval = null;
-          }
-          
-          row.yesterdayBar.style.transition = 'none';
-          row.yesterdayBar.style.width = '0%';
-          row.yesterdayBar.style.backgroundColor = '#eab308';
-          row.yesterdayBar.style.boxShadow = '0 0 8px rgba(234, 179, 8, 0.4)';
+    animRows.forEach(row => {
+      if (row.bubbleInterval) {
+        clearInterval(row.bubbleInterval);
+        row.bubbleInterval = null;
+      }
+      row.yesterdayBar.style.transition = 'none';
+      row.yesterdayBar.style.width = '0%';
+      row.yesterdayBar.style.backgroundColor = '#eab308';
+      row.yesterdayBar.style.boxShadow = '0 0 8px rgba(234, 179, 8, 0.4)';
 
-          row.todayBar.style.transition = 'none';
-          row.todayBar.style.width = '0%';
-          row.todayBar.style.backgroundColor = '#ff5a00';
-          row.todayBar.style.boxShadow = '0 0 8px rgba(255, 90, 0, 0.4)';
-          row.valueSpan.innerText = row.baseHR;
-        }
-      });
-      void animBtn.offsetHeight;
-      
-      animRows.forEach(row => {
-        if (row.hasYesterdayChange || row.hasTodayChange) {
-          row.yesterdayBar.style.transition = 'width 4.0s cubic-bezier(0.16, 1, 0.3, 1), background-color 1.5s ease';
-          row.todayBar.style.transition = 'width 4.0s cubic-bezier(0.16, 1, 0.3, 1), background-color 1.5s ease';
-        }
-      });
-    }
+      row.todayBar.style.transition = 'none';
+      row.todayBar.style.width = '0%';
+      row.valueSpan.innerText = row.baseHR;
+    });
 
-    animBtn.disabled = true;
-    animBtn.style.background = 'rgba(16, 185, 129, 0.15)';
-    animBtn.style.color = '#10b981';
-    animBtn.style.borderColor = 'rgba(16, 185, 129, 0.3)';
-    animBtn.innerHTML = `⚡ Animating...`;
+    void yesterdayBtn.offsetHeight; // force reflow
 
-    // 1. Yesterday's Animation Phase
-    animRows.forEach((row, idx) => {
-      if (row.hasYesterdayChange || row.hasTodayChange) {
-        row.barOuter.classList.add('pulse-new-hr');
-        
-        let spawnCount = 0;
-        const spawnYesterdayBubble = () => {
-          if (!row.hasYesterdayChange) return;
-          const bubble = document.createElement('span');
-          bubble.className = 'float-up-fade';
-          bubble.style.cssText = `
-            position: absolute;
-            left: calc(${row.baseWidth + row.yesterdayAddedWidth / 2}% - 16px);
-            top: -8px;
-            background: #eab308;
-            color: #ffffff;
-            font-size: 9px;
-            font-weight: 800;
-            padding: 2px 6px;
-            border-radius: 6px;
-            box-shadow: 0 0 6px rgba(234, 179, 8, 0.6);
-            pointer-events: none;
-            z-index: 10;
-            font-family: var(--font-title);
-            white-space: nowrap;
-          `;
-          if (spawnCount % 2 === 0) {
-            bubble.innerText = `Yesterday +${row.yesterdayHRs}`;
-          } else {
-            bubble.innerText = `${row.baseHR} > ${row.baseHR + row.yesterdayHRs}`;
-          }
-          spawnCount++;
-          row.barCol.appendChild(bubble);
-          setTimeout(() => bubble.remove(), 1200);
-        };
-
-        if (row.hasYesterdayChange) {
-          spawnYesterdayBubble();
-          row.bubbleInterval = setInterval(spawnYesterdayBubble, 1500);
-          
-          setTimeout(() => {
-            row.yesterdayBar.style.width = `${row.yesterdayAddedWidth}%`;
-            
-            let count = row.baseHR;
-            const target = row.baseHR + row.yesterdayHRs;
-            const delayPerHR = 4000 / Math.max(1, row.yesterdayHRs);
-            const interval = setInterval(() => {
-              if (count >= target) {
-                clearInterval(interval);
-              } else {
-                count++;
-                row.valueSpan.innerText = count;
-              }
-            }, delayPerHR);
-          }, idx * 30);
-        }
+    animRows.forEach(row => {
+      if (row.hasYesterdayChange) {
+        row.yesterdayBar.style.transition = 'width 3s cubic-bezier(0.16, 1, 0.3, 1), background-color 1s ease';
       }
     });
 
-    // 2. Today's Animation Phase (starts after 5.0 seconds)
-    setTimeout(() => {
-      animRows.forEach((row, idx) => {
-        if (row.bubbleInterval) {
-          clearInterval(row.bubbleInterval);
-          row.bubbleInterval = null;
-        }
+    animRows.forEach((row, idx) => {
+      row.barOuter.classList.add('pulse-new-hr');
 
-        if (row.hasTodayChange) {
-          let spawnCount = 0;
-          const spawnTodayBubble = () => {
-            const bubble = document.createElement('span');
-            bubble.className = 'float-up-fade';
-            bubble.style.cssText = `
-              position: absolute;
-              left: calc(${row.baseWidth + row.yesterdayAddedWidth + row.todayAddedWidth / 2}% - 16px);
-              top: -8px;
-              background: #ff5a00;
-              color: #ffffff;
-              font-size: 9px;
-              font-weight: 800;
-              padding: 2px 6px;
-              border-radius: 6px;
-              box-shadow: 0 0 6px rgba(255, 90, 0, 0.6);
-              pointer-events: none;
-              z-index: 10;
-              font-family: var(--font-title);
-              white-space: nowrap;
-            `;
-            if (spawnCount % 2 === 0) {
-              bubble.innerText = `Today +${row.todayHRs}`;
+      let spawnCount = 0;
+      const spawnYesterdayBubble = () => {
+        if (!row.hasYesterdayChange) return;
+        const bubble = document.createElement('span');
+        bubble.className = 'float-up-fade';
+        bubble.style.cssText = `
+          position: absolute;
+          left: calc(${row.baseWidth + row.yesterdayAddedWidth / 2}% - 16px);
+          top: -8px;
+          background: #eab308;
+          color: #ffffff;
+          font-size: 9px;
+          font-weight: 800;
+          padding: 2px 6px;
+          border-radius: 6px;
+          box-shadow: 0 0 6px rgba(234, 179, 8, 0.6);
+          pointer-events: none;
+          z-index: 10;
+          font-family: var(--font-title);
+          white-space: nowrap;
+        `;
+        bubble.innerText = `Yesterday +${row.yesterdayHRs}`;
+        row.barCol.appendChild(bubble);
+        setTimeout(() => bubble.remove(), 1200);
+      };
+
+      if (row.hasYesterdayChange) {
+        spawnYesterdayBubble();
+        row.bubbleInterval = setInterval(spawnYesterdayBubble, 1200);
+
+        setTimeout(() => {
+          row.yesterdayBar.style.width = `${row.yesterdayAddedWidth}%`;
+          let count = row.baseHR;
+          const target = row.baseHR + row.yesterdayHRs;
+          const delayPerHR = 2500 / Math.max(1, row.yesterdayHRs);
+          const interval = setInterval(() => {
+            if (count >= target) {
+              clearInterval(interval);
             } else {
-              bubble.innerText = `${row.baseHR + row.yesterdayHRs} > ${row.totalHR}`;
+              count++;
+              row.valueSpan.innerText = count;
             }
-            spawnCount++;
-            row.barCol.appendChild(bubble);
-            setTimeout(() => bubble.remove(), 1200);
-          };
+          }, delayPerHR);
+        }, idx * 30);
+      }
+    });
 
-          spawnTodayBubble();
-          row.bubbleInterval = setInterval(spawnTodayBubble, 1500);
-
-          setTimeout(() => {
-            row.todayBar.style.width = `${row.todayAddedWidth}%`;
-            
-            let count = row.baseHR + row.yesterdayHRs;
-            const delayPerHR = 4000 / Math.max(1, row.todayHRs);
-            const interval = setInterval(() => {
-              if (count >= row.totalHR) {
-                clearInterval(interval);
-              } else {
-                count++;
-                row.valueSpan.innerText = count;
-              }
-            }, delayPerHR);
-          }, idx * 30);
-        } else {
-          row.valueSpan.innerText = row.baseHR + row.yesterdayHRs;
-        }
-      });
-    }, 5000);
-
-    // 3. Finalize
     setTimeout(() => {
       animRows.forEach(row => {
         if (row.bubbleInterval) {
@@ -7970,23 +7902,115 @@ function renderMLBLeadersGraph(leaders, card, spinner, yesterdayPlayerHRsMap = {
           row.bubbleInterval = null;
         }
         row.barOuter.classList.remove('pulse-new-hr');
-        if (row.hasYesterdayChange) {
-          row.yesterdayBar.style.backgroundColor = row.teamColor;
-          row.yesterdayBar.style.boxShadow = 'none';
-        }
-        if (row.hasTodayChange) {
-          row.todayBar.style.backgroundColor = row.teamColor;
-          row.todayBar.style.boxShadow = 'none';
-        }
+        row.yesterdayBar.style.width = `${row.yesterdayAddedWidth}%`;
+        row.yesterdayBar.style.backgroundColor = row.teamColor;
+        row.yesterdayBar.style.boxShadow = 'none';
+
+        row.todayBar.style.width = `${row.todayAddedWidth}%`;
+        row.valueSpan.innerText = row.totalHR;
       });
 
-      isAnimated = true;
-      animBtn.disabled = false;
-      animBtn.style.background = 'rgba(255, 90, 0, 0.1)';
-      animBtn.style.color = '#ff5a00';
-      animBtn.style.borderColor = 'rgba(255, 90, 0, 0.35)';
-      animBtn.innerHTML = `🔄 Replay Animation`;
-    }, 10200);
+      yesterdayBtn.disabled = false;
+      if (hasTodayHRs) todayBtn.disabled = false;
+      yesterdayBtn.innerHTML = `🟡 Yesterday's HRs`;
+    }, 4000);
+  });
+
+  todayBtn.addEventListener('click', () => {
+    yesterdayBtn.disabled = true;
+    todayBtn.disabled = true;
+    todayBtn.innerHTML = `⚡ Animating...`;
+
+    animRows.forEach(row => {
+      if (row.bubbleInterval) {
+        clearInterval(row.bubbleInterval);
+        row.bubbleInterval = null;
+      }
+      row.yesterdayBar.style.transition = 'none';
+      row.yesterdayBar.style.width = `${row.yesterdayAddedWidth}%`;
+      row.yesterdayBar.style.backgroundColor = row.teamColor;
+      row.yesterdayBar.style.boxShadow = 'none';
+
+      row.todayBar.style.transition = 'none';
+      row.todayBar.style.width = '0%';
+      row.todayBar.style.backgroundColor = '#ff5a00';
+      row.todayBar.style.boxShadow = '0 0 8px rgba(255, 90, 0, 0.4)';
+      
+      row.valueSpan.innerText = row.baseHR + row.yesterdayHRs;
+    });
+
+    void todayBtn.offsetHeight;
+
+    animRows.forEach(row => {
+      if (row.hasTodayChange) {
+        row.todayBar.style.transition = 'width 3s cubic-bezier(0.16, 1, 0.3, 1), background-color 1s ease';
+      }
+    });
+
+    animRows.forEach((row, idx) => {
+      if (row.hasTodayChange) {
+        row.barOuter.classList.add('pulse-new-hr');
+
+        let spawnCount = 0;
+        const spawnTodayBubble = () => {
+          const bubble = document.createElement('span');
+          bubble.className = 'float-up-fade';
+          bubble.style.cssText = `
+            position: absolute;
+            left: calc(${row.baseWidth + row.yesterdayAddedWidth + row.todayAddedWidth / 2}% - 16px);
+            top: -8px;
+            background: #ff5a00;
+            color: #ffffff;
+            font-size: 9px;
+            font-weight: 800;
+            padding: 2px 6px;
+            border-radius: 6px;
+            box-shadow: 0 0 6px rgba(255, 90, 0, 0.6);
+            pointer-events: none;
+            z-index: 10;
+            font-family: var(--font-title);
+            white-space: nowrap;
+          `;
+          bubble.innerText = `Today +${row.todayHRs}`;
+          row.barCol.appendChild(bubble);
+          setTimeout(() => bubble.remove(), 1200);
+        };
+
+        spawnTodayBubble();
+        row.bubbleInterval = setInterval(spawnTodayBubble, 1200);
+
+        setTimeout(() => {
+          row.todayBar.style.width = `${row.todayAddedWidth}%`;
+          let count = row.baseHR + row.yesterdayHRs;
+          const delayPerHR = 2500 / Math.max(1, row.todayHRs);
+          const interval = setInterval(() => {
+            if (count >= row.totalHR) {
+              clearInterval(interval);
+            } else {
+              count++;
+              row.valueSpan.innerText = count;
+            }
+          }, delayPerHR);
+        }, idx * 30);
+      }
+    });
+
+    setTimeout(() => {
+      animRows.forEach(row => {
+        if (row.bubbleInterval) {
+          clearInterval(row.bubbleInterval);
+          row.bubbleInterval = null;
+        }
+        row.barOuter.classList.remove('pulse-new-hr');
+        row.todayBar.style.backgroundColor = row.teamColor;
+        row.todayBar.style.boxShadow = 'none';
+        row.valueSpan.innerText = row.totalHR;
+      });
+
+      if (hasYesterdayHRs) yesterdayBtn.disabled = false;
+      todayBtn.disabled = false;
+      todayBtn.innerHTML = `🟢 Today's HRs`;
+    }, 4000);
   });
 
   card.appendChild(graphContainer);
