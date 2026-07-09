@@ -2521,6 +2521,62 @@ function showWhatToWatchModal() {
     }
   };
 
+  const getWatchlistExplanation = (w) => {
+    let explanation = "";
+    const awayAbbr = w.awayTeam.abbreviation || "AWY";
+    const homeAbbr = w.homeTeam.abbreviation || "HOM";
+
+    const isRivalry = w.reasons.some(r => r.toLowerCase().includes("rivalry"));
+    if (isRivalry) {
+      const awayRank = parseInt(w.awayTeam.divisionRank || w.awayTeam.divisionPlace, 10);
+      const homeRank = parseInt(w.homeTeam.divisionRank || w.homeTeam.divisionPlace, 10);
+
+      if (awayRank === 1 && homeRank === 1) {
+        explanation = `Elite clash of division leaders. A win for either team asserts dominance at the top of the league standings.`;
+      } else if (awayRank === 1) {
+        explanation = `The division-leading <strong>${awayAbbr}</strong> look to extend their advantage, while the chasing <strong>${homeAbbr}</strong> fight for crucial wildcard positioning.`;
+      } else if (homeRank === 1) {
+        explanation = `The division-leading <strong>${homeAbbr}</strong> look to reinforce their lead, while the visiting <strong>${awayAbbr}</strong> aim to close the gap.`;
+      } else {
+        explanation = `High-leverage division/wildcard matchup. If <strong>${awayAbbr}</strong> wins, they gain critical ground in the wildcard race; if <strong>${homeAbbr}</strong> wins, they push ahead.`;
+      }
+    }
+
+    const streakReason = w.reasons.find(r => r.includes("W/L Streak"));
+    if (streakReason) {
+      const match = streakReason.match(/(.+)\s+W\/L Streak:\s+(W|L)(\d+)/);
+      if (match) {
+        const teamName = match[1];
+        const type = match[2] === 'W' ? 'winning' : 'losing';
+        const count = match[3];
+        const sentence = `The <strong>${teamName}</strong> put their hot <strong>${count}-game ${type} streak</strong> on the line in this matchup.`;
+        explanation = explanation ? `${explanation} ${sentence}` : sentence;
+      }
+    }
+
+    const hitReason = w.reasons.find(r => r.includes("Hitting Streak"));
+    if (hitReason) {
+      const match = hitReason.match(/(.+)\s+(\d+)-Game Hitting Streak/);
+      if (match) {
+        const playerName = match[1];
+        const streakCount = match[2];
+        const sentence = `History watch: <strong>${playerName}</strong> puts his impressive <strong>${streakCount}-game hitting streak</strong> on the line.`;
+        explanation = explanation ? `${explanation} ${sentence}` : sentence;
+      }
+    }
+
+    const noHitterReason = w.reasons.find(r => r.toLowerCase().includes("no-hitter"));
+    if (noHitterReason) {
+      explanation = `Potential history in progress! Pitchers are throwing a <strong>no-hitter</strong> through the late innings.`;
+    }
+
+    if (!explanation) {
+      explanation = `High-stakes battle featuring key contender matchups and standing implications.`;
+    }
+
+    return explanation;
+  };
+
   // Section 1: Live & Upcoming Watches
   const liveSection = document.createElement('div');
   liveSection.style.cssText = 'display: flex; flex-direction: column; gap: 10px;';
@@ -2552,14 +2608,40 @@ function showWhatToWatchModal() {
           ${w.awayScore}-${w.homeScore} (${w.linescore?.currentInningOrdinal || 'In Progress'})
         `;
       } else {
-        statusSpan.style.cssText = 'font-weight: 600; color: var(--text-muted);';
-        statusSpan.innerText = 'Upcoming';
+        statusSpan.style.cssText = 'font-weight: 600; color: var(--text-muted); font-size: 11px; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; text-align: right;';
+        const gameDate = new Date(w.gameDate);
+        const timeStr = gameDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        const diffMs = gameDate.getTime() - Date.now();
+        let countdownText = "";
+        if (diffMs > 0) {
+          const diffMins = Math.floor(diffMs / 60000);
+          const hrs = Math.floor(diffMins / 60);
+          const mins = diffMins % 60;
+          if (hrs > 0) {
+            countdownText = `Starts in ${hrs}h ${mins}m`;
+          } else {
+            countdownText = `Starts in ${mins}m`;
+          }
+        } else {
+          countdownText = "Starting soon";
+        }
+        
+        statusSpan.innerHTML = `
+          <span>${timeStr}</span>
+          <span style="font-size: 8.5px; font-weight: 800; color: var(--color-gold); text-transform: uppercase; letter-spacing: 0.3px;">${countdownText}</span>
+        `;
       }
       headerRow.appendChild(statusSpan);
       card.appendChild(headerRow);
 
+      const descDiv = document.createElement('div');
+      descDiv.style.cssText = 'font-size: 11.5px; color: var(--text-secondary); line-height: 1.45;';
+      descDiv.innerHTML = getWatchlistExplanation(w);
+      card.appendChild(descDiv);
+
       const badgeRow = document.createElement('div');
-      badgeRow.style.cssText = 'display: flex; flex-wrap: wrap; gap: 6px;';
+      badgeRow.style.cssText = 'display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px;';
       w.reasons.forEach(r => {
         const badge = document.createElement('span');
         badge.style.cssText = 'font-size: 9.5px; font-weight: 800; padding: 2px 8px; border-radius: 20px; font-family: var(--font-title); ' + getBadgeStyle(r);
