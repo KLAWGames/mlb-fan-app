@@ -7300,6 +7300,27 @@ function createDeveloperNotesView() {
 
   notesCard.innerHTML = `
     <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(16, 185, 129, 0.2); padding-bottom: 4px;">v1.8.5 (Off-Day Next Game Countdown)</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Implemented fallback view for <strong>Today's Game</strong> widget when the active team has an off-day.</li>
+        <li>Fetches the team's next scheduled game from schedule API and displays matchup details alongside a live "Starts-In" countdown timer.</li>
+      </ul>
+    </div>
+    <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(245, 158, 11, 0.2); padding-bottom: 4px;">v1.8.0 (Live Game Timers & Watch Context)</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Added live countdown start timers to upcoming watchable games.</li>
+        <li>Formulated custom natural-language context explanations highlighting division leads, wildcard chasers, or player hitting streaks on the line.</li>
+      </ul>
+    </div>
+    <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(59, 130, 246, 0.2); padding-bottom: 4px;">v1.7.5 (Split Home Run Animations)</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Set the Home Run Chase view to show fully complete, up-to-date statistics immediately on load.</li>
+        <li>Split single replay button into separate <strong>Yesterday's HRs</strong> and <strong>Today's HRs</strong> animation trigger buttons.</li>
+      </ul>
+    </div>
+    <div>
       <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(16, 185, 129, 0.2); padding-bottom: 4px;">v1.7.0 (MLB Service Time & Hitter Splits)</h4>
       <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
         <li>Implemented strict Major League service-time filters (<code>sportId = 1</code>) to ignore minor league splits.</li>
