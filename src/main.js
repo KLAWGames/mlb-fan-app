@@ -6020,12 +6020,93 @@ function createDashboardView() {
     const activeTeamName = team.shortName || 'Tracked Team';
     cellToday = document.createElement('div');
     cellToday.className = 'glass-card';
-    cellToday.style.cssText = 'padding: 20px; text-align: center; color: var(--text-secondary); font-size: 13px; font-weight: 600; border: 1.5px solid var(--border-glass-highlight);';
+    cellToday.style.cssText = 'padding: 20px; text-align: center; color: var(--text-secondary); font-size: 13px; font-weight: 600; border: 1.5px solid var(--border-glass-highlight); display: flex; flex-direction: column; gap: 8px; align-items: center;';
     const formattedDate = formatOffDayDate(state.selectedDate);
+    
     cellToday.innerHTML = `
-      <div>⚾ The ${activeTeamName} do not have a game today.</div>
-      <div style="font-size: 11.5px; opacity: 0.8; margin-top: 4px; font-weight: 500;">(${formattedDate})</div>
+      <div style="font-size: 13px; font-weight: 800; color: var(--text-primary);">⚾ The ${activeTeamName} do not have a game today.</div>
+      <div style="font-size: 11px; color: var(--text-muted); font-weight: 500;">(${formattedDate})</div>
+      <div class="next-game-info" style="font-size: 11.5px; color: var(--text-secondary); border-top: 1px dashed var(--border-glass); padding-top: 8px; margin-top: 4px; width: 100%; display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--color-gold); letter-spacing: 0.5px;">Next Scheduled Game</span>
+        <span style="font-style: italic; color: var(--text-muted);">Loading next game details...</span>
+      </div>
     `;
+
+    const fromDate = state.selectedDate;
+    const endDate = getOffsetDateStr(fromDate, 14);
+    const nextGameUrl = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=${state.activeTeamId}&startDate=${fromDate}&endDate=${endDate}`;
+
+    fetch(nextGameUrl)
+      .then(res => res.json())
+      .then(data => {
+        const nextGameInfo = cellToday.querySelector('.next-game-info');
+        if (!nextGameInfo) return;
+
+        if (data.dates && data.dates.length > 0) {
+          let foundGame = null;
+          for (const d of data.dates) {
+            if (d.games && d.games.length > 0) {
+              const upcoming = d.games.find(g => g.status?.statusCode !== 'F' && g.status?.statusCode !== 'O');
+              if (upcoming) {
+                foundGame = upcoming;
+                break;
+              }
+            }
+          }
+
+          if (foundGame) {
+            const opponentId = foundGame.teams.away.team.id === state.activeTeamId ? foundGame.teams.home.team.id : foundGame.teams.away.team.id;
+            const opponent = teamsData[opponentId] || { name: foundGame.teams.away.team.id === state.activeTeamId ? foundGame.teams.home.team.name : foundGame.teams.away.team.name, abbreviation: "OPP" };
+            
+            const isHome = foundGame.teams.home.team.id === state.activeTeamId;
+            const matchupText = isHome ? `vs. ${opponent.name}` : `@ ${opponent.name}`;
+            
+            const gameTime = new Date(foundGame.gameDate);
+            const timeStr = gameTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            const dateParts = foundGame.gameDate.split('T')[0].split('-');
+            const gameDateFormatted = new Date(parseInt(dateParts[0], 10), parseInt(dateParts[1], 10) - 1, parseInt(dateParts[2], 10)).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+            const diffMs = gameTime.getTime() - Date.now();
+            let timerStr = "";
+            if (diffMs > 0) {
+              const diffMins = Math.floor(diffMs / 60000);
+              const days = Math.floor(diffMins / 1440);
+              const hrs = Math.floor((diffMins % 1440) / 60);
+              const mins = diffMins % 60;
+              if (days > 0) {
+                timerStr = `Starts in ${days}d ${hrs}h`;
+              } else if (hrs > 0) {
+                timerStr = `Starts in ${hrs}h ${mins}m`;
+              } else {
+                timerStr = `Starts in ${mins}m`;
+              }
+            } else {
+              timerStr = "Starting soon";
+            }
+
+            nextGameInfo.innerHTML = `
+              <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--color-gold); letter-spacing: 0.5px; margin-bottom: 2px;">Next Scheduled Game</span>
+              <span style="font-weight: 800; font-size: 13px; color: var(--text-primary);">${matchupText}</span>
+              <span style="font-weight: 700; color: var(--text-secondary);">${gameDateFormatted} at ${timeStr}</span>
+              <span style="font-size: 10.5px; font-weight: 800; color: var(--color-win); background: rgba(16, 185, 129, 0.08); padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.25); width: fit-content; margin: 4px auto 0 auto; display: flex; align-items: center; gap: 4px;">
+                ⏱️ ${timerStr}
+              </span>
+            `;
+          } else {
+            nextGameInfo.innerHTML = `<span style="color: var(--text-muted); font-style: italic;">No upcoming games scheduled in the next 14 days.</span>`;
+          }
+        } else {
+          nextGameInfo.innerHTML = `<span style="color: var(--text-muted); font-style: italic;">No upcoming games scheduled in the next 14 days.</span>`;
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        const nextGameInfo = cellToday.querySelector('.next-game-info');
+        if (nextGameInfo) {
+          nextGameInfo.innerHTML = `<span style="color: var(--color-loss); font-weight: 600;">Failed to load next game schedule.</span>`;
+        }
+      });
   }
   bentoGrid.appendChild(cellToday);
 
