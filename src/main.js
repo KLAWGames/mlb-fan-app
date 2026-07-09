@@ -1838,7 +1838,9 @@ function showWhosHotModal() {
           .filter(r => r.position.code !== '1') // Exclude pitchers
           .map(r => {
             const p = r.person;
-            const stats = p.stats?.[0]?.splits?.[0]?.stat || null;
+            const splits = p.stats?.[0]?.splits || [];
+            const mlbSplit = splits.find(s => s.sport?.id === 1) || null;
+            const stats = mlbSplit?.stat || null;
             return {
               id: p.id,
               name: p.fullName,
@@ -1846,30 +1848,41 @@ function showWhosHotModal() {
               stats
             };
           })
-          .filter(h => {
-            if (!h.stats) return false;
-            if (selectedOpt === 'Last 10 Games') return h.stats.plateAppearances >= 5;
-            if (selectedOpt === 'Last 30 Games') return h.stats.plateAppearances >= 12;
-            return h.stats.plateAppearances >= 40;
-          });
+          .filter(h => h.stats && h.stats.plateAppearances > 0);
 
-        hitters.sort((a, b) => {
-          const opsA = parseFloat(a.stats.ops) || 0;
-          const opsB = parseFloat(b.stats.ops) || 0;
-          return opsB - opsA;
-        });
+        let everydayMinPA = 80;
+        let callupMinPA = 10;
+        if (selectedOpt === 'Last 10 Games') {
+          everydayMinPA = 15;
+          callupMinPA = 2;
+        } else if (selectedOpt === 'Last 30 Games') {
+          everydayMinPA = 40;
+          callupMinPA = 5;
+        }
 
-        const topPerformers = hitters.slice(0, 5);
+        const everydayHitters = hitters.filter(h => h.stats.plateAppearances >= everydayMinPA);
+        const callupContenders = hitters.filter(h => h.stats.plateAppearances < everydayMinPA && h.stats.plateAppearances >= callupMinPA);
 
-        if (topPerformers.length === 0) {
+        everydayHitters.sort((a, b) => (parseFloat(b.stats.ops) || 0) - (parseFloat(a.stats.ops) || 0));
+        callupContenders.sort((a, b) => (parseFloat(b.stats.ops) || 0) - (parseFloat(a.stats.ops) || 0));
+
+        const displayedEveryday = everydayHitters.slice(0, 4);
+        const rookieStandout = callupContenders[0] || null;
+
+        if (displayedEveryday.length === 0 && !rookieStandout) {
           performersGrid.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:12px;padding:20px;">No qualified hitters found for this timeframe.</div>';
           return;
         }
 
-        topPerformers.forEach(p => {
-          const card = HotPerformerCard(p, selectedOpt, teamName);
+        displayedEveryday.forEach(p => {
+          const card = HotPerformerCard(p, selectedOpt, teamName, false);
           performersGrid.appendChild(card);
         });
+
+        if (rookieStandout) {
+          const card = HotPerformerCard(rookieStandout, selectedOpt, teamName, true);
+          performersGrid.appendChild(card);
+        }
       })
       .catch(e => {
         console.error(e);
@@ -6277,10 +6290,14 @@ function getHotPerformersForTeam(teamId, timeframe) {
   return players;
 }
 
-function HotPerformerCard(p, timeframe, teamName) {
+function HotPerformerCard(p, timeframe, teamName, isRookieHighlight = false) {
   const card = document.createElement('div');
   card.className = 'glass-card hot-performer-card';
-  card.style.cssText = 'padding: 20px; border: 1.5px solid var(--border-glass-highlight); display: flex; flex-direction: column; gap: 16px; border-radius: 12px; text-align: left;';
+  if (isRookieHighlight) {
+    card.style.cssText = 'padding: 20px; border: 1.5px dashed rgba(16, 185, 129, 0.45); display: flex; flex-direction: column; gap: 16px; border-radius: 12px; text-align: left; background: rgba(16, 185, 129, 0.02);';
+  } else {
+    card.style.cssText = 'padding: 20px; border: 1.5px solid var(--border-glass-highlight); display: flex; flex-direction: column; gap: 16px; border-radius: 12px; text-align: left;';
+  }
 
   const stats = p.stats;
   const avg = stats.avg || '.000';
@@ -6360,29 +6377,31 @@ function HotPerformerCard(p, timeframe, teamName) {
   }
 
   let dailyIntel = "";
-  if (opsPlus >= 120) {
-    dailyIntel = `<strong>${p.name}</strong> is in absolute peak form, carrying the lineup with an elite estimated <strong>${opsPlus} OPS+</strong>. He is consistently hitting for power and extra bases.`;
-  } else if (opsPlus >= 95) {
-    dailyIntel = `<strong>${p.name}</strong> is maintaining a steady, productive presence in the lineup, making consistent hard contact and driving in key runs.`;
+  if (isRookieHighlight) {
+    dailyIntel = `<strong>Recent Call-up Highlight:</strong> <strong>${p.name}</strong> has made a dynamic impact in a small sample size of <strong>${stats.gamesPlayed} MLB games</strong>. `;
   } else {
-    dailyIntel = `<strong>${p.name}</strong> is experiencing slightly suppressed power output, but remains a vital bat in the order. Quality process indicators suggest adjustments are underway.`;
+    dailyIntel = `<strong>${p.name}</strong> is in solid form as an everyday contributor. `;
+  }
+
+  if (opsPlus >= 120) {
+    dailyIntel += `He is performing at an elite level with an estimated <strong>${opsPlus} OPS+</strong>, hitting for extra bases.`;
+  } else if (opsPlus >= 95) {
+    dailyIntel += `He is maintaining a steady presence with a solid estimated <strong>${opsPlus} OPS+</strong>.`;
+  } else {
+    dailyIntel += `He is finding his rhythm at the plate with a <strong>${ops} OPS</strong>, showing quality at-bats.`;
   }
 
   if (babipNum > 0.350) {
-    dailyIntel += ` His elevated <strong>${babipStr} BABIP</strong> indicates he is finding holes and enjoying some favorable ball placements, though some slight normalization is typical.`;
+    dailyIntel += ` His high <strong>${babipStr} BABIP</strong> shows his hits are finding gaps, though expect standard regression over a larger sample.`;
   } else if (babipNum < 0.240 && babipNum > 0) {
-    dailyIntel += ` An unusually depressed <strong>${babipStr} BABIP</strong> points to severe bad luck despite solid contact, making him a prime candidate for a positive breakout.`;
-  } else if (babipNum > 0) {
-    dailyIntel += ` His sustainable <strong>${babipStr} BABIP</strong> suggests that his offensive output is a true reflection of solid plate appearance quality.`;
+    dailyIntel += ` A depressed <strong>${babipStr} BABIP</strong> indicates bad luck on hard contact, suggesting a positive breakout is likely.`;
   }
 
-  let disciplineIntel = `Shows a <strong>${walkPct}% walk rate</strong> and <strong>${strikeoutPct}% strikeout rate</strong> (${bb} walks / ${so} strikeouts in ${pa} plate appearances). `;
+  let disciplineIntel = `Holds a <strong>${walkPct}% walk rate</strong> and <strong>${strikeoutPct}% strikeout rate</strong> (${bb} walks / ${so} strikeouts in ${pa} plate appearances). `;
   if (walkPct >= 11 && strikeoutPct <= 20) {
-    disciplineIntel += "Demonstrates elite strike zone control, walking almost as much as he strikes out.";
+    disciplineIntel += "Shows highly polished plate discipline.";
   } else if (strikeoutPct > 25) {
-    disciplineIntel += "Shows a high-risk, high-reward approach with elevated strikeouts, though his power potential remains key.";
-  } else {
-    disciplineIntel += "Maintains balanced plate coverage and standard zone selectivity.";
+    disciplineIntel += "Shows a high-risk, high-power approach.";
   }
 
   card.innerHTML = `
@@ -6392,7 +6411,11 @@ function HotPerformerCard(p, timeframe, teamName) {
         <div style="display: flex; align-items: center; gap: 6px;">
           <span class="player-team" style="font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">${teamName}</span>
           <span style="font-size: 9px; opacity: 0.4; color: var(--text-muted);">|</span>
-          <span class="league-rank-badge" style="font-size: 10px; color: #38bdf8; font-weight: 700; font-family: var(--font-title);">Estimated OPS+: ${opsPlus}</span>
+          ${isRookieHighlight ? `
+            <span class="league-rank-badge" style="font-size: 10px; color: #10b981; font-weight: 700; font-family: var(--font-title);">📞 Call-up Highlight (${stats.gamesPlayed} MLB Games)</span>
+          ` : `
+            <span class="league-rank-badge" style="font-size: 10px; color: #38bdf8; font-weight: 700; font-family: var(--font-title);">Estimated OPS+: ${opsPlus}</span>
+          `}
         </div>
       </div>
       <span class="timeframe-badge" style="font-size: 10px; font-weight: 700; color: var(--text-secondary); background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border-glass);">${timeframe}</span>
