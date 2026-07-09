@@ -2195,6 +2195,148 @@ function showLeagueStreaksModal() {
   backdrop.classList.add('show');
 }
 
+function evaluateWatchableGames() {
+  const games = state.rawSchedule || [];
+  const watchlist = [];
+
+  games.forEach(g => {
+    const awayId = g.teams.away.team.id;
+    const homeId = g.teams.home.team.id;
+    const awayTeam = state.processedStandings?.teamsMap?.[awayId] || teamsData[awayId] || { name: g.teams.away.team.name, abbreviation: "AWY", wins: 0, losses: 0 };
+    const homeTeam = state.processedStandings?.teamsMap?.[homeId] || teamsData[homeId] || { name: g.teams.home.team.name, abbreviation: "HOM", wins: 0, losses: 0 };
+
+    const awayScore = g.teams.away.score || 0;
+    const homeScore = g.teams.home.score || 0;
+
+    const status = g.status?.statusCode;
+    const isCompleted = status === 'F' || status === 'O';
+    const isLive = status === 'I' || g.status?.detailedState?.toLowerCase().includes('progress');
+    const isUpcoming = !isCompleted && !isLive;
+
+    const linescore = g.linescore;
+    const currentInning = linescore?.currentInning || 0;
+    const awayHits = linescore?.teams?.away?.hits;
+    const homeHits = linescore?.teams?.home?.hits;
+
+    // Evaluate Exciting Reasons:
+    let reasons = [];
+    let isPlayoffRivalry = false;
+    let isActiveNoHitter = false;
+    let isLateThriller = false;
+    let isLargeTeamStreak = false;
+    let isPlayerStreak = false;
+    let streakDetails = null;
+    let playerStreakDetails = null;
+
+    // 1. Playoff Rivalry (Both teams have winPct >= .500, or same division division/wildcard contenders)
+    const awayWinPct = (awayTeam.wins || 0) / (((awayTeam.wins || 0) + (awayTeam.losses || 0)) || 1);
+    const homeWinPct = (homeTeam.wins || 0) / (((homeTeam.wins || 0) + (homeTeam.losses || 0)) || 1);
+    const isSameLeague = awayTeam.leagueId === homeTeam.leagueId;
+    if (isSameLeague && (awayWinPct >= 0.50 || homeWinPct >= 0.50)) {
+      isPlayoffRivalry = true;
+      reasons.push("Playoff Rivalry Matchup");
+    }
+
+    // 2. Active No-Hitter (in progress)
+    if (isLive && currentInning >= 5) {
+      if (awayHits === 0) {
+        isActiveNoHitter = true;
+        reasons.push(`Potential No-Hitter (Away Hits: 0 through ${currentInning} IP)`);
+      }
+      if (homeHits === 0) {
+        isActiveNoHitter = true;
+        reasons.push(`Potential No-Hitter (Home Hits: 0 through ${currentInning} IP)`);
+      }
+    }
+
+    // 3. Late-Inning Thriller (in progress)
+    if (isLive && currentInning >= 8 && Math.abs(awayScore - homeScore) <= 1) {
+      isLateThriller = true;
+      reasons.push(`Late-Inning Thriller (${currentInning} Inning, ${awayScore}-${homeScore})`);
+    }
+
+    // 4. Large Team Streak (6+ games)
+    const awayStreak = getTeamStreak(awayId, awayTeam.wins || 0, awayTeam.losses || 0);
+    const homeStreak = getTeamStreak(homeId, homeTeam.wins || 0, homeTeam.losses || 0);
+    if (awayStreak.count >= 6) {
+      isLargeTeamStreak = true;
+      streakDetails = { team: awayTeam, type: awayStreak.type, count: awayStreak.count };
+      reasons.push(`${awayTeam.name} W/L Streak: ${awayStreak.type === 'win' ? 'W' : 'L'}${awayStreak.count}`);
+    }
+    if (homeStreak.count >= 6) {
+      isLargeTeamStreak = true;
+      streakDetails = { team: homeTeam, type: homeStreak.type, count: homeStreak.count };
+      reasons.push(`${homeTeam.name} W/L Streak: ${homeStreak.type === 'win' ? 'W' : 'L'}${homeStreak.count}`);
+    }
+
+    // 5. Top Player Hitting Streak (from hotBats)
+    const hotBats = state.hotBats || [];
+    const playerWithStreak = hotBats.find(b => {
+      const awayAbbr = awayTeam.abbreviation;
+      const homeAbbr = homeTeam.abbreviation;
+      return b.teamAbbr === awayAbbr || b.teamAbbr === homeAbbr;
+    });
+    if (playerWithStreak && playerWithStreak.streak >= 12) {
+      isPlayerStreak = true;
+      playerStreakDetails = playerWithStreak;
+      reasons.push(`${playerWithStreak.name} ${playerWithStreak.streak}-Game Hitting Streak`);
+    }
+
+    // If there is at least one exciting reason, add it to watchlist
+    if (reasons.length > 0) {
+      // Determine outcome details if completed
+      let outcomeText = "";
+      if (isCompleted) {
+        const awayWinner = g.teams.away.isWinner;
+        const winnerName = awayWinner ? awayTeam.name : homeTeam.name;
+        const loserName = awayWinner ? homeTeam.name : awayTeam.name;
+        const winScore = awayWinner ? awayScore : homeScore;
+        const loseScore = awayWinner ? homeScore : awayScore;
+
+        if (isLargeTeamStreak && streakDetails) {
+          const isStreakTeamWinner = (streakDetails.team.id === awayId && awayWinner) || (streakDetails.team.id === homeId && !awayWinner);
+          if (streakDetails.type === 'win') {
+            if (isStreakTeamWinner) {
+              outcomeText = `The ${streakDetails.team.name} extended their winning streak to ${streakDetails.count + 1} games with a ${winScore}-${loseScore} victory.`;
+            } else {
+              outcomeText = `The ${streakDetails.team.name}'s ${streakDetails.count}-game winning streak was snapped in a ${winScore}-${loseScore} loss to the ${loserName}.`;
+            }
+          } else {
+            if (isStreakTeamWinner) {
+              outcomeText = `The ${streakDetails.team.name}'s losing streak hit ${streakDetails.count + 1} games.`;
+            } else {
+              outcomeText = `The ${streakDetails.team.name} snapped their ${streakDetails.count}-game losing streak.`;
+            }
+          }
+        } else if (isPlayerStreak && playerStreakDetails) {
+          outcomeText = `${playerStreakDetails.name} successfully extended his hitting streak to ${playerStreakDetails.streak + 1} games with a hit today in the game.`;
+        } else if (isLateThriller) {
+          outcomeText = `The ${winnerName} edged the ${loserName} ${winScore}-${loseScore} in a nail-biting finish.`;
+        } else {
+          outcomeText = `The ${winnerName} defeated the ${loserName} ${winScore}-${loseScore} in a highly contested matchup.`;
+        }
+      }
+
+      watchlist.push({
+        gamePk: g.gamePk,
+        gameDate: g.gameDate,
+        awayTeam,
+        homeTeam,
+        awayScore,
+        homeScore,
+        isLive,
+        isCompleted,
+        isUpcoming,
+        reasons,
+        outcomeText,
+        linescore
+      });
+    }
+  });
+
+  return watchlist;
+}
+
 function showWhatToWatchModal() {
   const trigger = document.querySelector('.floating-menu-trigger');
   if (trigger) trigger.style.display = 'none';
@@ -2222,7 +2364,7 @@ function showWhatToWatchModal() {
   header.className = 'recap-header';
 
   const title = document.createElement('h2');
-  title.innerText = 'What to Watch Today';
+  title.innerText = 'What to Watch Now';
 
   const closeBtn = document.createElement('button');
   closeBtn.className = 'recap-close-btn';
@@ -2239,128 +2381,136 @@ function showWhatToWatchModal() {
 
   const desc = document.createElement('p');
   desc.style.cssText = 'font-size: 12.5px; color: var(--text-secondary); line-height: 1.55; margin: 0;';
-  desc.innerText = 'Live alert watches, high-leverage contender matchups, and streaks in jeopardy.';
+  desc.innerText = 'Live alert watches, high-stakes division matchups, and historic streaks across the entire league.';
   body.appendChild(desc);
 
-  const mainCard = document.createElement('div');
-  mainCard.style.cssText = 'display: flex; flex-direction: column; gap: 16px;';
+  const watchlist = evaluateWatchableGames();
+  const liveOrUpcoming = watchlist.filter(w => w.isLive || w.isUpcoming);
+  const completed = watchlist.filter(w => w.isCompleted);
 
+  const getBadgeStyle = (reason) => {
+    if (reason.toLowerCase().includes('no-hitter')) {
+      return 'background: rgba(239, 68, 68, 0.1); color: var(--color-loss); border: 1px solid rgba(239, 68, 68, 0.3);';
+    } else if (reason.toLowerCase().includes('thriller')) {
+      return 'background: rgba(168, 85, 247, 0.1); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.3);';
+    } else if (reason.toLowerCase().includes('rivalry')) {
+      return 'background: rgba(245, 158, 11, 0.1); color: var(--color-gold); border: 1px solid rgba(245, 158, 11, 0.3);';
+    } else {
+      return 'background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.3);';
+    }
+  };
+
+  // Section 1: Live & Upcoming Watches
+  const liveSection = document.createElement('div');
+  liveSection.style.cssText = 'display: flex; flex-direction: column; gap: 10px;';
+  
   const liveHeader = document.createElement('h4');
-  liveHeader.innerText = '🚨 Live Alert Watches';
+  liveHeader.innerHTML = `🚨 Live & Upcoming Watches`;
   liveHeader.style.cssText = 'margin: 0; font-size: 13.5px; font-weight: 800; border-bottom: 1.5px solid var(--border-glass); padding-bottom: 6px; color: var(--text-primary);';
-  mainCard.appendChild(liveHeader);
+  liveSection.appendChild(liveHeader);
 
-  const todayGames = state.rawSchedule || [];
-  const liveGames = todayGames.filter(g => {
-    const isLive = g.status?.statusCode === 'I' || g.status?.detailedState?.toLowerCase().includes('progress');
-    return isLive;
-  });
+  if (liveOrUpcoming.length > 0) {
+    liveOrUpcoming.forEach(w => {
+      const card = document.createElement('div');
+      card.className = 'glass-card';
+      card.style.cssText = 'padding: 12px; display: flex; flex-direction: column; gap: 8px; border: 1.5px solid var(--border-glass); font-size: 12px;';
 
-  let alertCount = 0;
-  if (liveGames.length > 0) {
-    liveGames.forEach(game => {
-      const linescore = game.linescore;
-      if (!linescore) return;
-      const currentInning = linescore.currentInning || 0;
-      const awayHits = linescore.teams?.away?.hits;
-      const homeHits = linescore.teams?.home?.hits;
-      if (currentInning >= 5) {
-        if (awayHits === 0) {
-          const alert = document.createElement('div');
-          alert.style.cssText = 'background: rgba(244, 63, 94, 0.08); border: 1.5px solid var(--color-loss); border-radius: 8px; padding: 10px 14px; font-size: 12px; font-weight: 700; color: var(--color-loss); line-height: 1.5;';
-          alert.innerHTML = `🔥 NO-HITTER ALERT: The ${game.teams?.home?.team?.name} pitcher is throwing a NO-HITTER through ${currentInning} innings against the ${game.teams?.away?.team?.name}!`;
-          mainCard.appendChild(alert);
-          alertCount++;
-        }
-        if (homeHits === 0) {
-          const alert = document.createElement('div');
-          alert.style.cssText = 'background: rgba(244, 63, 94, 0.08); border: 1.5px solid var(--color-loss); border-radius: 8px; padding: 10px 14px; font-size: 12px; font-weight: 700; color: var(--color-loss); line-height: 1.5;';
-          alert.innerHTML = `🔥 NO-HITTER ALERT: The ${game.teams?.away?.team?.name} pitcher is throwing a NO-HITTER through ${currentInning} innings against the ${game.teams?.home?.team?.name}!`;
-          mainCard.appendChild(alert);
-          alertCount++;
-        }
+      const headerRow = document.createElement('div');
+      headerRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+
+      const teamsSpan = document.createElement('span');
+      teamsSpan.style.cssText = 'font-weight: 800; font-size: 13px; color: var(--text-primary);';
+      teamsSpan.innerText = `${w.awayTeam.abbreviation} @ ${w.homeTeam.abbreviation}`;
+      headerRow.appendChild(teamsSpan);
+
+      const statusSpan = document.createElement('span');
+      if (w.isLive) {
+        statusSpan.style.cssText = 'display: flex; align-items: center; font-weight: 700; color: #ef4444;';
+        statusSpan.innerHTML = `
+          <span style="display:inline-block; width:6px; height:6px; background:#ef4444; border-radius:50%; margin-right:5px; animation: pulse 1s infinite;"></span>
+          ${w.awayScore}-${w.homeScore} (${w.linescore?.currentInningOrdinal || 'In Progress'})
+        `;
+      } else {
+        statusSpan.style.cssText = 'font-weight: 600; color: var(--text-muted);';
+        statusSpan.innerText = 'Upcoming';
       }
-    });
-  }
+      headerRow.appendChild(statusSpan);
+      card.appendChild(headerRow);
 
-  if (alertCount === 0) {
-    const noAlerts = document.createElement('div');
-    noAlerts.style.cssText = 'font-size: 12px; color: var(--text-muted); padding: 4px 0;';
-    noAlerts.innerText = 'No major live alerts (no-hitters, etc.) active right now.';
-    mainCard.appendChild(noAlerts);
-  }
+      const badgeRow = document.createElement('div');
+      badgeRow.style.cssText = 'display: flex; flex-wrap: wrap; gap: 6px;';
+      w.reasons.forEach(r => {
+        const badge = document.createElement('span');
+        badge.style.cssText = 'font-size: 9.5px; font-weight: 800; padding: 2px 8px; border-radius: 20px; font-family: var(--font-title); ' + getBadgeStyle(r);
+        badge.innerText = r;
+        badgeRow.appendChild(badge);
+      });
+      card.appendChild(badgeRow);
 
-  const playoffHeader = document.createElement('h4');
-  playoffHeader.innerText = '🛡️ Playoff Leverage Matchups';
-  playoffHeader.style.cssText = 'margin: 10px 0 0 0; font-size: 13.5px; font-weight: 800; border-bottom: 1.5px solid var(--border-glass); padding-bottom: 6px; color: var(--text-primary);';
-  mainCard.appendChild(playoffHeader);
-
-  const analysis = analyzeMatchups(todayGames, state.processedStandings, state.activeTeamId);
-  const rivalGames = analysis.filter(g =>
-    g.priority > 0 &&
-    g.awayTeam.id !== state.activeTeamId &&
-    g.homeTeam.id !== state.activeTeamId
-  );
-
-  if (rivalGames.length > 0) {
-    rivalGames.forEach(game => {
-      const rootTeamName = game.rootFor === 'Away' ? game.awayTeam.name : game.homeTeam.name;
-      const gRow = document.createElement('div');
-      gRow.style.cssText = 'padding: 8px; border-radius: 6px; border: 1px solid var(--border-glass); font-size: 12px; line-height: 1.5; display: flex; flex-direction: column; gap: 4px; background: rgba(0,0,0,0.01);';
-      gRow.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <strong>${game.awayTeam.abbreviation} @ ${game.homeTeam.abbreviation}</strong>
-          <span style="font-size:10px; font-weight:800; color:var(--color-gold); background:rgba(245, 158, 11, 0.08); border: 1px solid var(--color-gold); padding: 2px 6px; border-radius: 10px;">Leverage: ${game.priority}/10</span>
-        </div>
-        <div style="color:var(--text-secondary); line-height:1.45;">
-          Root for: <strong>${rootTeamName}</strong>. ${game.explanation}
-        </div>
-      `;
-      mainCard.appendChild(gRow);
+      liveSection.appendChild(card);
     });
   } else {
-    const noPlayoff = document.createElement('div');
-    noPlayoff.style.cssText = 'font-size: 12px; color: var(--text-muted); padding: 4px 0;';
-    noPlayoff.innerText = 'No outside high-priority playoff leverage games scheduled today.';
-    mainCard.appendChild(noPlayoff);
+    const noGames = document.createElement('div');
+    noGames.style.cssText = 'font-size: 12px; color: var(--text-muted); padding: 4px 0; font-style: italic;';
+    noGames.innerText = 'No live or upcoming watch alerts right now.';
+    liveSection.appendChild(noGames);
   }
+  body.appendChild(liveSection);
 
-  const jeopardyHeader = document.createElement('h4');
-  jeopardyHeader.innerText = '⚡ Streaks in Jeopardy';
-  jeopardyHeader.style.cssText = 'margin: 10px 0 0 0; font-size: 13.5px; font-weight: 800; border-bottom: 1.5px solid var(--border-glass); padding-bottom: 6px; color: var(--text-primary);';
-  mainCard.appendChild(jeopardyHeader);
+  // Section 2: Completed Action Recap
+  const completedSection = document.createElement('div');
+  completedSection.style.cssText = 'display: flex; flex-direction: column; gap: 10px; margin-top: 6px;';
+  
+  const completedHeader = document.createElement('h4');
+  completedHeader.innerHTML = `🏁 Completed Action Recap`;
+  completedHeader.style.cssText = 'margin: 0; font-size: 13.5px; font-weight: 800; border-bottom: 1.5px solid var(--border-glass); padding-bottom: 6px; color: var(--text-primary);';
+  completedSection.appendChild(completedHeader);
 
-  const hotBats = state.hotBats || [];
-  let jeopardyCount = 0;
-  if (hotBats.length > 0) {
-    hotBats.slice(0, 3).forEach(b => {
-      const gameMatch = todayGames.find(g => {
-        const awayId = g.teams?.away?.team?.id;
-        const homeId = g.teams?.home?.team?.id;
-        const awayTeamObj = teamsData[awayId];
-        const homeTeamObj = teamsData[homeId];
-        return awayTeamObj?.abbreviation === b.teamAbbr || homeTeamObj?.abbreviation === b.teamAbbr;
+  if (completed.length > 0) {
+    completed.forEach(w => {
+      const card = document.createElement('div');
+      card.className = 'glass-card';
+      card.style.cssText = 'padding: 12px; display: flex; flex-direction: column; gap: 8px; border: 1.5px solid rgba(0, 0, 0, 0.08); font-size: 12px; opacity: 0.85;';
+
+      const headerRow = document.createElement('div');
+      headerRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+
+      const teamsSpan = document.createElement('span');
+      teamsSpan.style.cssText = 'font-weight: 700; color: var(--text-secondary);';
+      teamsSpan.innerText = `${w.awayTeam.abbreviation} ${w.awayScore}, ${w.homeTeam.abbreviation} ${w.homeScore}`;
+      headerRow.appendChild(teamsSpan);
+
+      const statusSpan = document.createElement('span');
+      statusSpan.style.cssText = 'font-weight: 600; color: var(--text-muted);';
+      statusSpan.innerText = 'Final';
+      headerRow.appendChild(statusSpan);
+      card.appendChild(headerRow);
+
+      const descDiv = document.createElement('div');
+      descDiv.style.cssText = 'font-size: 11.5px; color: var(--text-secondary); line-height: 1.45;';
+      descDiv.innerHTML = w.outcomeText;
+      card.appendChild(descDiv);
+
+      const badgeRow = document.createElement('div');
+      badgeRow.style.cssText = 'display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px;';
+      w.reasons.forEach(r => {
+        const badge = document.createElement('span');
+        badge.style.cssText = 'font-size: 9px; font-weight: 700; padding: 1.5px 6px; border-radius: 20px; font-family: var(--font-title); ' + getBadgeStyle(r);
+        badge.innerText = r;
+        badgeRow.appendChild(badge);
       });
+      card.appendChild(badgeRow);
 
-      if (gameMatch) {
-        const oppTeam = gameMatch.teams?.away?.team?.id === b.teamId ? gameMatch.teams.home.team.name : gameMatch.teams.away.team.name;
-        const streakDiv = document.createElement('div');
-        streakDiv.style.cssText = 'padding: 4px 0; font-size: 12px; color: var(--text-secondary); line-height: 1.45;';
-        streakDiv.innerHTML = `⭐ <strong>${b.name}</strong> (${b.teamAbbr}) puts his <strong>${b.streak}-game hitting streak</strong> on the line today against the ${oppTeam}!`;
-        mainCard.appendChild(streakDiv);
-        jeopardyCount++;
-      }
+      completedSection.appendChild(card);
     });
+  } else {
+    const noGames = document.createElement('div');
+    noGames.style.cssText = 'font-size: 12px; color: var(--text-muted); padding: 4px 0; font-style: italic;';
+    noGames.innerText = 'No exciting completed games to recap yet today.';
+    completedSection.appendChild(noGames);
   }
+  body.appendChild(completedSection);
 
-  if (jeopardyCount === 0) {
-    const noJeopardy = document.createElement('div');
-    noJeopardy.style.cssText = 'font-size: 12px; color: var(--text-muted); padding: 4px 0;';
-    noJeopardy.innerText = 'No major hitting streaks in jeopardy today.';
-    mainCard.appendChild(noJeopardy);
-  }
-
-  body.appendChild(mainCard);
   content.appendChild(body);
   backdrop.appendChild(content);
   document.body.appendChild(backdrop);
