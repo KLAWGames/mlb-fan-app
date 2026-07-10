@@ -1800,8 +1800,8 @@ function showWhosHotModal() {
     
     tabsList.forEach(tabData => {
       const isAct = tabData.opt === selectedOpt;
-      tabData.el.style.background = isAct ? 'var(--color-gold)' : 'transparent';
-      tabData.el.style.color = isAct ? '#111827' : 'var(--text-secondary)';
+      tabData.el.style.background = isAct ? 'var(--team-primary, var(--color-gold))' : 'transparent';
+      tabData.el.style.color = isAct ? 'var(--team-text, #ffffff)' : 'var(--text-secondary)';
     });
 
     performersGrid.innerHTML = '';
@@ -7227,7 +7227,7 @@ function createCreditsVersionView() {
   appMetaText.style.fontSize = '13px';
   appMetaText.style.color = 'var(--text-secondary)';
   appMetaText.style.lineHeight = '1.6';
-  appMetaText.innerHTML = '<strong>Trajectory Web App</strong><br>Version: v1.9.0<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
+  appMetaText.innerHTML = '<strong>Trajectory Web App</strong><br>Version: v1.9.1<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
   creditsCard.appendChild(appMetaText);
 
   container.appendChild(creditsCard);
@@ -7277,6 +7277,13 @@ function createDeveloperNotesView() {
   notesCard.style.cssText = 'padding: 20px; display: flex; flex-direction: column; gap: 18px; border: 1px solid var(--border-glass-highlight); margin-bottom: 0; max-height: 60vh; overflow-y: auto;';
 
   notesCard.innerHTML = `
+    <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(16, 185, 129, 0.2); padding-bottom: 4px;">v1.9.1 (Who's Hot Active Tab Contrast)</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Fixed color contrast issues on the selected timeframe tabs inside the <strong>Who's Hot?</strong> modal.</li>
+        <li>Dynamically applies the team's primary color as background and corresponding team text color to make the active selection highly visible.</li>
+      </ul>
+    </div>
     <div>
       <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(16, 185, 129, 0.2); padding-bottom: 4px;">v1.9.0 (HR Chase Navigation Update)</h4>
       <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
