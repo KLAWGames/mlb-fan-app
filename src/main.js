@@ -7313,7 +7313,7 @@ function createCreditsVersionView() {
   appMetaText.style.fontSize = '13px';
   appMetaText.style.color = 'var(--text-secondary)';
   appMetaText.style.lineHeight = '1.6';
-  appMetaText.innerHTML = '<strong>Trajectory Web App</strong><br>Version: v1.9.6<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
+  appMetaText.innerHTML = '<strong>Trajectory Web App</strong><br>Version: v1.9.7<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
   creditsCard.appendChild(appMetaText);
 
   container.appendChild(creditsCard);
@@ -7363,6 +7363,13 @@ function createDeveloperNotesView() {
   notesCard.style.cssText = 'padding: 20px; display: flex; flex-direction: column; gap: 18px; border: 1px solid var(--border-glass-highlight); margin-bottom: 0; max-height: 60vh; overflow-y: auto;';
 
   notesCard.innerHTML = `
+    <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(16, 185, 129, 0.2); padding-bottom: 4px;">v1.9.7 (Home Run Daily List Rank Tags)</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Added a gold <strong>#X Overall</strong> rank badge next to a player's name inside the Yesterday/Today daily home run details list if they are currently ranked in the top 25 overall home run chase.</li>
+        <li>Corrected Marcell Ozuna's player ID inside mock fallbacks so overall ranks resolve correctly offline.</li>
+      </ul>
+    </div>
     <div>
       <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(16, 185, 129, 0.2); padding-bottom: 4px;">v1.9.6 (Home Run Chase Animation Accuracy)</h4>
       <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
@@ -8414,10 +8421,39 @@ async function showDailyHRsModal(dateStr, labelText) {
   document.body.appendChild(backdrop);
 
   try {
-    const res = await fetch(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${dateStr}&endDate=${dateStr}`);
-    if (!res.ok) throw new Error('Failed to load schedule');
-    const scheduleData = await res.json();
+    const selectedYear = dateStr.split('-')[0];
+    const mlbLeadersUrl25 = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=homeRuns&season=${selectedYear}&statType=season&limit=25`;
+    
+    const leadersMap = {};
+    
+    const [scheduleRes, leadersRes] = await Promise.all([
+      fetch(`https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${dateStr}&endDate=${dateStr}`),
+      fetch(mlbLeadersUrl25).catch(() => null)
+    ]);
+
+    if (!scheduleRes.ok) throw new Error('Failed to load schedule');
+    const scheduleData = await scheduleRes.json();
     const games = scheduleData.dates?.[0]?.games || [];
+
+    if (leadersRes && leadersRes.ok) {
+      try {
+        const leadersData = await leadersRes.json();
+        const leadersList = leadersData.leagueLeaders?.[0]?.leaders || [];
+        leadersList.forEach((leader, idx) => {
+          if (leader.person?.id) {
+            leadersMap[leader.person.id] = idx + 1;
+          }
+        });
+      } catch (e) {}
+    }
+
+    if (Object.keys(leadersMap).length === 0) {
+      MOCK_HR_LEADERS.forEach((leader, idx) => {
+        if (leader.person?.id) {
+          leadersMap[leader.person.id] = idx + 1;
+        }
+      });
+    }
     
     const activeGames = games.filter(g => {
       const detailedState = g.status?.detailedState?.toLowerCase() || '';
@@ -8425,7 +8461,6 @@ async function showDailyHRsModal(dateStr, labelText) {
     });
 
     const hrList = [];
-    const selectedYear = dateStr.split('-')[0];
 
     const feedPromises = activeGames.map(async (game) => {
       const statusCode = game.status?.statusCode;
@@ -8524,15 +8559,27 @@ async function showDailyHRsModal(dateStr, labelText) {
       const textMeta = document.createElement('div');
       textMeta.style.cssText = 'display: flex; flex-direction: column; text-align: left;';
 
+      const nameRow = document.createElement('div');
+      nameRow.style.cssText = 'display: flex; align-items: center; gap: 6px;';
+
       const nameSpan = document.createElement('span');
       nameSpan.innerText = hr.batterName;
       nameSpan.style.cssText = 'font-size: 13px; font-weight: 800; color: var(--text-primary);';
+      nameRow.appendChild(nameSpan);
+
+      const rank = leadersMap[hr.batterId];
+      if (rank && rank <= 25) {
+        const rankTag = document.createElement('span');
+        rankTag.style.cssText = 'font-size: 8.5px; font-weight: 800; padding: 1.5px 5px; border-radius: 4px; background: rgba(245, 158, 11, 0.15); color: var(--color-gold); border: 1px solid rgba(245, 158, 11, 0.35); font-family: var(--font-title); line-height: 1; text-transform: uppercase; letter-spacing: 0.3px;';
+        rankTag.innerText = `#${rank} in HRs`;
+        nameRow.appendChild(rankTag);
+      }
 
       const teamSpan = document.createElement('span');
       teamSpan.innerText = hr.team.name;
       teamSpan.style.cssText = 'font-size: 9.5px; color: var(--text-muted); font-weight: 600;';
 
-      textMeta.appendChild(nameSpan);
+      textMeta.appendChild(nameRow);
       textMeta.appendChild(teamSpan);
       playerInfo.appendChild(badge);
       playerInfo.appendChild(textMeta);
@@ -8597,7 +8644,7 @@ const MOCK_HR_LEADERS = [
   { person: { id: 696100, fullName: 'Hunter Goodman' }, value: '27', team: { id: 115, name: 'Rockies' } },
   { person: { id: 660271, fullName: 'Shohei Ohtani' }, value: '26', team: { id: 119, name: 'Dodgers' } },
   { person: { id: 592450, fullName: 'Aaron Judge' }, value: '25', team: { id: 147, name: 'Yankees' } },
-  { person: { id: 660271, fullName: 'Marcell Ozuna' }, value: '24', team: { id: 144, name: 'Braves' } },
+  { person: { id: 542303, fullName: 'Marcell Ozuna' }, value: '24', team: { id: 144, name: 'Braves' } },
   { person: { id: 657557, fullName: 'Gunnar Henderson' }, value: '23', team: { id: 110, name: 'Orioles' } },
   { person: { id: 665489, fullName: 'Juan Soto' }, value: '22', team: { id: 147, name: 'Yankees' } },
   { person: { id: 669022, fullName: 'Brent Rooker' }, value: '21', team: { id: 133, name: 'Athletics' } },
@@ -8612,7 +8659,12 @@ const MOCK_HR_LEADERS = [
   { person: { id: 547180, fullName: 'Bryce Harper' }, value: '15', team: { id: 143, name: 'Phillies' } },
   { person: { id: 668227, fullName: 'William Contreras' }, value: '15', team: { id: 158, name: 'Brewers' } },
   { person: { id: 650402, fullName: 'Rafael Devers' }, value: '14', team: { id: 111, name: 'Red Sox' } },
-  { person: { id: 669221, fullName: 'Bobby Witt Jr.' }, value: '14', team: { id: 118, name: 'Royals' } }
+  { person: { id: 669221, fullName: 'Bobby Witt Jr.' }, value: '14', team: { id: 118, name: 'Royals' } },
+  { person: { id: 623993, fullName: 'Anthony Santander' }, value: '14', team: { id: 110, name: 'Orioles' } },
+  { person: { id: 606192, fullName: 'Teoscar Hernández' }, value: '13', team: { id: 119, name: 'Dodgers' } },
+  { person: { id: 663728, fullName: 'Cal Raleigh' }, value: '13', team: { id: 136, name: 'Mariners' } },
+  { person: { id: 682829, fullName: 'Elly De La Cruz' }, value: '12', team: { id: 113, name: 'Reds' } },
+  { person: { id: 665487, fullName: 'Vladimir Guerrero Jr.' }, value: '12', team: { id: 141, name: 'Blue Jays' } }
 ];
 
 async function fetchTeamLeaders(teamId, season) {
