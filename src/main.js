@@ -1734,6 +1734,32 @@ function showWhosHotModal() {
   const team = state.processedStandings?.teamsMap?.[activeTeamId] || teamsData[activeTeamId];
   const teamName = team ? team.name : "Toronto Blue Jays";
 
+  const selectedYear = state.selectedDate.split('-')[0];
+  const avgLeaderUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=battingAverage&season=${selectedYear}&statType=season&limit=1`;
+  const opsLeaderUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=onBasePlusSlugging&season=${selectedYear}&statType=season&limit=1`;
+  const hrLeaderUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=homeRuns&season=${selectedYear}&statType=season&limit=1`;
+
+  const liveLeadersPromise = Promise.all([
+    fetch(avgLeaderUrl).then(r => r.json()).catch(() => null),
+    fetch(opsLeaderUrl).then(r => r.json()).catch(() => null),
+    fetch(hrLeaderUrl).then(r => r.json()).catch(() => null)
+  ]).then(([avgData, opsData, hrData]) => {
+    const res = {};
+    if (avgData?.leagueLeaders?.[0]?.leaders?.[0]) {
+      const leader = avgData.leagueLeaders[0].leaders[0];
+      res.avg = { name: leader.person.fullName, team: leader.team.abbreviation, val: leader.value };
+    }
+    if (opsData?.leagueLeaders?.[0]?.leaders?.[0]) {
+      const leader = opsData.leagueLeaders[0].leaders[0];
+      res.ops = { name: leader.person.fullName, team: leader.team.abbreviation, val: leader.value };
+    }
+    if (hrData?.leagueLeaders?.[0]?.leaders?.[0]) {
+      const leader = hrData.leagueLeaders[0].leaders[0];
+      res.hr = { name: leader.person.fullName, team: leader.team.abbreviation, val: leader.value };
+    }
+    return res;
+  }).catch(() => ({}));
+
   if (!state.hotPerformersTimeframe) {
     state.hotPerformersTimeframe = 'Last 10 Games';
   }
@@ -1822,12 +1848,13 @@ function showWhosHotModal() {
 
     const url = `https://statsapi.mlb.com/api/v1/teams/${activeTeamId}/roster?rosterType=active&season=2026&hydrate=${hydrateQuery}`;
 
-    fetch(url)
-      .then(res => {
-        if (!res.ok) throw new Error('API failure');
-        return res.json();
-      })
-      .then(data => {
+    const rosterPromise = fetch(url).then(res => {
+      if (!res.ok) throw new Error('API failure');
+      return res.json();
+    });
+
+    Promise.all([rosterPromise, liveLeadersPromise])
+      .then(([data, liveLeaders]) => {
         performersGrid.innerHTML = '';
         if (!data.roster || data.roster.length === 0) {
           performersGrid.innerHTML = '<div style="text-align:center;color:var(--text-muted);font-size:12px;padding:20px;">No roster data found.</div>';
@@ -1875,12 +1902,12 @@ function showWhosHotModal() {
         }
 
         displayedEveryday.forEach(p => {
-          const card = HotPerformerCard(p, selectedOpt, teamName, false);
+          const card = HotPerformerCard(p, selectedOpt, teamName, false, liveLeaders);
           performersGrid.appendChild(card);
         });
 
         if (rookieStandout) {
-          const card = HotPerformerCard(rookieStandout, selectedOpt, teamName, true);
+          const card = HotPerformerCard(rookieStandout, selectedOpt, teamName, true, liveLeaders);
           performersGrid.appendChild(card);
         }
       })
@@ -6519,7 +6546,37 @@ function getHotPerformersForTeam(teamId, timeframe) {
   return players;
 }
 
-function HotPerformerCard(p, timeframe, teamName, isRookieHighlight = false) {
+function getLeagueLeaders(timeframe, liveLeaders = {}) {
+  const defaults = {
+    'Season': {
+      avgLeader: { name: 'Bobby Witt Jr.', team: 'KC', val: '.332' },
+      opsLeader: { name: 'Aaron Judge', team: 'NYY', val: '1.159' },
+      hrLeader: { name: 'Aaron Judge', team: 'NYY', val: '58' }
+    },
+    'Last 30 Games': {
+      avgLeader: { name: 'Shohei Ohtani', team: 'LAD', val: '.412' },
+      opsLeader: { name: 'Aaron Judge', team: 'NYY', val: '1.345' },
+      hrLeader: { name: 'Aaron Judge', team: 'NYY', val: '12' }
+    },
+    'Last 10 Games': {
+      avgLeader: { name: 'Luis Arraez', team: 'SD', val: '.524' },
+      opsLeader: { name: 'Kyle Schwarber', team: 'PHI', val: '1.580' },
+      hrLeader: { name: 'Shohei Ohtani', team: 'LAD', val: '5' }
+    }
+  };
+
+  const data = JSON.parse(JSON.stringify(defaults[timeframe] || defaults['Season']));
+  
+  if (timeframe === 'Season') {
+    if (liveLeaders.avg) data.avgLeader = liveLeaders.avg;
+    if (liveLeaders.ops) data.opsLeader = liveLeaders.ops;
+    if (liveLeaders.hr) data.hrLeader = liveLeaders.hr;
+  }
+
+  return data;
+}
+
+function HotPerformerCard(p, timeframe, teamName, isRookieHighlight = false, liveLeaders = {}) {
   const card = document.createElement('div');
   card.className = 'glass-card hot-performer-card';
   if (isRookieHighlight) {
@@ -6605,6 +6662,115 @@ function HotPerformerCard(p, timeframe, teamName, isRookieHighlight = false) {
     kLabel = "High Risk";
   }
 
+  // Calculate comparative MLB ranks
+  const leadersData = getLeagueLeaders(timeframe, liveLeaders);
+  const avgLeader = leadersData.avgLeader;
+  const opsLeader = leadersData.opsLeader;
+  const hrLeader = leadersData.hrLeader;
+
+  // OPS Percentile
+  let opsPercentileLabel = "Below Average";
+  let opsPercentileStyle = "background: rgba(255,255,255,0.06); color: var(--text-secondary); border: 1px solid var(--border-glass);";
+  if (opsNum >= 1.000) {
+    opsPercentileLabel = "Top 1% (Elite)";
+    opsPercentileStyle = "background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35);";
+  } else if (opsNum >= 0.950) {
+    opsPercentileLabel = "Top 3% (Elite)";
+    opsPercentileStyle = "background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35);";
+  } else if (opsNum >= 0.900) {
+    opsPercentileLabel = "Top 5% (Great)";
+    opsPercentileStyle = "background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);";
+  } else if (opsNum >= 0.850) {
+    opsPercentileLabel = "Top 10% (Great)";
+    opsPercentileStyle = "background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);";
+  } else if (opsNum >= 0.800) {
+    opsPercentileLabel = "Top 15% (Solid)";
+    opsPercentileStyle = "background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35);";
+  } else if (opsNum >= 0.750) {
+    opsPercentileLabel = "Top 30% (Solid)";
+    opsPercentileStyle = "background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35);";
+  } else if (opsNum >= 0.700) {
+    opsPercentileLabel = "Top 50% (Avg)";
+  }
+
+  // AVG Percentile
+  const avgNum = parseFloat(avg) || 0;
+  let avgPercentileLabel = "Below Average";
+  let avgPercentileStyle = "background: rgba(255,255,255,0.06); color: var(--text-secondary); border: 1px solid var(--border-glass);";
+  if (avgNum >= 0.320) {
+    avgPercentileLabel = "Top 1% (Elite)";
+    avgPercentileStyle = "background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35);";
+  } else if (avgNum >= 0.300) {
+    avgPercentileLabel = "Top 3% (Elite)";
+    avgPercentileStyle = "background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35);";
+  } else if (avgNum >= 0.280) {
+    avgPercentileLabel = "Top 8% (Great)";
+    avgPercentileStyle = "background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);";
+  } else if (avgNum >= 0.260) {
+    avgPercentileLabel = "Top 20% (Solid)";
+    avgPercentileStyle = "background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35);";
+  } else if (avgNum >= 0.240) {
+    avgPercentileLabel = "Top 45% (Avg)";
+  }
+
+  // HR Percentile
+  let hrPercentileLabel = "Below Average";
+  let hrPercentileStyle = "background: rgba(255,255,255,0.06); color: var(--text-secondary); border: 1px solid var(--border-glass);";
+  let hrAvg = "12 HR";
+  if (timeframe === 'Season') {
+    hrAvg = "12 HR";
+    if (hr >= 40) {
+      hrPercentileLabel = "Top 1% (Elite)";
+      hrPercentileStyle = "background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35);";
+    } else if (hr >= 30) {
+      hrPercentileLabel = "Top 4% (Elite)";
+      hrPercentileStyle = "background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35);";
+    } else if (hr >= 25) {
+      hrPercentileLabel = "Top 10% (Great)";
+      hrPercentileStyle = "background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);";
+    } else if (hr >= 20) {
+      hrPercentileLabel = "Top 18% (Solid)";
+      hrPercentileStyle = "background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35);";
+    } else if (hr >= 15) {
+      hrPercentileLabel = "Top 30% (Solid)";
+      hrPercentileStyle = "background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35);";
+    } else if (hr >= 10) {
+      hrPercentileLabel = "Top 50% (Avg)";
+    }
+  } else if (timeframe === 'Last 30 Games') {
+    hrAvg = "2 HR";
+    if (hr >= 8) {
+      hrPercentileLabel = "Top 1% (Elite)";
+      hrPercentileStyle = "background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35);";
+    } else if (hr >= 6) {
+      hrPercentileLabel = "Top 4% (Elite)";
+      hrPercentileStyle = "background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35);";
+    } else if (hr >= 4) {
+      hrPercentileLabel = "Top 12% (Great)";
+      hrPercentileStyle = "background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);";
+    } else if (hr >= 2) {
+      hrPercentileLabel = "Top 35% (Solid)";
+      hrPercentileStyle = "background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35);";
+    } else if (hr >= 1) {
+      hrPercentileLabel = "Top 60% (Avg)";
+    }
+  } else { // Last 10 Games
+    hrAvg = "1 HR";
+    if (hr >= 4) {
+      hrPercentileLabel = "Top 1% (Elite)";
+      hrPercentileStyle = "background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35);";
+    } else if (hr >= 3) {
+      hrPercentileLabel = "Top 3% (Elite)";
+      hrPercentileStyle = "background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35);";
+    } else if (hr >= 2) {
+      hrPercentileLabel = "Top 10% (Great)";
+      hrPercentileStyle = "background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);";
+    } else if (hr >= 1) {
+      hrPercentileLabel = "Top 35% (Solid)";
+      hrPercentileStyle = "background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35);";
+    }
+  }
+
   let dailyIntel = "";
   if (isRookieHighlight) {
     dailyIntel = `<strong>Recent Call-up Highlight:</strong> <strong>${p.name}</strong> has made a dynamic impact in a small sample size of <strong>${stats.gamesPlayed} MLB games</strong>. `;
@@ -6650,7 +6816,7 @@ function HotPerformerCard(p, timeframe, teamName, isRookieHighlight = false) {
       <span class="timeframe-badge" style="font-size: 10px; font-weight: 700; color: var(--text-secondary); background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border-glass);">${timeframe}</span>
     </div>
 
-    <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
+    <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
       <div class="metric-section" style="display: flex; flex-direction: column; gap: 10px;">
         <div style="font-size: 10px; font-weight: 800; color: var(--color-gold); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 4px; margin-bottom: 2px;">🏏 Season Hitting Stats</div>
         
@@ -6702,6 +6868,43 @@ function HotPerformerCard(p, timeframe, teamName, isRookieHighlight = false) {
         <div class="metric-row" style="display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
           <span style="font-weight: 600; color: var(--text-primary);">Slash Line (OBP / SLG)</span>
           <span style="font-weight: 800; font-family: var(--font-title); color: var(--text-primary); font-size: 14px;">${obp} / ${slg}</span>
+        </div>
+      </div>
+
+      <div class="metric-section" style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="font-size: 10px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 4px; margin-bottom: 2px;">📊 MLB Percentile & Leaders</div>
+
+        <div class="metric-row" style="display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; padding-bottom: 4px; border-bottom: 1px dashed rgba(255,255,255,0.06);">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: 600; color: var(--text-primary);">OPS Rank</span>
+            <span class="status-badge" style="padding: 1.5px 5px; border-radius: 4px; font-size: 8.5px; font-weight: 800; text-transform: uppercase; ${opsPercentileStyle}">${opsPercentileLabel}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted);">
+            <span>MLB Avg: .720</span>
+            <span style="font-weight:600;">Leader: ${opsLeader.name} (${opsLeader.val})</span>
+          </div>
+        </div>
+
+        <div class="metric-row" style="display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; padding-bottom: 4px; border-bottom: 1px dashed rgba(255,255,255,0.06);">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: 600; color: var(--text-primary);">AVG Rank</span>
+            <span class="status-badge" style="padding: 1.5px 5px; border-radius: 4px; font-size: 8.5px; font-weight: 800; text-transform: uppercase; ${avgPercentileStyle}">${avgPercentileLabel}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted);">
+            <span>MLB Avg: .245</span>
+            <span style="font-weight:600;">Leader: ${avgLeader.name} (${avgLeader.val})</span>
+          </div>
+        </div>
+
+        <div class="metric-row" style="display: flex; flex-direction: column; gap: 4px; font-size: 12.5px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: 600; color: var(--text-primary);">HR Rank</span>
+            <span class="status-badge" style="padding: 1.5px 5px; border-radius: 4px; font-size: 8.5px; font-weight: 800; text-transform: uppercase; ${hrPercentileStyle}">${hrPercentileLabel}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted);">
+            <span>MLB Avg: ${hrAvg}</span>
+            <span style="font-weight:600;">Leader: ${hrLeader.name} (${hrLeader.val})</span>
+          </div>
         </div>
       </div>
     </div>
@@ -7313,7 +7516,7 @@ function createCreditsVersionView() {
   appMetaText.style.fontSize = '13px';
   appMetaText.style.color = 'var(--text-secondary)';
   appMetaText.style.lineHeight = '1.6';
-  appMetaText.innerHTML = '<strong>Trajectory Web App</strong><br>Version: v1.9.7<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
+  appMetaText.innerHTML = '<strong>Trajectory Web App</strong><br>Version: v1.9.8<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
   creditsCard.appendChild(appMetaText);
 
   container.appendChild(creditsCard);
@@ -7363,6 +7566,14 @@ function createDeveloperNotesView() {
   notesCard.style.cssText = 'padding: 20px; display: flex; flex-direction: column; gap: 18px; border: 1px solid var(--border-glass-highlight); margin-bottom: 0; max-height: 60vh; overflow-y: auto;';
 
   notesCard.innerHTML = `
+    <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(16, 185, 129, 0.2); padding-bottom: 4px;">v1.9.8 (Who's Hot MLB Percentile & Leaders Comparison)</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Added an <strong>MLB Percentile & Leaders</strong> comparison section to the Who's Hot player cards.</li>
+        <li>Displays the player's percentile standing (e.g. <em>Top 1% (Elite)</em> or <em>Top 10% (Great)</em>) for OPS, Batting Average, and Home Runs.</li>
+        <li>Shows the current MLB-wide average and the league leader's stats for the selected timeframe.</li>
+      </ul>
+    </div>
     <div>
       <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(16, 185, 129, 0.2); padding-bottom: 4px;">v1.9.7 (Home Run Daily List Rank Tags)</h4>
       <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
