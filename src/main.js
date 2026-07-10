@@ -3824,27 +3824,7 @@ function transitionToView(targetView, targetTeamId = null) {
     return;
   }
 
-  if (targetView === 'hr-race') {
-    state.activeView = 'hr-race';
-    const todayStr = state.selectedDate;
-    localStorage.removeItem(`hr_count_v1_${todayStr}`);
-    state.loading = true;
-    render();
-    
-    Promise.all([
-      loadData(),
-      loadTodayPlayerHRs(todayStr)
-    ]).then(() => {
-      state.loading = false;
-      state.hrRaceLastRefreshed = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      render();
-    }).catch((e) => {
-      console.error(e);
-      state.loading = false;
-      render();
-    });
-    return;
-  }
+
 
   // Build a list of valid switcher view targets
   const viewsList = [];
@@ -4190,7 +4170,6 @@ function updateFooterContent(footer) {
     { view: 'dashboard', label: teamsLabel, emoji: '🧢' },
     { view: 'scores', label: 'Scores', emoji: '⚾' },
     { view: 'standings', label: 'Standings', emoji: '🏆' },
-    { view: 'hr-race', label: 'HR Race', emoji: '💥' },
     { view: 'settings', label: 'Settings', emoji: '⚙️' }
   ];
   
@@ -7244,12 +7223,11 @@ function createCreditsVersionView() {
   appMetaTitle.style.fontSize = '16px';
   appMetaTitle.style.margin = '0';
   creditsCard.appendChild(appMetaTitle);
-
   const appMetaText = document.createElement('p');
   appMetaText.style.fontSize = '13px';
   appMetaText.style.color = 'var(--text-secondary)';
   appMetaText.style.lineHeight = '1.6';
-  appMetaText.innerHTML = '<strong>Trajectory Web App</strong><br>Version: v1.4.0<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
+  appMetaText.innerHTML = '<strong>Trajectory Web App</strong><br>Version: v1.9.0<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
   creditsCard.appendChild(appMetaText);
 
   container.appendChild(creditsCard);
@@ -7299,6 +7277,13 @@ function createDeveloperNotesView() {
   notesCard.style.cssText = 'padding: 20px; display: flex; flex-direction: column; gap: 18px; border: 1px solid var(--border-glass-highlight); margin-bottom: 0; max-height: 60vh; overflow-y: auto;';
 
   notesCard.innerHTML = `
+    <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(16, 185, 129, 0.2); padding-bottom: 4px;">v1.9.0 (HR Chase Navigation Update)</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Removed the redundant <strong>HR Race</strong> link from the floating bottom navigation bar.</li>
+        <li>Preserved the <strong>HR Chase</strong> button on the dashboard grid to trigger the Home Run Chase analytics modal directly.</li>
+      </ul>
+    </div>
     <div>
       <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(16, 185, 129, 0.2); padding-bottom: 4px;">v1.8.5 (Off-Day Next Game Countdown)</h4>
       <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
