@@ -5616,6 +5616,92 @@ function createOutsideImpactMeter(rootingGames) {
   `;
   card.appendChild(legend);
 
+  // Add standings movement footnote if comparing data is available
+  const activeTeamId = state.activeTeamId;
+  const teamToday = state.processedStandings?.teamsMap?.[activeTeamId];
+  const teamYesterday = state.processedStandingsYesterday?.teamsMap?.[activeTeamId];
+  
+  if (teamToday && teamYesterday) {
+    const notes = [];
+    
+    // 1. Division movement
+    if (teamToday.divisionRank !== teamYesterday.divisionRank) {
+      const dir = teamToday.divisionRank < teamYesterday.divisionRank ? 'up' : 'down';
+      const arrow = dir === 'up' ? '📈' : '📉';
+      notes.push(`${arrow} Moved ${dir} to #${teamToday.divisionRank} in division`);
+    } else if (teamToday.divisionRank === 1) {
+      // Division leader: check lead size over 2nd place team
+      const divId = teamToday.divisionId;
+      const divTeamsToday = state.processedStandings?.divisionTeams?.[divId] || [];
+      const divTeamsYesterday = state.processedStandingsYesterday?.divisionTeams?.[divId] || [];
+      const runnerUpToday = divTeamsToday.find(t => t.divisionRank === 2 || t.id !== activeTeamId);
+      const runnerUpYesterday = divTeamsYesterday.find(t => t.divisionRank === 2 || t.id !== activeTeamId);
+      if (runnerUpToday && runnerUpYesterday) {
+        const leadToday = runnerUpToday.gamesBack;
+        const leadYesterday = runnerUpYesterday.gamesBack;
+        const leadDiff = leadToday - leadYesterday;
+        if (Math.abs(leadDiff) >= 0.1) {
+          const arrow = leadDiff > 0 ? '📈' : '📉';
+          const txt = leadDiff > 0 
+            ? `Extended division lead by ${Math.abs(leadDiff).toFixed(1)} game${Math.abs(leadDiff) === 1 ? '' : 's'}`
+            : `Division lead shrank by ${Math.abs(leadDiff).toFixed(1)} game${Math.abs(leadDiff) === 1 ? '' : 's'}`;
+          notes.push(`${arrow} ${txt}`);
+        }
+      }
+    } else {
+      // Division chaser
+      const divGbToday = teamToday.gamesBack;
+      const divGbYesterday = teamYesterday.gamesBack;
+      const divDiff = divGbYesterday - divGbToday;
+      if (Math.abs(divDiff) >= 0.1) {
+        const arrow = divDiff > 0 ? '📈' : '📉';
+        const txt = divDiff > 0 
+          ? `Gained ${Math.abs(divDiff).toFixed(1)} game${Math.abs(divDiff) === 1 ? '' : 's'} on division lead` 
+          : `Fell ${Math.abs(divDiff).toFixed(1)} game${Math.abs(divDiff) === 1 ? '' : 's'} further back in division`;
+        notes.push(`${arrow} ${txt}`);
+      }
+    }
+
+    // 2. Wild Card movement
+    if (teamToday.wildCardRank !== teamYesterday.wildCardRank) {
+      const dir = teamToday.wildCardRank < teamYesterday.wildCardRank ? 'up' : 'down';
+      const arrow = dir === 'up' ? '📈' : '📉';
+      notes.push(`${arrow} Moved ${dir} to #${teamToday.wildCardRank} in Wild Card`);
+    } else {
+      const wcGbToday = teamToday.wildCardGamesBack;
+      const wcGbYesterday = teamYesterday.wildCardGamesBack;
+      const wcDiff = wcGbYesterday - wcGbToday;
+      if (Math.abs(wcDiff) >= 0.1) {
+        const arrow = wcDiff > 0 ? '📈' : '📉';
+        let txt = '';
+        if (wcGbToday < 0) {
+          // We are in a playoff position (games ahead)
+          txt = wcDiff > 0
+            ? `Increased Wild Card cushion by ${Math.abs(wcDiff).toFixed(1)} game${Math.abs(wcDiff) === 1 ? '' : 's'}`
+            : `Wild Card cushion shrank by ${Math.abs(wcDiff).toFixed(1)} game${Math.abs(wcDiff) === 1 ? '' : 's'}`;
+        } else {
+          // We are chasing
+          txt = wcDiff > 0
+            ? `Gained ${Math.abs(wcDiff).toFixed(1)} game${Math.abs(wcDiff) === 1 ? '' : 's'} in Wild Card race`
+            : `Fell ${Math.abs(wcDiff).toFixed(1)} game${Math.abs(wcDiff) === 1 ? '' : 's'} back in Wild Card race`;
+        }
+        notes.push(`${arrow} ${txt}`);
+      }
+    }
+
+    if (notes.length > 0) {
+      const footnote = document.createElement('div');
+      footnote.style.cssText = 'font-size: 11px; color: var(--text-secondary); line-height: 1.45; border-top: 1px dashed var(--border-glass); padding-top: 8px; margin-top: 6px; display: flex; flex-direction: column; gap: 4px; text-align: left;';
+      notes.forEach(noteText => {
+        const item = document.createElement('div');
+        item.style.cssText = 'display: flex; align-items: center; gap: 6px; font-weight: 500;';
+        item.innerHTML = noteText;
+        footnote.appendChild(item);
+      });
+      card.appendChild(footnote);
+    }
+  }
+
   return card;
 }
 
@@ -7227,7 +7313,7 @@ function createCreditsVersionView() {
   appMetaText.style.fontSize = '13px';
   appMetaText.style.color = 'var(--text-secondary)';
   appMetaText.style.lineHeight = '1.6';
-  appMetaText.innerHTML = '<strong>Trajectory Web App</strong><br>Version: v1.9.1<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
+  appMetaText.innerHTML = '<strong>Trajectory Web App</strong><br>Version: v1.9.5<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
   creditsCard.appendChild(appMetaText);
 
   container.appendChild(creditsCard);
@@ -7277,6 +7363,13 @@ function createDeveloperNotesView() {
   notesCard.style.cssText = 'padding: 20px; display: flex; flex-direction: column; gap: 18px; border: 1px solid var(--border-glass-highlight); margin-bottom: 0; max-height: 60vh; overflow-y: auto;';
 
   notesCard.innerHTML = `
+    <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(16, 185, 129, 0.2); padding-bottom: 4px;">v1.9.5 (Outside Impact Standings Movement Notes)</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Added real-time division and Wild Card standing movement indicators below the <strong>Outside Impact</strong> meter.</li>
+        <li>Displays detailed gains/losses in games back (GB) or cushion ahead, supporting both division leaders and chasers with natural-language logs.</li>
+      </ul>
+    </div>
     <div>
       <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(16, 185, 129, 0.2); padding-bottom: 4px;">v1.9.1 (Who's Hot Active Tab Contrast)</h4>
       <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
