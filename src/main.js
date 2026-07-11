@@ -7202,6 +7202,34 @@ function showStandingsGraphModal(title, chartNode) {
   }, 10);
 }
 
+function getTeamTodayStatus(teamId) {
+  const games = state.rawSchedule || [];
+  const game = games.find(g => g.teams.away.team.id === teamId || g.teams.home.team.id === teamId);
+  if (!game) {
+    return { status: 'OFF', label: 'Off Day', style: 'background: rgba(255,255,255,0.04); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.08);' };
+  }
+
+  const statusCode = game.status?.statusCode;
+  const isFinal = statusCode === 'F' || statusCode === 'O' || statusCode === 'FT' || game.status?.detailedState === 'Final';
+  const isLive = statusCode === 'I' || game.status?.detailedState?.toLowerCase().includes('progress');
+
+  if (isFinal) {
+    const isAway = game.teams.away.team.id === teamId;
+    const awayScore = game.teams.away.score || 0;
+    const homeScore = game.teams.home.score || 0;
+    const isWin = isAway ? (awayScore > homeScore) : (homeScore > awayScore);
+    if (isWin) {
+      return { status: 'WON', label: 'Won Today', style: 'background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25);' };
+    } else {
+      return { status: 'LOST', label: 'Lost Today', style: 'background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25);' };
+    }
+  } else if (isLive) {
+    return { status: 'LIVE', label: 'Playing Live', style: 'background: rgba(245, 158, 11, 0.12); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.25);' };
+  } else {
+    return { status: 'SCHED', label: 'Plays Today', style: 'background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.25);' };
+  }
+}
+
 // Standings View
 function createStandingsView() {
   const container = document.createElement('div');
@@ -7283,11 +7311,15 @@ function createStandingsView() {
       const tr = document.createElement('tr');
       if (team.id === state.activeTeamId) tr.className = 'highlight';
       
+      const statusData = getTeamTodayStatus(team.id);
+      const statusBadge = `<span class="status-badge" style="margin-left: 6px; padding: 1.5px 4px; border-radius: 4px; font-size: 8px; font-weight: 800; text-transform: uppercase; white-space: nowrap; ${statusData.style}" title="${statusData.label}">${statusData.status}</span>`;
+
       tr.innerHTML = `
         <td>
           <div class="standings-team-cell">
             <div class="team-badge-small" style="background:${team.primaryColor}; color:${team.textColor}; font-size:9px;">${team.abbreviation}</div>
             <span>${team.name}</span>
+            ${statusBadge}
           </div>
         </td>
         <td>${team.wins}</td>
@@ -7355,11 +7387,15 @@ function createStandingsView() {
     const rowStyle = team.isWildCardSpot ? 'font-style: italic; border-left: 2px solid var(--color-win);' : '';
     tr.style.cssText = rowStyle;
 
+    const statusData = getTeamTodayStatus(team.id);
+    const statusBadge = `<span class="status-badge" style="margin-left: 6px; padding: 1.5px 4px; border-radius: 4px; font-size: 8px; font-weight: 800; text-transform: uppercase; white-space: nowrap; ${statusData.style}" title="${statusData.label}">${statusData.status}</span>`;
+
     tr.innerHTML = `
       <td>
         <div class="standings-team-cell">
           <div class="team-badge-small" style="background:${team.primaryColor}; color:${team.textColor}; font-size:9px;">${team.abbreviation}</div>
           <span>${team.name}</span>
+          ${statusBadge}
         </div>
       </td>
       <td>${team.wins}</td>
@@ -7519,7 +7555,7 @@ function createCreditsVersionView() {
   appMetaText.style.fontSize = '13px';
   appMetaText.style.color = 'var(--text-secondary)';
   appMetaText.style.lineHeight = '1.6';
-  appMetaText.innerHTML = '<strong>Trajectory Web App</strong><br>Version: v2.0.0<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
+  appMetaText.innerHTML = '<strong>Trajectory Web App</strong><br>Version: v2.0.1<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
   creditsCard.appendChild(appMetaText);
 
   container.appendChild(creditsCard);
@@ -7569,6 +7605,13 @@ function createDeveloperNotesView() {
   notesCard.style.cssText = 'padding: 20px; display: flex; flex-direction: column; gap: 18px; border: 1px solid var(--border-glass-highlight); margin-bottom: 0; max-height: 60vh; overflow-y: auto;';
 
   notesCard.innerHTML = `
+    <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(16, 185, 129, 0.2); padding-bottom: 4px;">v2.0.1 (Standings Game Outcome Status Tags)</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Added real-time game status badges next to team names on the Division and Wild Card standings tables.</li>
+        <li>Displays color-coded tags showing whether a team has **WON** (green), **LOST** (red), is playing **LIVE** (orange), is scheduled to play today (**SCHED**, blue), or has an off-day (**OFF**, neutral gray).</li>
+      </ul>
+    </div>
     <div>
       <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(16, 185, 129, 0.2); padding-bottom: 4px;">v2.0.0 (Who's Hot 1:1 MLB Comparison Table)</h4>
       <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
