@@ -3833,16 +3833,29 @@ function startGlobalCountdownTimer() {
         timer.classList.remove('game-countdown-timer');
         return;
       }
+      
       const totalSeconds = Math.floor(diffMs / 1000);
-      const hours = Math.floor(totalSeconds / 3600);
+      const days = Math.floor(totalSeconds / 86400);
+      const hours = Math.floor((totalSeconds % 86400) / 3600);
       const minutes = Math.floor((totalSeconds % 3600) / 60);
       const seconds = totalSeconds % 60;
       
-      const hh = String(hours).padStart(2, '0');
-      const mm = String(minutes).padStart(2, '0');
-      const ss = String(seconds).padStart(2, '0');
-      
-      timer.innerText = `Game Starts in: ${hh}:${mm}:${ss}`;
+      if (timer.classList.contains('short-countdown')) {
+        let text = "";
+        if (days > 0) {
+          text = `Starts in ${days}d ${hours}h`;
+        } else if (hours > 0) {
+          text = `Starts in ${hours}h ${minutes}m ${seconds}s`;
+        } else {
+          text = `Starts in ${minutes}m ${seconds}s`;
+        }
+        timer.innerText = `⏱️ ${text}`;
+      } else {
+        const hh = String(hours + days * 24).padStart(2, '0');
+        const mm = String(minutes).padStart(2, '0');
+        const ss = String(seconds).padStart(2, '0');
+        timer.innerText = `Game Starts in: ${hh}:${mm}:${ss}`;
+      }
     });
   }, 1000);
 }
@@ -6152,7 +6165,7 @@ function createDashboardView() {
               <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--color-gold); letter-spacing: 0.5px; margin-bottom: 2px;">Next Scheduled Game</span>
               <span style="font-weight: 800; font-size: 13px; color: var(--text-primary);">${matchupText}</span>
               <span style="font-weight: 700; color: var(--text-secondary);">${gameDateFormatted} at ${timeStr}</span>
-              <span style="font-size: 10.5px; font-weight: 800; color: var(--color-win); background: rgba(16, 185, 129, 0.08); padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.25); width: fit-content; margin: 4px auto 0 auto; display: flex; align-items: center; gap: 4px;">
+              <span class="game-countdown-timer short-countdown" data-game-date="${foundGame.gameDate}" style="font-size: 10.5px; font-weight: 800; color: var(--color-win); background: rgba(16, 185, 129, 0.08); padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.25); width: fit-content; margin: 4px auto 0 auto; display: flex; align-items: center; gap: 4px;">
                 ⏱️ ${timerStr}
               </span>
             `;
@@ -7262,7 +7275,7 @@ function getTeamTodayStatus(teamId) {
         label = 'Game starting soon';
       }
     }
-    return { status: displayStatus, label: label, style: 'background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.25);' };
+    return { status: displayStatus, label: label, style: 'background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.25);', gameDate: game.gameDate };
   }
 }
 
@@ -7348,7 +7361,9 @@ function createStandingsView() {
       if (team.id === state.activeTeamId) tr.className = 'highlight';
       
       const statusData = getTeamTodayStatus(team.id);
-      const statusBadge = `<span class="status-badge" style="margin-top: 2px; padding: 1px 4.5px; border-radius: 3.5px; font-size: 7.5px; font-weight: 800; text-transform: uppercase; white-space: nowrap; width: fit-content; ${statusData.style}" title="${statusData.label}">${statusData.status}</span>`;
+      const isSched = statusData.gameDate ? 'game-countdown-timer short-countdown' : '';
+      const dataAttr = statusData.gameDate ? `data-game-date="${statusData.gameDate}"` : '';
+      const statusBadge = `<span class="status-badge ${isSched}" ${dataAttr} style="margin-top: 2px; padding: 1px 4.5px; border-radius: 3.5px; font-size: 7.5px; font-weight: 800; text-transform: uppercase; white-space: nowrap; width: fit-content; ${statusData.style}" title="${statusData.label}">${statusData.status}</span>`;
 
       tr.innerHTML = `
         <td>
@@ -7426,7 +7441,9 @@ function createStandingsView() {
     tr.style.cssText = rowStyle;
 
     const statusData = getTeamTodayStatus(team.id);
-    const statusBadge = `<span class="status-badge" style="margin-top: 2px; padding: 1px 4.5px; border-radius: 3.5px; font-size: 7.5px; font-weight: 800; text-transform: uppercase; white-space: nowrap; width: fit-content; ${statusData.style}" title="${statusData.label}">${statusData.status}</span>`;
+    const isSched = statusData.gameDate ? 'game-countdown-timer short-countdown' : '';
+    const dataAttr = statusData.gameDate ? `data-game-date="${statusData.gameDate}"` : '';
+    const statusBadge = `<span class="status-badge ${isSched}" ${dataAttr} style="margin-top: 2px; padding: 1px 4.5px; border-radius: 3.5px; font-size: 7.5px; font-weight: 800; text-transform: uppercase; white-space: nowrap; width: fit-content; ${statusData.style}" title="${statusData.label}">${statusData.status}</span>`;
 
     tr.innerHTML = `
       <td>
