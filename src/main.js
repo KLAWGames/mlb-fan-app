@@ -1649,14 +1649,14 @@ function showRecapModal(isAutoTrigger = false) {
   rootingBody.style.gap = '12px';
 
   // Analyze yesterday's games
-  const rootingGamesAnalysis = analyzeMatchups(yesterdayGames, state.processedStandingsYesterday, activeTeamId);
+  const rootingGamesAnalysis = analyzeMatchups(yesterdayGames, state.processedStandingsDayBeforeYesterday, activeTeamId);
   // Exclude our own game and priority 0 games
   const targetRivalGames = sortGames(rootingGamesAnalysis.filter(g => g.priority > 0 && g.awayTeam.id !== activeTeamId && g.homeTeam.id !== activeTeamId));
 
   if (targetRivalGames.length > 0) {
     const rootingGames = targetRivalGames.filter(g => g.rootFor === 'Away' || g.rootFor === 'Home');
     if (rootingGames.length > 0) {
-      rootingBody.appendChild(createOutsideImpactMeter(rootingGames));
+      rootingBody.appendChild(createOutsideImpactMeter(rootingGames, state.processedStandingsYesterday, state.processedStandingsDayBeforeYesterday, "from yesterday's games"));
     }
     targetRivalGames.forEach(g => {
       const isAwayWinner = g.awayScore > g.homeScore;
@@ -5443,22 +5443,16 @@ function createGameCard(item, isNeutral, onToggleDetails) {
         console.error("Failed to open visuals from matchup card button:", err);
       }
     };
-
     analyticsBtn.addEventListener('click', handleOpenCardVisuals);
 
     analyticsBtnRow.appendChild(analyticsBtn);
     card.appendChild(analyticsBtnRow);
-
-    const footerHint = document.createElement('div');
-    footerHint.className = 'game-card-footer';
-    footerHint.innerText = 'Click card to collapse details';
-    card.appendChild(footerHint);
   }
 
   return card;
 }
 
-function createOutsideImpactMeter(rootingGames) {
+function createOutsideImpactMeter(rootingGames, standingsToday = null, standingsYesterday = null, timeContextLabel = "") {
   const N = rootingGames.length;
   
   // Categorize games
@@ -5519,106 +5513,70 @@ function createOutsideImpactMeter(rootingGames) {
 
   const card = document.createElement('div');
   card.className = 'glass-card';
-  card.style.cssText = 'padding: 14px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; border: 1.5px solid var(--border-glass-highlight);';
+  card.style.cssText = 'padding: 16px; display: flex; flex-direction: column; gap: 8px; border: 1.5px solid var(--border-glass-highlight);';
 
-  const topRow = document.createElement('div');
-  topRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center;';
+  const titleRow = document.createElement('div');
+  titleRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-glass); padding-bottom: 8px; margin-bottom: 4px;';
+  
+  const title = document.createElement('span');
+  title.style.cssText = 'font-size: 11px; font-weight: 800; font-family: var(--font-title); color: var(--color-gold); text-transform: uppercase; letter-spacing: 0.5px;';
+  title.innerText = 'Outside Impact';
 
-  const label = document.createElement('span');
-  label.style.cssText = 'font-size: 11px; font-weight: 800; font-family: var(--font-title); color: var(--color-gold); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 4px;';
-  label.innerHTML = '⚡ Outside Impact';
+  const statusVal = document.createElement('span');
+  statusVal.style.cssText = 'font-size: 10px; font-weight: 700; color: var(--text-secondary);';
+  statusVal.innerText = statusText;
 
-  const statusSpan = document.createElement('span');
-  statusSpan.style.cssText = 'font-size: 11px; font-weight: 700; color: var(--text-secondary);';
-  statusSpan.innerText = statusText;
-
-  topRow.appendChild(label);
-  topRow.appendChild(statusSpan);
-  card.appendChild(topRow);
+  titleRow.appendChild(title);
+  titleRow.appendChild(statusVal);
+  card.appendChild(titleRow);
 
   const track = document.createElement('div');
-  track.style.cssText = 'height: 18px; width: 100%; display: flex; position: relative; align-items: center; gap: 6px;';
+  track.style.cssText = 'height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; overflow: hidden; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); gap: 2px;';
 
   const leftHalf = document.createElement('div');
-  leftHalf.style.cssText = 'flex: 1; height: 100%; display: flex; flex-direction: row-reverse; justify-content: flex-start; gap: 4px;';
-
-  const rightHalf = document.createElement('div');
-  rightHalf.style.cssText = 'flex: 1; height: 100%; display: flex; flex-direction: row; justify-content: flex-start; gap: 4px;';
-
-  // Build Left Side (Losses/Harmful)
-  // Ordered from center outwards: Index i from 0 to N-1
+  leftHalf.style.cssText = 'flex: 1; height: 100%; display: flex; flex-direction: row-reverse; gap: 2px;';
+  
   for (let i = 0; i < N; i++) {
     const leftBlock = document.createElement('div');
-    leftBlock.style.cssText = 'flex: 1; height: 100%; border: 1.5px solid #334155; box-sizing: border-box; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.25); transition: all 0.3s ease;';
+    leftBlock.style.cssText = 'flex: 1; height: 100%; border: 1px solid transparent; border-radius: 2.5px; display: flex; align-items: center; justify-content: center; position: relative; transition: all 0.2s ease;';
     
-    // Apply Left Rounding for leftmost block (index N-1)
-    if (i === N - 1) {
-      leftBlock.style.borderTopLeftRadius = '10px';
-      leftBlock.style.borderBottomLeftRadius = '10px';
-    }
-
     if (i < L) {
-      // Completed Loss (Red)
       leftBlock.style.backgroundColor = 'var(--color-loss)';
       leftBlock.style.borderColor = 'var(--color-loss)';
     } else if (i < L + LL) {
-      // Live Losing (Gray)
       leftBlock.style.backgroundColor = '#64748b';
       leftBlock.style.borderColor = '#64748b';
     } else if (i < L + LL + Neut) {
-      // Scheduled / Neutral (Empty with charcoal stroke)
-      leftBlock.style.backgroundColor = 'rgba(15, 23, 42, 0.25)';
-      leftBlock.style.borderColor = '#334155';
+      leftBlock.style.backgroundColor = 'rgba(255,255,255,0.05)';
     } else {
-      // Blocked / Locked Out (X background with pattern & centered X sign)
-      leftBlock.style.borderColor = '#334155';
-      leftBlock.style.backgroundColor = 'rgba(15, 23, 42, 0.15)';
-      leftBlock.style.backgroundImage = `
-        repeating-linear-gradient(45deg, rgba(148, 163, 184, 0.12) 0px, rgba(148, 163, 184, 0.12) 1px, transparent 1px, transparent 6px), 
-        repeating-linear-gradient(-45deg, rgba(148, 163, 184, 0.12) 0px, rgba(148, 163, 184, 0.12) 1px, transparent 1px, transparent 6px)
-      `;
+      leftBlock.style.backgroundColor = 'rgba(0,0,0,0.2)';
       const xLabel = document.createElement('span');
-      xLabel.style.cssText = 'position: absolute; font-size: 11px; font-weight: 400; color: rgba(148, 163, 184, 0.35); font-family: sans-serif; pointer-events: none; user-select: none;';
+      xLabel.style.cssText = 'font-size: 10px; opacity: 0.3;';
       xLabel.innerText = '✕';
       leftBlock.appendChild(xLabel);
     }
     leftHalf.appendChild(leftBlock);
   }
 
-  // Build Right Side (Wins/Helpful)
-  // Ordered from center outwards: Index i from 0 to N-1
+  const rightHalf = document.createElement('div');
+  rightHalf.style.cssText = 'flex: 1; height: 100%; display: flex; gap: 2px;';
+  
   for (let i = 0; i < N; i++) {
     const rightBlock = document.createElement('div');
-    rightBlock.style.cssText = 'flex: 1; height: 100%; border: 1.5px solid #334155; box-sizing: border-box; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.25); transition: all 0.3s ease;';
+    rightBlock.style.cssText = 'flex: 1; height: 100%; border: 1px solid transparent; border-radius: 2.5px; display: flex; align-items: center; justify-content: center; position: relative; transition: all 0.2s ease;';
     
-    // Apply Right Rounding for rightmost block (index N-1)
-    if (i === N - 1) {
-      rightBlock.style.borderTopRightRadius = '10px';
-      rightBlock.style.borderBottomRightRadius = '10px';
-    }
-
     if (i < W) {
-      // Completed Win (Green)
       rightBlock.style.backgroundColor = 'var(--color-win)';
       rightBlock.style.borderColor = 'var(--color-win)';
     } else if (i < W + LW) {
-      // Live Winning (Gray)
       rightBlock.style.backgroundColor = '#64748b';
       rightBlock.style.borderColor = '#64748b';
     } else if (i < W + LW + Neut) {
-      // Scheduled / Neutral (Empty with charcoal stroke)
-      rightBlock.style.backgroundColor = 'rgba(15, 23, 42, 0.25)';
-      rightBlock.style.borderColor = '#334155';
+      rightBlock.style.backgroundColor = 'rgba(255,255,255,0.05)';
     } else {
-      // Blocked / Locked Out (X background with pattern & centered X sign)
-      rightBlock.style.borderColor = '#334155';
-      rightBlock.style.backgroundColor = 'rgba(15, 23, 42, 0.15)';
-      rightBlock.style.backgroundImage = `
-        repeating-linear-gradient(45deg, rgba(148, 163, 184, 0.12) 0px, rgba(148, 163, 184, 0.12) 1px, transparent 1px, transparent 6px), 
-        repeating-linear-gradient(-45deg, rgba(148, 163, 184, 0.12) 0px, rgba(148, 163, 184, 0.12) 1px, transparent 1px, transparent 6px)
-      `;
+      rightBlock.style.backgroundColor = 'rgba(0,0,0,0.2)';
       const xLabel = document.createElement('span');
-      xLabel.style.cssText = 'position: absolute; font-size: 11px; font-weight: 400; color: rgba(148, 163, 184, 0.35); font-family: sans-serif; pointer-events: none; user-select: none;';
+      xLabel.style.cssText = 'font-size: 10px; opacity: 0.3;';
       xLabel.innerText = '✕';
       rightBlock.appendChild(xLabel);
     }
@@ -5626,41 +5584,37 @@ function createOutsideImpactMeter(rootingGames) {
   }
 
   track.appendChild(leftHalf);
-  
-  const centerMarker = document.createElement('div');
-  centerMarker.style.cssText = 'width: 2px; height: 26px; background: #334155; z-index: 10; box-shadow: 0 0 2px rgba(0,0,0,0.4); border-radius: 1px; flex-shrink: 0;';
-  track.appendChild(centerMarker);
-  
   track.appendChild(rightHalf);
-
   card.appendChild(track);
+
   const legend = document.createElement('div');
-  legend.style.cssText = 'display: flex; justify-content: space-between; font-size: 8.5px; font-weight: 700; color: var(--text-muted);';
+  legend.style.cssText = 'display: flex; justify-content: space-between; font-size: 8px; font-weight: 700; color: var(--text-muted); padding: 0 4px;';
   legend.innerHTML = `
-    <span>Negative Impact (Rivals Win)</span>
-    <span>Neutral (0)</span>
-    <span>Positive Impact (Rivals Lose)</span>
+    <span>Negative</span>
+    <span>Neutral</span>
+    <span>Positive</span>
   `;
   card.appendChild(legend);
 
-  // Add standings movement footnote if comparing data is available
   const activeTeamId = state.activeTeamId;
-  const teamToday = state.processedStandings?.teamsMap?.[activeTeamId];
-  const teamYesterday = state.processedStandingsYesterday?.teamsMap?.[activeTeamId];
+  const stdToday = standingsToday || state.processedStandings;
+  const stdYesterday = standingsYesterday || state.processedStandingsYesterday;
+  
+  const teamToday = stdToday?.teamsMap?.[activeTeamId];
+  const teamYesterday = stdYesterday?.teamsMap?.[activeTeamId];
   
   if (teamToday && teamYesterday) {
     const notes = [];
+    const suffix = timeContextLabel ? ` (${timeContextLabel})` : "";
     
-    // 1. Division movement
     if (teamToday.divisionRank !== teamYesterday.divisionRank) {
       const dir = teamToday.divisionRank < teamYesterday.divisionRank ? 'up' : 'down';
       const arrow = dir === 'up' ? '📈' : '📉';
-      notes.push(`${arrow} Moved ${dir} to #${teamToday.divisionRank} in division`);
+      notes.push(`${arrow} Moved ${dir} to #${teamToday.divisionRank} in division${suffix}`);
     } else if (teamToday.divisionRank === 1) {
-      // Division leader: check lead size over 2nd place team
       const divId = teamToday.divisionId;
-      const divTeamsToday = state.processedStandings?.divisionTeams?.[divId] || [];
-      const divTeamsYesterday = state.processedStandingsYesterday?.divisionTeams?.[divId] || [];
+      const divTeamsToday = stdToday?.divisionTeams?.[divId] || [];
+      const divTeamsYesterday = stdYesterday?.divisionTeams?.[divId] || [];
       const runnerUpToday = divTeamsToday.find(t => t.divisionRank === 2 || t.id !== activeTeamId);
       const runnerUpYesterday = divTeamsYesterday.find(t => t.divisionRank === 2 || t.id !== activeTeamId);
       if (runnerUpToday && runnerUpYesterday) {
@@ -5672,11 +5626,10 @@ function createOutsideImpactMeter(rootingGames) {
           const txt = leadDiff > 0 
             ? `Extended division lead by ${Math.abs(leadDiff).toFixed(1)} game${Math.abs(leadDiff) === 1 ? '' : 's'}`
             : `Division lead shrank by ${Math.abs(leadDiff).toFixed(1)} game${Math.abs(leadDiff) === 1 ? '' : 's'}`;
-          notes.push(`${arrow} ${txt}`);
+          notes.push(`${arrow} ${txt}${suffix}`);
         }
       }
     } else {
-      // Division chaser
       const divGbToday = teamToday.gamesBack;
       const divGbYesterday = teamYesterday.gamesBack;
       const divDiff = divGbYesterday - divGbToday;
@@ -5685,15 +5638,14 @@ function createOutsideImpactMeter(rootingGames) {
         const txt = divDiff > 0 
           ? `Gained ${Math.abs(divDiff).toFixed(1)} game${Math.abs(divDiff) === 1 ? '' : 's'} on division lead` 
           : `Fell ${Math.abs(divDiff).toFixed(1)} game${Math.abs(divDiff) === 1 ? '' : 's'} further back in division`;
-        notes.push(`${arrow} ${txt}`);
+        notes.push(`${arrow} ${txt}${suffix}`);
       }
     }
 
-    // 2. Wild Card movement
     if (teamToday.wildCardRank !== teamYesterday.wildCardRank) {
       const dir = teamToday.wildCardRank < teamYesterday.wildCardRank ? 'up' : 'down';
       const arrow = dir === 'up' ? '📈' : '📉';
-      notes.push(`${arrow} Moved ${dir} to #${teamToday.wildCardRank} in Wild Card`);
+      notes.push(`${arrow} Moved ${dir} to #${teamToday.wildCardRank} in Wild Card${suffix}`);
     } else {
       const wcGbToday = teamToday.wildCardGamesBack;
       const wcGbYesterday = teamYesterday.wildCardGamesBack;
@@ -5702,26 +5654,24 @@ function createOutsideImpactMeter(rootingGames) {
         const arrow = wcDiff > 0 ? '📈' : '📉';
         let txt = '';
         if (wcGbToday < 0) {
-          // We are in a playoff position (games ahead)
           txt = wcDiff > 0
             ? `Increased Wild Card cushion by ${Math.abs(wcDiff).toFixed(1)} game${Math.abs(wcDiff) === 1 ? '' : 's'}`
             : `Wild Card cushion shrank by ${Math.abs(wcDiff).toFixed(1)} game${Math.abs(wcDiff) === 1 ? '' : 's'}`;
         } else {
-          // We are chasing
           txt = wcDiff > 0
             ? `Gained ${Math.abs(wcDiff).toFixed(1)} game${Math.abs(wcDiff) === 1 ? '' : 's'} in Wild Card race`
             : `Fell ${Math.abs(wcDiff).toFixed(1)} game${Math.abs(wcDiff) === 1 ? '' : 's'} back in Wild Card race`;
         }
-        notes.push(`${arrow} ${txt}`);
+        notes.push(`${arrow} ${txt}${suffix}`);
       }
     }
 
     if (notes.length > 0) {
       const footnote = document.createElement('div');
-      footnote.style.cssText = 'font-size: 11px; color: var(--text-secondary); line-height: 1.45; border-top: 1px dashed var(--border-glass); padding-top: 8px; margin-top: 6px; display: flex; flex-direction: column; gap: 4px; text-align: left;';
+      footnote.style.cssText = 'font-size: 10.5px; color: var(--text-secondary); line-height: 1.45; border-top: 1px dashed var(--border-glass); padding-top: 8px; margin-top: 6px; display: flex; flex-direction: column; gap: 4px;';
       notes.forEach(noteText => {
         const item = document.createElement('div');
-        item.style.cssText = 'display: flex; align-items: center; gap: 6px; font-weight: 500;';
+        item.style.cssText = 'display: flex; align-items: center; gap: 6px; font-weight: 600;';
         item.innerHTML = noteText;
         footnote.appendChild(item);
       });
@@ -6105,7 +6055,7 @@ function createDashboardView() {
 
   let cellToday;
   if (activeTeamMatchup) {
-    cellToday = createGameCard(activeTeamMatchup, true);
+    cellToday = createGameCard(activeTeamMatchup, false);
     cellToday.style.marginTop = '0px';
     cellToday.style.border = '1.5px solid var(--border-glass-highlight)';
   } else {
@@ -6211,7 +6161,7 @@ function createDashboardView() {
 
   let cellPlayoff;
   if (rootingGames.length > 0) {
-    cellPlayoff = createOutsideImpactMeter(rootingGames);
+    cellPlayoff = createOutsideImpactMeter(rootingGames, state.processedStandings, state.processedStandingsYesterday, "from today's games");
     cellPlayoff.style.cursor = 'pointer';
     cellPlayoff.style.transition = 'all 0.2s ease';
     cellPlayoff.addEventListener('click', () => {
@@ -6960,7 +6910,7 @@ function createGameCentralView() {
   );
 
   if (activeTeamMatchup) {
-    const activeTeamGameCard = createGameCard(activeTeamMatchup, true);
+    const activeTeamGameCard = createGameCard(activeTeamMatchup, false);
     activeTeamGameCard.style.marginTop = '8px';
     container.appendChild(activeTeamGameCard);
   } else {
@@ -7516,7 +7466,7 @@ function createCreditsVersionView() {
   appMetaText.style.fontSize = '13px';
   appMetaText.style.color = 'var(--text-secondary)';
   appMetaText.style.lineHeight = '1.6';
-  appMetaText.innerHTML = '<strong>Trajectory Web App</strong><br>Version: v1.9.8<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
+  appMetaText.innerHTML = '<strong>Trajectory Web App</strong><br>Version: v1.9.9<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
   creditsCard.appendChild(appMetaText);
 
   container.appendChild(creditsCard);
@@ -7566,6 +7516,14 @@ function createDeveloperNotesView() {
   notesCard.style.cssText = 'padding: 20px; display: flex; flex-direction: column; gap: 18px; border: 1px solid var(--border-glass-highlight); margin-bottom: 0; max-height: 60vh; overflow-y: auto;';
 
   notesCard.innerHTML = `
+    <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(16, 185, 129, 0.2); padding-bottom: 4px;">v1.9.9 (Dashboard Game Brightness & Outside Impact Time Context)</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Fixed the active team's matchup card showing up dimmed (neutral opacity) on initial dashboard load and Game Central load.</li>
+        <li>Labeled standings movement footnotes inside the <strong>Outside Impact</strong> panel with time context (e.g. <em>(from today's games)</em> or <em>(from yesterday's games)</em>).</li>
+        <li>Corrected the <strong>What Happened Yesterday</strong> modal's Outside Impact section to compare yesterday's standings against the day before yesterday's standings (rather than today's).</li>
+      </ul>
+    </div>
     <div>
       <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(16, 185, 129, 0.2); padding-bottom: 4px;">v1.9.8 (Who's Hot MLB Percentile & Leaders Comparison)</h4>
       <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
