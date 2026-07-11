@@ -5629,7 +5629,7 @@ function createOutsideImpactMeter(rootingGames, standingsToday = null, standings
     if (teamToday.divisionRank !== teamYesterday.divisionRank) {
       const dir = teamToday.divisionRank < teamYesterday.divisionRank ? 'up' : 'down';
       const arrow = dir === 'up' ? '📈' : '📉';
-      notes.push(`${arrow} Moved ${dir} to #${teamToday.divisionRank} in division${suffix}`);
+      notes.push(`${arrow} Moved ${dir} from #${teamYesterday.divisionRank} to #${teamToday.divisionRank} in the division race${suffix}`);
     } else if (teamToday.divisionRank === 1) {
       const divId = teamToday.divisionId;
       const divTeamsToday = stdToday?.divisionTeams?.[divId] || [];
@@ -5664,7 +5664,7 @@ function createOutsideImpactMeter(rootingGames, standingsToday = null, standings
     if (teamToday.wildCardRank !== teamYesterday.wildCardRank) {
       const dir = teamToday.wildCardRank < teamYesterday.wildCardRank ? 'up' : 'down';
       const arrow = dir === 'up' ? '📈' : '📉';
-      notes.push(`${arrow} Moved ${dir} to #${teamToday.wildCardRank} in Wild Card${suffix}`);
+      notes.push(`${arrow} Moved ${dir} from #${teamYesterday.wildCardRank} to #${teamToday.wildCardRank} in the Wild Card Race${suffix}`);
     } else {
       const wcGbToday = teamToday.wildCardGamesBack;
       const wcGbYesterday = teamYesterday.wildCardGamesBack;
