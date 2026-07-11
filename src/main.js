@@ -1735,9 +1735,9 @@ function showWhosHotModal() {
   const teamName = team ? team.name : "Toronto Blue Jays";
 
   const selectedYear = state.selectedDate.split('-')[0];
-  const avgLeaderUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=battingAverage&season=${selectedYear}&statType=season&limit=1`;
-  const opsLeaderUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=onBasePlusSlugging&season=${selectedYear}&statType=season&limit=1`;
-  const hrLeaderUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=homeRuns&season=${selectedYear}&statType=season&limit=1`;
+  const avgLeaderUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=battingAverage&season=${selectedYear}&statType=season&limit=1&statGroup=hitting`;
+  const opsLeaderUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=onBasePlusSlugging&season=${selectedYear}&statType=season&limit=1&statGroup=hitting`;
+  const hrLeaderUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=homeRuns&season=${selectedYear}&statType=season&limit=1&statGroup=hitting`;
 
   const liveLeadersPromise = Promise.all([
     fetch(avgLeaderUrl).then(r => r.json()).catch(() => null),
