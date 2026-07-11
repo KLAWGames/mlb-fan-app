@@ -7247,9 +7247,9 @@ function getTeamTodayStatus(teamId) {
     const homeScore = game.teams.home.score || 0;
     const isWin = isAway ? (awayScore > homeScore) : (homeScore > awayScore);
     if (isWin) {
-      return { status: 'WON', label: 'Won Today', style: 'background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25);' };
+      return { status: 'Won Today', label: 'Won Today', style: 'background: rgba(16, 185, 129, 0.12); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25);' };
     } else {
-      return { status: 'LOST', label: 'Lost Today', style: 'background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25);' };
+      return { status: 'Lost Today', label: 'Lost Today', style: 'background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25);' };
     }
   } else if (isLive) {
     return { status: 'LIVE', label: 'Playing Live', style: 'background: rgba(245, 158, 11, 0.12); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.25);' };
