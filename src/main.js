@@ -2076,9 +2076,9 @@ function showLeagueStreaksModal() {
   activeGroup.appendChild(milestoneSec.container);
 
   const selectedYear = state.selectedDate.split('-')[0];
-  const mlbHRLeadersUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=homeRuns&season=${selectedYear}&statType=season&limit=3`;
-  const mlbHitsLeadersUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=hits&season=${selectedYear}&statType=season&limit=3`;
-  const mlbSBLeadersUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=stolenBases&season=${selectedYear}&statType=season&limit=3`;
+  const mlbHRLeadersUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=homeRuns&season=${selectedYear}&statType=season&limit=3&statGroup=hitting`;
+  const mlbHitsLeadersUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=hits&season=${selectedYear}&statType=season&limit=3&statGroup=hitting`;
+  const mlbSBLeadersUrl = `https://statsapi.mlb.com/api/v1/stats/leaders?leaderCategories=stolenBases&season=${selectedYear}&statType=season&limit=3&statGroup=hitting`;
 
   Promise.all([
     fetch(mlbHRLeadersUrl).then(r => r.json()).catch(() => null),
@@ -2094,11 +2094,13 @@ function showLeagueStreaksModal() {
       const val = parseInt(l.value, 10) || 0;
       if (val > 0) {
         const milestone = Math.ceil((val + 1) / 5) * 5;
-        const div = document.createElement('div');
-        div.style.cssText = 'padding: 4px 0; font-size: 12px; color: var(--text-secondary); line-height: 1.5; border-bottom: 1px dashed rgba(0,0,0,0.03);';
-        div.innerHTML = `⭐ <strong>${l.person.fullName}</strong> (${l.team.abbreviation || l.team.name}): Approaching <strong>${milestone} Home Runs</strong> this season (Currently at <strong>${val} HR</strong>).`;
-        milestoneSec.listContainer.appendChild(div);
-        milestoneCount++;
+        if (milestone - val <= 10) {
+          const div = document.createElement('div');
+          div.style.cssText = 'padding: 4px 0; font-size: 12px; color: var(--text-secondary); line-height: 1.5; border-bottom: 1px dashed rgba(0,0,0,0.03);';
+          div.innerHTML = `⭐ <strong>${l.person.fullName}</strong> (${l.team.abbreviation || l.team.name}): Approaching <strong>${milestone} Home Runs</strong> this season (Currently at <strong>${val} HR</strong>).`;
+          milestoneSec.listContainer.appendChild(div);
+          milestoneCount++;
+        }
       }
     });
 
@@ -2108,11 +2110,13 @@ function showLeagueStreaksModal() {
       const val = parseInt(l.value, 10) || 0;
       if (val > 0) {
         const milestone = Math.ceil((val + 1) / 50) * 50;
-        const div = document.createElement('div');
-        div.style.cssText = 'padding: 4px 0; font-size: 12px; color: var(--text-secondary); line-height: 1.5; border-bottom: 1px dashed rgba(0,0,0,0.03);';
-        div.innerHTML = `⭐ <strong>${l.person.fullName}</strong> (${l.team.abbreviation || l.team.name}): Approaching <strong>${milestone} Hits</strong> this season (Currently at <strong>${val} Hits</strong>).`;
-        milestoneSec.listContainer.appendChild(div);
-        milestoneCount++;
+        if (milestone - val <= 10) {
+          const div = document.createElement('div');
+          div.style.cssText = 'padding: 4px 0; font-size: 12px; color: var(--text-secondary); line-height: 1.5; border-bottom: 1px dashed rgba(0,0,0,0.03);';
+          div.innerHTML = `⭐ <strong>${l.person.fullName}</strong> (${l.team.abbreviation || l.team.name}): Approaching <strong>${milestone} Hits</strong> this season (Currently at <strong>${val} Hits</strong>).`;
+          milestoneSec.listContainer.appendChild(div);
+          milestoneCount++;
+        }
       }
     });
 
@@ -2122,11 +2126,13 @@ function showLeagueStreaksModal() {
       const val = parseInt(l.value, 10) || 0;
       if (val > 0) {
         const milestone = Math.ceil((val + 1) / 10) * 10;
-        const div = document.createElement('div');
-        div.style.cssText = 'padding: 4px 0; font-size: 12px; color: var(--text-secondary); line-height: 1.5; border-bottom: 1px dashed rgba(0,0,0,0.03);';
-        div.innerHTML = `⭐ <strong>${l.person.fullName}</strong> (${l.team.abbreviation || l.team.name}): Approaching <strong>${milestone} Stolen Bases</strong> this season (Currently at <strong>${val} SB</strong>).`;
-        milestoneSec.listContainer.appendChild(div);
-        milestoneCount++;
+        if (milestone - val <= 10) {
+          const div = document.createElement('div');
+          div.style.cssText = 'padding: 4px 0; font-size: 12px; color: var(--text-secondary); line-height: 1.5; border-bottom: 1px dashed rgba(0,0,0,0.03);';
+          div.innerHTML = `⭐ <strong>${l.person.fullName}</strong> (${l.team.abbreviation || l.team.name}): Approaching <strong>${milestone} Stolen Bases</strong> this season (Currently at <strong>${val} SB</strong>).`;
+          milestoneSec.listContainer.appendChild(div);
+          milestoneCount++;
+        }
       }
     });
 
