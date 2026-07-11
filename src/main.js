@@ -5685,6 +5685,21 @@ function createOutsideImpactMeter(rootingGames, standingsToday = null, standings
     }
   }
 
+  const remainingImpactGames = rootingGames.filter(g => {
+    const statusCode = g.status?.statusCode;
+    return statusCode !== 'F' && statusCode !== 'O' && statusCode !== 'FT' && g.status?.detailedState !== 'Final';
+  });
+  const hasImpactGamesRemaining = remainingImpactGames.length > 0;
+  
+  const statusNotice = document.createElement('div');
+  statusNotice.style.cssText = 'font-size: 11px; font-weight: 700; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; padding-top: 8px; border-top: 1px dashed var(--border-glass); margin-top: 6px;';
+  if (hasImpactGamesRemaining) {
+    statusNotice.innerHTML = `<span style="color: #f59e0b; font-size: 12px; margin-top: -1px;">⏳</span> <span>Rival games are still active or scheduled today that can impact standings.</span>`;
+  } else {
+    statusNotice.innerHTML = `<span style="color: #10b981; font-size: 12px; margin-top: -1px;">✅</span> <span>All rival games impacting your standings today have completed.</span>`;
+  }
+  card.appendChild(statusNotice);
+
   return card;
 }
 
@@ -7226,7 +7241,28 @@ function getTeamTodayStatus(teamId) {
   } else if (isLive) {
     return { status: 'LIVE', label: 'Playing Live', style: 'background: rgba(245, 158, 11, 0.12); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.25);' };
   } else {
-    return { status: 'SCHED', label: 'Plays Today', style: 'background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.25);' };
+    // Scheduled. Let's calculate countdown timer
+    let label = 'Plays Today';
+    let displayStatus = 'SCHED';
+    if (game.gameDate) {
+      const gameTime = new Date(game.gameDate);
+      const now = new Date();
+      const diffMs = gameTime.getTime() - now.getTime();
+      if (diffMs > 0) {
+        const diffHrs = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        if (diffHrs > 0) {
+          displayStatus = `Starts in ${diffHrs}h ${diffMins}m`;
+        } else {
+          displayStatus = `Starts in ${diffMins}m`;
+        }
+        label = `Game starts in ${diffHrs}h ${diffMins}m`;
+      } else {
+        displayStatus = 'Starts Soon';
+        label = 'Game starting soon';
+      }
+    }
+    return { status: displayStatus, label: label, style: 'background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.25);' };
   }
 }
 
@@ -7312,14 +7348,16 @@ function createStandingsView() {
       if (team.id === state.activeTeamId) tr.className = 'highlight';
       
       const statusData = getTeamTodayStatus(team.id);
-      const statusBadge = `<span class="status-badge" style="margin-left: 6px; padding: 1.5px 4px; border-radius: 4px; font-size: 8px; font-weight: 800; text-transform: uppercase; white-space: nowrap; ${statusData.style}" title="${statusData.label}">${statusData.status}</span>`;
+      const statusBadge = `<span class="status-badge" style="margin-top: 2px; padding: 1px 4.5px; border-radius: 3.5px; font-size: 7.5px; font-weight: 800; text-transform: uppercase; white-space: nowrap; width: fit-content; ${statusData.style}" title="${statusData.label}">${statusData.status}</span>`;
 
       tr.innerHTML = `
         <td>
-          <div class="standings-team-cell">
-            <div class="team-badge-small" style="background:${team.primaryColor}; color:${team.textColor}; font-size:9px;">${team.abbreviation}</div>
-            <span>${team.name}</span>
-            ${statusBadge}
+          <div class="standings-team-cell" style="display: flex; align-items: center; gap: 8px;">
+            <div class="team-badge-small" style="background:${team.primaryColor}; color:${team.textColor}; font-size:9px; flex-shrink: 0;">${team.abbreviation}</div>
+            <div style="display: flex; flex-direction: column; gap: 0px; text-align: left; align-items: flex-start;">
+              <span style="font-weight: 600; line-height: 1.25;">${team.name}</span>
+              ${statusBadge}
+            </div>
           </div>
         </td>
         <td>${team.wins}</td>
@@ -7388,14 +7426,16 @@ function createStandingsView() {
     tr.style.cssText = rowStyle;
 
     const statusData = getTeamTodayStatus(team.id);
-    const statusBadge = `<span class="status-badge" style="margin-left: 6px; padding: 1.5px 4px; border-radius: 4px; font-size: 8px; font-weight: 800; text-transform: uppercase; white-space: nowrap; ${statusData.style}" title="${statusData.label}">${statusData.status}</span>`;
+    const statusBadge = `<span class="status-badge" style="margin-top: 2px; padding: 1px 4.5px; border-radius: 3.5px; font-size: 7.5px; font-weight: 800; text-transform: uppercase; white-space: nowrap; width: fit-content; ${statusData.style}" title="${statusData.label}">${statusData.status}</span>`;
 
     tr.innerHTML = `
       <td>
-        <div class="standings-team-cell">
-          <div class="team-badge-small" style="background:${team.primaryColor}; color:${team.textColor}; font-size:9px;">${team.abbreviation}</div>
-          <span>${team.name}</span>
-          ${statusBadge}
+        <div class="standings-team-cell" style="display: flex; align-items: center; gap: 8px;">
+          <div class="team-badge-small" style="background:${team.primaryColor}; color:${team.textColor}; font-size:9px; flex-shrink: 0;">${team.abbreviation}</div>
+          <div style="display: flex; flex-direction: column; gap: 0px; text-align: left; align-items: flex-start;">
+            <span style="font-weight: 600; line-height: 1.25;">${team.name}</span>
+            ${statusBadge}
+          </div>
         </div>
       </td>
       <td>${team.wins}</td>
