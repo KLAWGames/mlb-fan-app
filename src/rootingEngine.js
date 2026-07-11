@@ -43,6 +43,10 @@ export function processStandings(rawStandings) {
         apiMagicNumber: tr.magicNumber || null,
         apiLeagueRank: tr.leagueRank || null,
         apiWildCardRank: tr.wildCardRank || null,
+        // Streak info
+        streakType: tr.streak?.streakType || null,
+        streakNumber: tr.streak?.streakNumber || 0,
+        streakCode: tr.streak?.streakCode || '-',
         // Placeholders to be computed
         wildCardRank: null,
         wildCardGamesBack: 0,
@@ -147,6 +151,8 @@ export function calculateThreatLevels(teamsMap, targetTeamId) {
 
   if (!target) return threatLevels;
 
+  const divOutOfReach = target.gamesBack >= 7.0;
+
   // Initialize threat level for all 30 teams
   for (const tid in teamsMap) {
     const team = teamsMap[tid];
@@ -157,45 +163,74 @@ export function calculateThreatLevels(teamsMap, targetTeamId) {
       threat = -1000;
     } else if (team.leagueId === target.leagueId) {
       // Same League
-      if (team.divisionId === target.divisionId) {
-        // SAME DIVISION (Highest threat)
-        if (target.divisionLeader) {
-          // We are leading division. The 2nd place team is our primary threat
-          if (team.divisionRank === 2) {
-            threat = 100;
-          } else {
-            threat = 85 - (team.gamesBack * 2);
-          }
+      const targetGb = target.wildCardGamesBack;
+      const teamGb = team.wildCardGamesBack;
+      const diff = teamGb - targetGb; // < 0 means ahead of target, > 0 means behind
+      
+      const isHot = team.streakType === 'wins' && team.streakNumber >= 3;
+      const isCreeping = diff > 0 && diff <= 1.5;
+
+      if (divOutOfReach) {
+        // Mode B: Division is out of reach (deficit >= 7.0 GB)
+        if (team.divisionLeader) {
+          // Division leaders are not our competitors since they don't take wild card spots
+          threat = 5;
         } else {
-          // We are chasing the leader. The division leader is our primary threat
-          if (team.divisionLeader) {
-            threat = 98;
-          } else if (team.divisionRank < target.divisionRank) {
-            // Team is ahead of us in division
-            threat = 90 - (team.gamesBack * 2);
+          // All other non-leader league teams are Wild Card competitors
+          if (diff < 0) {
+            // Ahead of us in Wild Card
+            threat = 80 - (Math.abs(diff) * 2);
           } else {
-            // Team is behind us in division
-            threat = 45 - (team.gamesBack * 2);
+            // Behind us in Wild Card
+            threat = 70 - (Math.abs(diff) * 2);
+          }
+          if (isCreeping && isHot) {
+            threat += 15;
           }
         }
       } else {
-        // SAME LEAGUE, DIFFERENT DIVISION (Wild Card Rivals)
-        // Check if they are in the Wild Card race
-        const targetGb = target.wildCardGamesBack; // games back (positive) or ahead (negative)
-        const teamGb = team.wildCardGamesBack;
-
-        // If team is ahead of us in Wild Card
-        if (teamGb < targetGb) {
-          // We want them to lose so we can catch them
-          threat = 75 - (Math.abs(teamGb - targetGb) * 2);
+        // Mode A: Division is within reach (deficit < 7.0 GB)
+        if (team.divisionId === target.divisionId) {
+          // SAME DIVISION (Highest threat)
+          if (target.divisionLeader) {
+            // We are leading division. The 2nd place team is our primary threat
+            if (team.divisionRank === 2) {
+              threat = 100;
+            } else {
+              threat = 85 - (team.gamesBack * 2);
+            }
+          } else {
+            // We are chasing the leader. The division leader is our primary threat
+            if (team.divisionLeader) {
+              threat = 98;
+            } else if (team.divisionRank < target.divisionRank) {
+              // Team is ahead of us in division
+              threat = 90 - (team.gamesBack * 2);
+            } else {
+              // Team is behind us in division
+              threat = 45 - (team.gamesBack * 2);
+            }
+          }
         } else {
-          // They are behind us. We want them to lose so they don't catch us
-          threat = 65 - (Math.abs(teamGb - targetGb) * 2);
+          // SAME LEAGUE, DIFFERENT DIVISION (Wild Card Rivals)
+          if (team.divisionLeader) {
+            threat = 40;
+          } else {
+            if (diff < 0) {
+              // Ahead of us in Wild Card
+              threat = 75 - (Math.abs(diff) * 2);
+            } else {
+              // Behind us in Wild Card
+              threat = 65 - (Math.abs(diff) * 2);
+            }
+            if (isCreeping && isHot) {
+              threat += 15;
+            }
+          }
         }
       }
     } else {
       // INTERLEAGUE (Different League)
-      // Standard interleague games don't threaten us directly, unless playing a rival.
       threat = 0;
     }
 
@@ -229,7 +264,7 @@ export function analyzeMatchups(games, processedStandings, favoriteTeamId) {
     if (awayTeam.id === favoriteTeamId) {
       rootFor = "Away";
       if (favorite.divisionLeader) {
-        explanation = `This is your team! The ${favorite.shortName} are currently leading the division. Root for a big win today to secure the lead!`;
+        explanation = `Root for the ${favorite.shortName} today as they look to secure their division lead with a victory!`;
       } else {
         let wcText = "";
         if (favorite.isWildCardSpot) {
@@ -237,13 +272,13 @@ export function analyzeMatchups(games, processedStandings, favoriteTeamId) {
         } else {
           wcText = ` (${favorite.wildCardGamesBack.toFixed(1)} GB in the Wild Card)`;
         }
-        explanation = `This is your team! The ${favorite.shortName} are currently ${favorite.gamesBack.toFixed(1)} GB in the division${wcText}. Root for a big win today to catch up!`;
+        explanation = `Root for the ${favorite.shortName} today as they look to close the division deficit (currently ${favorite.gamesBack.toFixed(1)} GB) and strengthen their Wild Card position${wcText}.`;
       }
       priority = 100;
     } else if (homeTeam.id === favoriteTeamId) {
       rootFor = "Home";
       if (favorite.divisionLeader) {
-        explanation = `This is your team! The ${favorite.shortName} are currently leading the division. Root for a big win today to secure the lead!`;
+        explanation = `Root for the ${favorite.shortName} today as they look to secure their division lead with a victory!`;
       } else {
         let wcText = "";
         if (favorite.isWildCardSpot) {
@@ -251,30 +286,50 @@ export function analyzeMatchups(games, processedStandings, favoriteTeamId) {
         } else {
           wcText = ` (${favorite.wildCardGamesBack.toFixed(1)} GB in the Wild Card)`;
         }
-        explanation = `This is your team! The ${favorite.shortName} are currently ${favorite.gamesBack.toFixed(1)} GB in the division${wcText}. Root for a big win today to catch up!`;
+        explanation = `Root for the ${favorite.shortName} today as they look to close the division deficit (currently ${favorite.gamesBack.toFixed(1)} GB) and strengthen their Wild Card position${wcText}.`;
       }
       priority = 100;
     } else {
-      // Simulate who to root for
-      if (awayThreat === 0 && homeThreat === 0) {
-        rootFor = "Neutral";
-        explanation = "This matchup is between two teams in the other league. It does not affect your playoff standings.";
-        priority = 0;
-      } else if (awayThreat > homeThreat) {
-        // We want Away to lose, so root for Home
+      // Check for Wild Card frontrunner tempering override
+      const isLeagueMatchup = awayTeam.leagueId === favorite.leagueId && homeTeam.leagueId === favorite.leagueId;
+      const isBothWcRivals = isLeagueMatchup && !awayTeam.divisionLeader && !homeTeam.divisionLeader;
+      const isBothAhead = isBothWcRivals && 
+                          awayTeam.wildCardGamesBack < favorite.wildCardGamesBack && 
+                          homeTeam.wildCardGamesBack < favorite.wildCardGamesBack;
+      
+      const awayAhead = favorite.wildCardGamesBack - awayTeam.wildCardGamesBack;
+      const homeAhead = favorite.wildCardGamesBack - homeTeam.wildCardGamesBack;
+
+      if (isBothAhead && awayAhead >= 5.0 && homeAhead < 4.0) {
         rootFor = "Home";
-        priority = Math.round(awayThreat - homeThreat);
-        explanation = generateExplanation(awayTeam, homeTeam, favorite, true);
-      } else if (homeThreat > awayThreat) {
-        // We want Home to lose, so root for Away
+        priority = 60;
+        explanation = `Both the ${awayTeam.shortName} and ${homeTeam.shortName} are ahead of the ${favorite.shortName} in the Wild Card standings. Since the ${awayTeam.shortName} have a large ${awayAhead.toFixed(1)} game lead, root for the ${homeTeam.shortName} today to temper that lead and keep the overall playoff race tight.`;
+      } else if (isBothAhead && homeAhead >= 5.0 && awayAhead < 4.0) {
         rootFor = "Away";
-        priority = Math.round(homeThreat - awayThreat);
-        explanation = generateExplanation(homeTeam, awayTeam, favorite, false);
+        priority = 60;
+        explanation = `Both the ${homeTeam.shortName} and ${awayTeam.shortName} are ahead of the ${favorite.shortName} in the Wild Card standings. Since the ${homeTeam.shortName} have a large ${homeAhead.toFixed(1)} game lead, root for the ${awayTeam.shortName} today to temper that lead and keep the overall playoff race tight.`;
       } else {
-        // Equal threats
-        rootFor = "Neutral";
-        explanation = "Both teams represent a similar threat in the standings. A win either way is relatively neutral.";
-        priority = 10;
+        // Simulate who to root for based on threat levels
+        if (awayThreat === 0 && homeThreat === 0) {
+          rootFor = "Neutral";
+          explanation = `This matchup is between two teams in the other league. It does not affect the ${favorite.shortName}'s playoff standings.`;
+          priority = 0;
+        } else if (awayThreat > homeThreat) {
+          // We want Away to lose, so root for Home
+          rootFor = "Home";
+          priority = Math.round(awayThreat - homeThreat);
+          explanation = generateExplanation(awayTeam, homeTeam, favorite, true);
+        } else if (homeThreat > awayThreat) {
+          // We want Home to lose, so root for Away
+          rootFor = "Away";
+          priority = Math.round(homeThreat - awayThreat);
+          explanation = generateExplanation(homeTeam, awayTeam, favorite, false);
+        } else {
+          // Equal threats
+          rootFor = "Neutral";
+          explanation = `Both teams represent a similar threat in the standings to the ${favorite.shortName}. A win either way is relatively neutral.`;
+          priority = 10;
+        }
       }
     }
 
@@ -299,42 +354,65 @@ function generateExplanation(threatTeam, targetOpponent, favorite, isAwayThreat)
   const isDivRival = threatTeam.divisionId === favorite.divisionId;
   const isWcRival = threatTeam.leagueId === favorite.leagueId && !isDivRival;
   
+  const divOutOfReach = favorite.gamesBack >= 7.0;
+  const favPossessive = favorite.shortName.endsWith('s') ? `${favorite.shortName}'` : `${favorite.shortName}'s`;
+
+  if (divOutOfReach) {
+    if (targetOpponent.divisionLeader) {
+      return `With the division race out of reach (deficit of ${favorite.gamesBack.toFixed(1)} games), the ${favPossessive} primary focus is the Wild Card. Root for division leader the ${targetOpponent.shortName} to defeat the ${threatTeam.shortName} to help the ${favorite.shortName} gain ground in the Wild Card race.`;
+    }
+    
+    // Both are WC rivals under Division Out of Reach
+    const diff = threatTeam.wildCardGamesBack - favorite.wildCardGamesBack;
+    const absDiff = Math.abs(diff);
+    if (diff < 0) {
+      return `The ${threatTeam.shortName} are currently ahead of the ${favorite.shortName} in the Wild Card race. Root for the ${targetOpponent.shortName} today: a loss by the ${threatTeam.shortName} will help the ${favorite.shortName} close the gap in the standings.`;
+    } else {
+      const isHot = threatTeam.streakType === 'wins' && threatTeam.streakNumber >= 3;
+      const isCreeping = diff <= 1.5;
+      if (isCreeping && isHot) {
+        return `The ${threatTeam.shortName} are hot on a ${threatTeam.streakNumber}-game winning streak and creeping up just ${diff.toFixed(1)} games behind the ${favorite.shortName} in the Wild Card. Root for the ${targetOpponent.shortName} today to halt their momentum.`;
+      }
+      return `The ${threatTeam.shortName} are trailing the ${favorite.shortName} by ${diff.toFixed(1)} games in the Wild Card race. Root for the ${targetOpponent.shortName} to keep them at bay in the standings.`;
+    }
+  }
+
   if (isDivRival) {
     const currentGap = threatTeam.gamesBack - favorite.gamesBack;
     const absGap = Math.abs(currentGap);
     
     if (currentGap > 0) {
       // Favorite is ahead in division
-      return `The ${favorite.shortName} are currently ${currentGap.toFixed(1)} games ahead of ${threatTeam.shortName} in the division race. Root for ${targetOpponent.shortName} today: a loss by ${threatTeam.shortName} will extend the division lead to ${(currentGap + 0.5).toFixed(1)} games.`;
+      return `The ${favorite.shortName} are currently ${currentGap.toFixed(1)} games ahead of the ${threatTeam.shortName} in the division race. Root for the ${targetOpponent.shortName} today: a loss by the ${threatTeam.shortName} will extend the division lead to ${(currentGap + 0.5).toFixed(1)} games.`;
     } else if (currentGap < 0) {
       // Favorite is behind in division
-      return `The ${favorite.shortName} are currently ${absGap.toFixed(1)} games behind division leader ${threatTeam.shortName}. Root for ${targetOpponent.shortName} today: a loss by ${threatTeam.shortName} will cut the division deficit to ${(absGap - 0.5).toFixed(1)} games.`;
+      return `The ${favorite.shortName} are currently ${absGap.toFixed(1)} games behind division leader the ${threatTeam.shortName}. Root for the ${targetOpponent.shortName} today: a loss by the ${threatTeam.shortName} will cut the division deficit to ${(absGap - 0.5).toFixed(1)} games.`;
     } else {
       // Tied
-      return `The ${favorite.shortName} are currently tied with division rival ${threatTeam.shortName}. Root for ${targetOpponent.shortName} today: a loss by ${threatTeam.shortName} will push the ${favorite.shortName} 0.5 games ahead of them in the division race.`;
+      return `The ${favorite.shortName} are currently tied with division rival the ${threatTeam.shortName}. Root for the ${targetOpponent.shortName} today: a loss by the ${threatTeam.shortName} will push the ${favorite.shortName} 0.5 games ahead of them in the division race.`;
     }
   } else if (isWcRival) {
     if (favorite.divisionLeader) {
       const winsDiff = favorite.wins - threatTeam.wins;
-      return `The ${favorite.shortName} are leading their division, but ${threatTeam.shortName} is a threat in the league standings (currently ${winsDiff} wins behind them). Root for ${targetOpponent.shortName} to help secure overall league seeding.`;
+      return `The ${favorite.shortName} are leading their division, but the ${threatTeam.shortName} is a threat in the league standings (currently ${winsDiff} wins behind them). Root for the ${targetOpponent.shortName} to help secure overall league seeding.`;
     } else if (threatTeam.divisionLeader) {
-      return `Root for ${targetOpponent.shortName}. Division leader ${threatTeam.shortName} represents a potential threat in overall league playoff seeding.`;
+      return `Root for the ${targetOpponent.shortName}. Division leader the ${threatTeam.shortName} represents a potential threat in overall league playoff seeding.`;
     } else {
       const currentGap = threatTeam.wildCardGamesBack - favorite.wildCardGamesBack;
       const absGap = Math.abs(currentGap);
       
       if (currentGap > 0) {
         // Favorite is ahead in wildcard
-        return `The ${favorite.shortName} are currently ${currentGap.toFixed(1)} games ahead of ${threatTeam.shortName} in the Wild Card race. Root for ${targetOpponent.shortName} today: a loss by ${threatTeam.shortName} will widen the Wild Card cushion to ${(currentGap + 0.5).toFixed(1)} games.`;
+        return `The ${favorite.shortName} are currently ${currentGap.toFixed(1)} games ahead of the ${threatTeam.shortName} in the Wild Card race. Root for the ${targetOpponent.shortName} today: a loss by the ${threatTeam.shortName} will widen the Wild Card cushion to ${(currentGap + 0.5).toFixed(1)} games.`;
       } else if (currentGap < 0) {
         // Favorite is behind in wildcard
-        return `The ${favorite.shortName} are currently ${absGap.toFixed(1)} games behind ${threatTeam.shortName} in the Wild Card standings. Root for ${targetOpponent.shortName} today: a loss by ${threatTeam.shortName} will shrink the margin to ${(absGap - 0.5).toFixed(1)} games.`;
+        return `The ${favorite.shortName} are currently ${absGap.toFixed(1)} games behind the ${threatTeam.shortName} in the Wild Card standings. Root for the ${targetOpponent.shortName} today: a loss by the ${threatTeam.shortName} will shrink the margin to ${(absGap - 0.5).toFixed(1)} games.`;
       } else {
         // Tied
-        return `The ${favorite.shortName} are currently tied with Wild Card rival ${threatTeam.shortName}. Root for ${targetOpponent.shortName} today: a loss by ${threatTeam.shortName} will put the ${favorite.shortName} 0.5 games ahead of them in the Wild Card standings.`;
+        return `The ${favorite.shortName} are currently tied with Wild Card rival the ${threatTeam.shortName}. Root for the ${targetOpponent.shortName} today: a loss by the ${threatTeam.shortName} will put the ${favorite.shortName} 0.5 games ahead of them in the Wild Card standings.`;
       }
     }
   }
   
-  return `Root for ${targetOpponent.shortName}. A loss by ${threatTeam.shortName} is favorable for the ${favorite.shortName}'s overall playoff positioning.`;
+  return `Root for the ${targetOpponent.shortName}. A loss by the ${threatTeam.shortName} is favorable for the ${favPossessive} overall playoff positioning.`;
 }
