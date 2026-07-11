@@ -6498,32 +6498,16 @@ function getHotPerformersForTeam(teamId, timeframe) {
 
 function getLeagueLeaders(timeframe, liveLeaders = {}) {
   const defaults = {
-    'Season': {
-      avgLeader: { name: 'Bobby Witt Jr.', team: 'KC', val: '.332' },
-      opsLeader: { name: 'Aaron Judge', team: 'NYY', val: '1.159' },
-      hrLeader: { name: 'Aaron Judge', team: 'NYY', val: '58' }
-    },
-    'Last 30 Games': {
-      avgLeader: { name: 'Shohei Ohtani', team: 'LAD', val: '.412' },
-      opsLeader: { name: 'Aaron Judge', team: 'NYY', val: '1.345' },
-      hrLeader: { name: 'Aaron Judge', team: 'NYY', val: '12' }
-    },
-    'Last 10 Games': {
-      avgLeader: { name: 'Luis Arraez', team: 'SD', val: '.524' },
-      opsLeader: { name: 'Kyle Schwarber', team: 'PHI', val: '1.580' },
-      hrLeader: { name: 'Shohei Ohtani', team: 'LAD', val: '5' }
-    }
+    avgLeader: { name: 'Bobby Witt Jr.', team: 'KC', val: '.332' },
+    opsLeader: { name: 'Aaron Judge', team: 'NYY', val: '1.159' },
+    hrLeader: { name: 'Aaron Judge', team: 'NYY', val: '58' }
   };
 
-  const data = JSON.parse(JSON.stringify(defaults[timeframe] || defaults['Season']));
-  
-  if (timeframe === 'Season') {
-    if (liveLeaders.avg) data.avgLeader = liveLeaders.avg;
-    if (liveLeaders.ops) data.opsLeader = liveLeaders.ops;
-    if (liveLeaders.hr) data.hrLeader = liveLeaders.hr;
-  }
-
-  return data;
+  return {
+    avgLeader: liveLeaders.avg || defaults.avgLeader,
+    opsLeader: liveLeaders.ops || defaults.opsLeader,
+    hrLeader: liveLeaders.hr || defaults.hrLeader
+  };
 }
 
 function HotPerformerCard(p, timeframe, teamName, isRookieHighlight = false, liveLeaders = {}) {
@@ -6641,6 +6625,10 @@ function HotPerformerCard(p, timeframe, teamName, isRookieHighlight = false, liv
     opsPercentileStyle = "background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35);";
   } else if (opsNum >= 0.700) {
     opsPercentileLabel = "Top 50% (Avg)";
+    opsPercentileStyle = "background: rgba(255, 255, 255, 0.08); color: var(--text-secondary); border: 1px solid var(--border-glass);";
+  } else {
+    opsPercentileLabel = "Below Average";
+    opsPercentileStyle = "background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25);";
   }
 
   // AVG Percentile
@@ -6661,14 +6649,22 @@ function HotPerformerCard(p, timeframe, teamName, isRookieHighlight = false, liv
     avgPercentileStyle = "background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35);";
   } else if (avgNum >= 0.240) {
     avgPercentileLabel = "Top 45% (Avg)";
+    avgPercentileStyle = "background: rgba(255, 255, 255, 0.08); color: var(--text-secondary); border: 1px solid var(--border-glass);";
+  } else {
+    avgPercentileLabel = "Below Average";
+    avgPercentileStyle = "background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25);";
   }
 
   // HR Percentile
   let hrPercentileLabel = "Below Average";
-  let hrPercentileStyle = "background: rgba(255,255,255,0.06); color: var(--text-secondary); border: 1px solid var(--border-glass);";
-  let hrAvg = "12 HR";
+  let hrPercentileStyle = "background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25);";
+  let hrAvg = "12";
+  let paceVal = hr;
+  let hrLabel = "Selected";
+
   if (timeframe === 'Season') {
-    hrAvg = "12 HR";
+    hrAvg = "12";
+    hrLabel = "Season";
     if (hr >= 40) {
       hrPercentileLabel = "Top 1% (Elite)";
       hrPercentileStyle = "background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35);";
@@ -6686,9 +6682,12 @@ function HotPerformerCard(p, timeframe, teamName, isRookieHighlight = false, liv
       hrPercentileStyle = "background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35);";
     } else if (hr >= 10) {
       hrPercentileLabel = "Top 50% (Avg)";
+      hrPercentileStyle = "background: rgba(255, 255, 255, 0.08); color: var(--text-secondary); border: 1px solid var(--border-glass);";
     }
   } else if (timeframe === 'Last 30 Games') {
-    hrAvg = "2 HR";
+    hrAvg = "2";
+    paceVal = Math.round(hr * 162 / 30);
+    hrLabel = `Pace: ${paceVal}`;
     if (hr >= 8) {
       hrPercentileLabel = "Top 1% (Elite)";
       hrPercentileStyle = "background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35);";
@@ -6703,9 +6702,12 @@ function HotPerformerCard(p, timeframe, teamName, isRookieHighlight = false, liv
       hrPercentileStyle = "background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35);";
     } else if (hr >= 1) {
       hrPercentileLabel = "Top 60% (Avg)";
+      hrPercentileStyle = "background: rgba(255, 255, 255, 0.08); color: var(--text-secondary); border: 1px solid var(--border-glass);";
     }
   } else { // Last 10 Games
-    hrAvg = "1 HR";
+    hrAvg = "1";
+    paceVal = Math.round(hr * 162 / 10);
+    hrLabel = `Pace: ${paceVal}`;
     if (hr >= 4) {
       hrPercentileLabel = "Top 1% (Elite)";
       hrPercentileStyle = "background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.35);";
@@ -6718,6 +6720,9 @@ function HotPerformerCard(p, timeframe, teamName, isRookieHighlight = false, liv
     } else if (hr >= 1) {
       hrPercentileLabel = "Top 35% (Solid)";
       hrPercentileStyle = "background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35);";
+    } else {
+      hrPercentileLabel = "Top 75% (Avg)";
+      hrPercentileStyle = "background: rgba(255, 255, 255, 0.08); color: var(--text-secondary); border: 1px solid var(--border-glass);";
     }
   }
 
@@ -6822,38 +6827,80 @@ function HotPerformerCard(p, timeframe, teamName, isRookieHighlight = false, liv
       </div>
 
       <div class="metric-section" style="display: flex; flex-direction: column; gap: 10px;">
-        <div style="font-size: 10px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 4px; margin-bottom: 2px;">📊 MLB Percentile & Leaders</div>
+        <div style="font-size: 10px; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 4px; margin-bottom: 2px;">📊 MLB Comparison & Rank</div>
 
-        <div class="metric-row" style="display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; padding-bottom: 4px; border-bottom: 1px dashed rgba(255,255,255,0.06);">
+        <!-- OPS Comparison -->
+        <div class="metric-row" style="display: flex; flex-direction: column; gap: 6px; padding: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-weight: 600; color: var(--text-primary);">OPS Rank</span>
-            <span class="status-badge" style="padding: 1.5px 5px; border-radius: 4px; font-size: 8.5px; font-weight: 800; text-transform: uppercase; ${opsPercentileStyle}">${opsPercentileLabel}</span>
+            <strong style="color: var(--text-primary); font-size: 11.5px;">OPS Rank</strong>
+            <span class="status-badge" style="padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 800; text-transform: uppercase; ${opsPercentileStyle}">${opsPercentileLabel}</span>
           </div>
-          <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted);">
-            <span>MLB Avg: .720</span>
-            <span style="font-weight:600;">Leader: ${opsLeader.name} (${opsLeader.val})</span>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: 11px; text-align: center; margin-top: 2px;">
+            <div style="display: flex; flex-direction: column; background: rgba(245, 158, 11, 0.05); padding: 4px; border-radius: 4px; border: 1px solid rgba(245, 158, 11, 0.15);">
+              <span style="color: var(--color-gold); font-size: 9px; font-weight: 800; text-transform: uppercase;">Player</span>
+              <strong style="font-size: 12px; color: var(--text-primary); margin-top: 2px;">${ops}</strong>
+              <span style="font-size: 8px; color: var(--text-muted); margin-top: 1px;">Selected</span>
+            </div>
+            <div style="display: flex; flex-direction: column; background: rgba(255, 255, 255, 0.03); padding: 4px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.08);">
+              <span style="color: var(--text-muted); font-size: 9px; font-weight: 800; text-transform: uppercase;">MLB Leader</span>
+              <strong style="font-size: 12px; color: var(--text-primary); margin-top: 2px;" title="${opsLeader.name}">${opsLeader.val}</strong>
+              <span style="font-size: 8px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px;">${opsLeader.name.split(' ').pop()}</span>
+            </div>
+            <div style="display: flex; flex-direction: column; background: rgba(255, 255, 255, 0.03); padding: 4px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.08);">
+              <span style="color: var(--text-muted); font-size: 9px; font-weight: 800; text-transform: uppercase;">MLB Avg</span>
+              <strong style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">.720</strong>
+              <span style="font-size: 8px; color: var(--text-muted); margin-top: 1px;">Season</span>
+            </div>
           </div>
         </div>
 
-        <div class="metric-row" style="display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; padding-bottom: 4px; border-bottom: 1px dashed rgba(255,255,255,0.06);">
+        <!-- AVG Comparison -->
+        <div class="metric-row" style="display: flex; flex-direction: column; gap: 6px; padding: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-weight: 600; color: var(--text-primary);">AVG Rank</span>
-            <span class="status-badge" style="padding: 1.5px 5px; border-radius: 4px; font-size: 8.5px; font-weight: 800; text-transform: uppercase; ${avgPercentileStyle}">${avgPercentileLabel}</span>
+            <strong style="color: var(--text-primary); font-size: 11.5px;">AVG Rank</strong>
+            <span class="status-badge" style="padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 800; text-transform: uppercase; ${avgPercentileStyle}">${avgPercentileLabel}</span>
           </div>
-          <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted);">
-            <span>MLB Avg: .245</span>
-            <span style="font-weight:600;">Leader: ${avgLeader.name} (${avgLeader.val})</span>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: 11px; text-align: center; margin-top: 2px;">
+            <div style="display: flex; flex-direction: column; background: rgba(245, 158, 11, 0.05); padding: 4px; border-radius: 4px; border: 1px solid rgba(245, 158, 11, 0.15);">
+              <span style="color: var(--color-gold); font-size: 9px; font-weight: 800; text-transform: uppercase;">Player</span>
+              <strong style="font-size: 12px; color: var(--text-primary); margin-top: 2px;">${avg}</strong>
+              <span style="font-size: 8px; color: var(--text-muted); margin-top: 1px;">Selected</span>
+            </div>
+            <div style="display: flex; flex-direction: column; background: rgba(255, 255, 255, 0.03); padding: 4px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.08);">
+              <span style="color: var(--text-muted); font-size: 9px; font-weight: 800; text-transform: uppercase;">MLB Leader</span>
+              <strong style="font-size: 12px; color: var(--text-primary); margin-top: 2px;" title="${avgLeader.name}">${avgLeader.val}</strong>
+              <span style="font-size: 8px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px;">${avgLeader.name.split(' ').pop()}</span>
+            </div>
+            <div style="display: flex; flex-direction: column; background: rgba(255, 255, 255, 0.03); padding: 4px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.08);">
+              <span style="color: var(--text-muted); font-size: 9px; font-weight: 800; text-transform: uppercase;">MLB Avg</span>
+              <strong style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">.245</strong>
+              <span style="font-size: 8px; color: var(--text-muted); margin-top: 1px;">Season</span>
+            </div>
           </div>
         </div>
 
-        <div class="metric-row" style="display: flex; flex-direction: column; gap: 4px; font-size: 12.5px;">
+        <!-- HR Comparison -->
+        <div class="metric-row" style="display: flex; flex-direction: column; gap: 6px; padding: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-weight: 600; color: var(--text-primary);">HR Rank</span>
-            <span class="status-badge" style="padding: 1.5px 5px; border-radius: 4px; font-size: 8.5px; font-weight: 800; text-transform: uppercase; ${hrPercentileStyle}">${hrPercentileLabel}</span>
+            <strong style="color: var(--text-primary); font-size: 11.5px;">HR Rank</strong>
+            <span class="status-badge" style="padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 800; text-transform: uppercase; ${hrPercentileStyle}">${hrPercentileLabel}</span>
           </div>
-          <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted);">
-            <span>MLB Avg: ${hrAvg}</span>
-            <span style="font-weight:600;">Leader: ${hrLeader.name} (${hrLeader.val})</span>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; font-size: 11px; text-align: center; margin-top: 2px;">
+            <div style="display: flex; flex-direction: column; background: rgba(245, 158, 11, 0.05); padding: 4px; border-radius: 4px; border: 1px solid rgba(245, 158, 11, 0.15);">
+              <span style="color: var(--color-gold); font-size: 9px; font-weight: 800; text-transform: uppercase;">Player</span>
+              <strong style="font-size: 12px; color: var(--text-primary); margin-top: 2px;">${hr}</strong>
+              <span style="font-size: 8px; color: var(--text-muted); margin-top: 1px;">${hrLabel}</span>
+            </div>
+            <div style="display: flex; flex-direction: column; background: rgba(255, 255, 255, 0.03); padding: 4px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.08);">
+              <span style="color: var(--text-muted); font-size: 9px; font-weight: 800; text-transform: uppercase;">MLB Leader</span>
+              <strong style="font-size: 12px; color: var(--text-primary); margin-top: 2px;" title="${hrLeader.name}">${hrLeader.val}</strong>
+              <span style="font-size: 8px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px;">${hrLeader.name.split(' ').pop()}</span>
+            </div>
+            <div style="display: flex; flex-direction: column; background: rgba(255, 255, 255, 0.03); padding: 4px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.08);">
+              <span style="color: var(--text-muted); font-size: 9px; font-weight: 800; text-transform: uppercase;">MLB Avg</span>
+              <strong style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">${hrAvg}</strong>
+              <span style="font-size: 8px; color: var(--text-muted); margin-top: 1px;">Season</span>
+            </div>
           </div>
         </div>
       </div>
@@ -7466,7 +7513,7 @@ function createCreditsVersionView() {
   appMetaText.style.fontSize = '13px';
   appMetaText.style.color = 'var(--text-secondary)';
   appMetaText.style.lineHeight = '1.6';
-  appMetaText.innerHTML = '<strong>Trajectory Web App</strong><br>Version: v1.9.9<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
+  appMetaText.innerHTML = '<strong>Trajectory Web App</strong><br>Version: v2.0.0<br>Build: Production Build<br>Designed for MLB Fans and playoff rooting priority tracking.';
   creditsCard.appendChild(appMetaText);
 
   container.appendChild(creditsCard);
@@ -7516,6 +7563,14 @@ function createDeveloperNotesView() {
   notesCard.style.cssText = 'padding: 20px; display: flex; flex-direction: column; gap: 18px; border: 1px solid var(--border-glass-highlight); margin-bottom: 0; max-height: 60vh; overflow-y: auto;';
 
   notesCard.innerHTML = `
+    <div>
+      <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(16, 185, 129, 0.2); padding-bottom: 4px;">v2.0.0 (Who's Hot 1:1 MLB Comparison Table)</h4>
+      <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
+        <li>Replaced the old confusing percentile layout with a beautifully structured 3-column 1:1 comparison sub-grid comparing <strong>Player</strong> vs. <strong>MLB Leader</strong> vs. <strong>MLB Average</strong> side-by-side.</li>
+        <li>Corrected counting stat scaling (Home Runs) by calculating the player's projected 162-game pace dynamically for short-term slices (10-game/30-game), providing a direct 1:1 comparison with the live season-long home run leader's total.</li>
+        <li>Simplified leader logic to consistently use live MLB Season leaders (such as Aaron Judge or Bobby Witt Jr.) as the correct benchmark baseline.</li>
+      </ul>
+    </div>
     <div>
       <h4 style="color: var(--text-primary); font-family: var(--font-title); font-size: 13.5px; font-weight: 800; margin: 0 0 6px 0; border-bottom: 1.5px solid rgba(16, 185, 129, 0.2); padding-bottom: 4px;">v1.9.9 (Dashboard Game Brightness & Outside Impact Time Context)</h4>
       <ul style="margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px; line-height: 1.55;">
