@@ -358,5 +358,29 @@ export const teamsData = {
     primaryColor: "#AB0003",
     secondaryColor: "#142243",
     textColor: "#FFFFFF"
+  },
+  159: {
+    id: 159,
+    name: "American League All-Stars",
+    shortName: "AL Stars",
+    abbreviation: "AL",
+    divisionId: 0,
+    divisionName: "American League",
+    leagueId: 103,
+    primaryColor: "#0C2340",
+    secondaryColor: "#C4CED4",
+    textColor: "#FFFFFF"
+  },
+  160: {
+    id: 160,
+    name: "National League All-Stars",
+    shortName: "NL Stars",
+    abbreviation: "NL",
+    divisionId: 0,
+    divisionName: "National League",
+    leagueId: 104,
+    primaryColor: "#A71930",
+    secondaryColor: "#E3D4AD",
+    textColor: "#FFFFFF"
   }
 };

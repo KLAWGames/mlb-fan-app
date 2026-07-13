@@ -16,6 +16,10 @@ function formatOffDayDate(dateStr) {
   return formatted;
 }
 
+function isAllStarBreak(dateStr) {
+  return dateStr >= '2026-07-13' && dateStr <= '2026-07-16';
+}
+
 // Global error handler for diagnostic alerts on mobile devices
 window.onerror = function (message, source, lineno, colno, error) {
   alert("GLOBAL ERROR: " + message + " at " + source + ":" + lineno + (error ? "\n" + error.stack : ""));
@@ -5451,8 +5455,41 @@ function createGameCard(item, isNeutral, onToggleDetails) {
       card.appendChild(pitcherCard);
     }
 
+    const calendarRow = document.createElement('div');
+    calendarRow.style.cssText = 'margin-top: 8px; display: flex; gap: 8px; width: 100%;';
+
+    const createCalendarBtn = (teamObj) => {
+      const btn = document.createElement('button');
+      btn.className = 'recap-trigger-btn';
+      btn.style.cssText = `flex: 1; margin: 0; padding: 8px 10px; font-size: 11.5px; font-weight: 700; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1.5px solid ${teamObj.primaryColor || '#64748b'}; background: rgba(0,0,0,0.1); color: var(--text-primary); transition: all 0.2s ease;`;
+      btn.innerHTML = `<span>📅</span> <span style="font-family: var(--font-title);">${teamObj.abbreviation} Calendar</span>`;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showTeamCalendarModal(teamObj);
+      });
+      
+      btn.addEventListener('mouseenter', () => {
+        btn.style.background = teamObj.primaryColor || '#64748b';
+        btn.style.color = '#ffffff';
+        btn.style.boxShadow = `0 0 8px ${teamObj.primaryColor || '#64748b'}80`;
+      });
+      btn.addEventListener('mouseleave', () => {
+        btn.style.background = 'rgba(0,0,0,0.1)';
+        btn.style.color = 'var(--text-primary)';
+        btn.style.boxShadow = 'none';
+      });
+      
+      return btn;
+    };
+
+    const awayCalBtn = createCalendarBtn(item.awayTeam);
+    const homeCalBtn = createCalendarBtn(item.homeTeam);
+    calendarRow.appendChild(awayCalBtn);
+    calendarRow.appendChild(homeCalBtn);
+    card.appendChild(calendarRow);
+
     const analyticsBtnRow = document.createElement('div');
-    analyticsBtnRow.style.cssText = 'margin-top: 10px; display: flex; justify-content: center; width: 100%;';
+    analyticsBtnRow.style.cssText = 'margin-top: 8px; display: flex; justify-content: center; width: 100%;';
 
     const analyticsBtn = document.createElement('button');
     analyticsBtn.className = 'recap-trigger-btn';
@@ -5474,6 +5511,266 @@ function createGameCard(item, isNeutral, onToggleDetails) {
   }
 
   return card;
+}
+
+function showTeamCalendarModal(teamObj) {
+  // Lock body scroll
+  const originalOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'recap-backdrop';
+  
+  function closeModal() {
+    backdrop.classList.remove('show');
+    setTimeout(() => {
+      if (backdrop.parentNode) backdrop.parentNode.removeChild(backdrop);
+      document.body.style.overflow = originalOverflow;
+    }, 300);
+  }
+  
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) closeModal();
+  });
+  
+  const content = document.createElement('div');
+  content.className = 'recap-content';
+  content.style.cssText = 'max-height: 85vh; width: 95%; max-width: 600px; display: flex; flex-direction: column;';
+  
+  const header = document.createElement('div');
+  header.className = 'recap-header';
+  header.style.cssText = 'border-bottom: 1px solid var(--border-glass); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;';
+  
+  const title = document.createElement('h2');
+  title.style.cssText = 'font-size: 15px; font-weight: 800; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 8px; font-family: var(--font-title);';
+  
+  const badge = document.createElement('span');
+  badge.style.cssText = `background: ${teamObj.primaryColor || '#64748b'}; color: ${teamObj.textColor || '#ffffff'}; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 800;`;
+  badge.innerText = teamObj.abbreviation;
+  
+  const titleText = document.createElement('span');
+  titleText.innerText = `${teamObj.shortName} Season Calendar`;
+  
+  title.appendChild(badge);
+  title.appendChild(titleText);
+  
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'recap-close-btn';
+  closeBtn.innerHTML = '×';
+  closeBtn.addEventListener('click', closeModal);
+  
+  header.appendChild(title);
+  header.appendChild(closeBtn);
+  content.appendChild(header);
+  
+  const body = document.createElement('div');
+  body.className = 'recap-body';
+  body.style.cssText = 'flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; padding: 12px 4px 12px 0; margin-top: 8px; overscroll-behavior: contain;';
+  
+  // Loading State
+  const loader = document.createElement('div');
+  loader.style.cssText = 'display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 0; gap: 12px;';
+  loader.innerHTML = `
+    <div style="border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid ${teamObj.primaryColor || '#64748b'}; border-radius: 50%; width: 28px; height: 28px; animation: spin 1s linear infinite;"></div>
+    <span style="font-size: 12.5px; color: var(--text-secondary); font-weight: 500;">Loading team schedule...</span>
+  `;
+  body.appendChild(loader);
+  content.appendChild(body);
+  
+  backdrop.appendChild(content);
+  document.body.appendChild(backdrop);
+  
+  // Trigger transition
+  setTimeout(() => backdrop.classList.add('show'), 10);
+  
+  // Fetch full schedule
+  if (!state.teamSchedulesCache) state.teamSchedulesCache = {};
+  const cacheKey = teamObj.id;
+  
+  let fetchPromise;
+  if (state.teamSchedulesCache[cacheKey]) {
+    fetchPromise = Promise.resolve(state.teamSchedulesCache[cacheKey]);
+  } else {
+    const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=${teamObj.id}&startDate=2026-03-01&endDate=2026-10-31`;
+    fetchPromise = fetch(url)
+      .then(res => res.json())
+      .then(data => {
+        state.teamSchedulesCache[cacheKey] = data;
+        return data;
+      });
+  }
+  
+  fetchPromise
+    .then(data => {
+      loader.remove();
+      renderCalendar(data, teamObj.id, body);
+    })
+    .catch(err => {
+      console.error(err);
+      loader.innerHTML = `<span style="color: var(--color-loss); font-weight: 700; font-size: 13px;">Failed to load schedule.</span>`;
+    });
+}
+
+function renderCalendar(scheduleData, teamId, container) {
+  // Parse games into gamesByDate map
+  const gamesByDate = {};
+  if (scheduleData.dates) {
+    scheduleData.dates.forEach(d => {
+      if (d.games) {
+        // Filter out spring training exhibition games, keeping R (regular), A (all star), and postseason types
+        const filteredGames = d.games.filter(g => g.gameType !== 'S');
+        if (filteredGames.length > 0) {
+          gamesByDate[d.date] = filteredGames;
+        }
+      }
+    });
+  }
+  
+  // Render months from March to October (months index: 2 to 9)
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const currentMonthNum = state.selectedDate ? parseInt(state.selectedDate.split('-')[1], 10) - 1 : new Date().getMonth();
+  
+  for (let m = 2; m <= 9; m++) { // March to October
+    const monthName = monthNames[m];
+    const year = 2026;
+    
+    const daysInMonth = new Date(year, m + 1, 0).getDate();
+    const firstDayOffset = new Date(year, m, 1).getDay(); // 0: Sun, 6: Sat
+    
+    const monthEl = document.createElement('div');
+    monthEl.className = 'calendar-month-section';
+    monthEl.id = `cal-month-2026-${String(m + 1).padStart(2, '0')}`;
+    monthEl.style.cssText = 'display: flex; flex-direction: column; gap: 8px; border-bottom: 1px dashed rgba(255,255,255,0.06); padding-bottom: 16px; margin-bottom: 8px;';
+    
+    // Month Name Header
+    const mHeader = document.createElement('div');
+    mHeader.style.cssText = 'font-size: 13.5px; font-weight: 800; color: var(--text-primary); text-align: left; padding: 2px 4px; font-family: var(--font-title); border-left: 3px solid var(--color-gold); line-height: 1.1; margin-bottom: 4px;';
+    mHeader.innerText = `${monthName} ${year}`;
+    monthEl.appendChild(mHeader);
+    
+    // Weekday Headers Grid
+    const weekHeadersGrid = document.createElement('div');
+    weekHeadersGrid.style.cssText = 'display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 2px;';
+    ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach(dayName => {
+      const dayNameEl = document.createElement('div');
+      dayNameEl.innerText = dayName;
+      weekHeadersGrid.appendChild(dayNameEl);
+    });
+    monthEl.appendChild(weekHeadersGrid);
+    
+    // Days Grid
+    const daysGrid = document.createElement('div');
+    daysGrid.style.cssText = 'display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;';
+    
+    // Spacer empty cells
+    for (let s = 0; s < firstDayOffset; s++) {
+      const spacer = document.createElement('div');
+      spacer.style.cssText = 'aspect-ratio: 1.25; background: rgba(0,0,0,0.03); border: 1px solid transparent; border-radius: 5px; opacity: 0.15;';
+      daysGrid.appendChild(spacer);
+    }
+    
+    // Day cells
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `2026-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const dayCell = document.createElement('div');
+      dayCell.className = 'calendar-day-cell';
+      dayCell.style.cssText = 'aspect-ratio: 1.25; background: rgba(255,255,255,0.02); border: 1px solid var(--border-glass); border-radius: 5px; display: flex; flex-direction: column; justify-content: space-between; padding: 4px; box-sizing: border-box; transition: all 0.2s ease; overflow: hidden;';
+      
+      const dayNum = document.createElement('span');
+      dayNum.style.cssText = 'font-size: 9px; font-weight: 700; color: var(--text-muted); align-self: flex-start; line-height: 1;';
+      dayNum.innerText = day;
+      dayCell.appendChild(dayNum);
+      
+      // Is selected date?
+      if (dateStr === state.selectedDate) {
+        dayCell.style.borderColor = 'var(--color-gold)';
+        dayNum.style.color = 'var(--color-gold)';
+      }
+      
+      const games = gamesByDate[dateStr];
+      if (games && games.length > 0) {
+        const gamesContainer = document.createElement('div');
+        gamesContainer.style.cssText = 'display: flex; flex-direction: column; gap: 1px; flex-grow: 1; justify-content: center; width: 100%;';
+        
+        games.forEach((game) => {
+          const isHome = game.teams.home.team.id === teamId;
+          const oppObj = isHome ? game.teams.away.team : game.teams.home.team;
+          
+          const staticOpp = teamsData[oppObj.id];
+          const oppAbbr = staticOpp ? staticOpp.abbreviation : (oppObj.abbreviation || oppObj.name.substring(0, 3).toUpperCase());
+          const matchupPrefix = isHome ? 'vs' : '@';
+          
+          const gameText = document.createElement('div');
+          gameText.style.cssText = 'font-size: 7.5px; font-weight: 800; color: var(--text-primary); text-align: center; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.15;';
+          gameText.innerText = `${matchupPrefix} ${oppAbbr}`;
+          gamesContainer.appendChild(gameText);
+          
+          const scoreText = document.createElement('div');
+          scoreText.style.cssText = 'font-size: 7.5px; font-weight: 900; text-align: center; line-height: 1.15; font-family: var(--font-title);';
+          
+          const statusCode = game.status?.statusCode;
+          const isCompleted = statusCode === 'F' || statusCode === 'O' || statusCode === 'FT';
+          const isLive = statusCode === 'I' || game.status?.detailedState?.toLowerCase().includes('progress');
+          
+          if (isCompleted) {
+            const ourScore = isHome ? game.teams.home.score : game.teams.away.score;
+            const oppScore = isHome ? game.teams.away.score : game.teams.home.score;
+            const isWinner = isHome ? game.teams.home.isWinner : game.teams.away.isWinner;
+            
+            if (isWinner) {
+              scoreText.innerText = `W ${ourScore}-${oppScore}`;
+              scoreText.style.color = '#34d399'; // Green color-win
+              dayCell.style.background = 'rgba(16, 185, 129, 0.08)';
+              dayCell.style.borderColor = 'rgba(16, 185, 129, 0.25)';
+            } else {
+              scoreText.innerText = `L ${ourScore}-${oppScore}`;
+              scoreText.style.color = '#f87171'; // Red color-loss
+              dayCell.style.background = 'rgba(239, 68, 68, 0.08)';
+              dayCell.style.borderColor = 'rgba(239, 68, 68, 0.25)';
+            }
+          } else if (isLive) {
+            const ourScore = isHome ? game.teams.home.score : game.teams.away.score;
+            const oppScore = isHome ? game.teams.away.score : game.teams.home.score;
+            scoreText.innerText = `LIVE ${ourScore}-${oppScore}`;
+            scoreText.style.color = '#fbbf24'; // Amber pulsing color
+            dayCell.style.background = 'rgba(245, 158, 11, 0.08)';
+            dayCell.style.borderColor = 'rgba(245, 158, 11, 0.25)';
+          } else {
+            scoreText.innerText = 'SCHED';
+            scoreText.style.color = '#38bdf8'; // Sky blue
+            dayCell.style.background = 'rgba(56, 189, 248, 0.04)';
+            dayCell.style.borderColor = 'rgba(56, 189, 248, 0.2)';
+          }
+          gamesContainer.appendChild(scoreText);
+        });
+        
+        dayCell.appendChild(gamesContainer);
+      }
+      
+      daysGrid.appendChild(dayCell);
+    }
+    
+    // Trailing spacer cells
+    const totalCells = firstDayOffset + daysInMonth;
+    const trailingSpacers = (7 - (totalCells % 7)) % 7;
+    for (let t = 0; t < trailingSpacers; t++) {
+      const spacer = document.createElement('div');
+      spacer.style.cssText = 'aspect-ratio: 1.25; background: rgba(0,0,0,0.03); border: 1px solid transparent; border-radius: 5px; opacity: 0.15;';
+      daysGrid.appendChild(spacer);
+    }
+    
+    monthEl.appendChild(daysGrid);
+    container.appendChild(monthEl);
+  }
+  
+  // Programmatically scroll the current month into view
+  const currentMonthId = `cal-month-2026-${String(currentMonthNum + 1).padStart(2, '0')}`;
+  setTimeout(() => {
+    const currentMonthEl = container.querySelector(`#${currentMonthId}`);
+    if (currentMonthEl) {
+      currentMonthEl.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+  }, 100);
 }
 
 function createOutsideImpactMeter(rootingGames, standingsToday = null, standingsYesterday = null, timeContextLabel = "") {
@@ -6093,7 +6390,81 @@ function createDashboardView() {
   bentoGrid.style.cssText = 'display: flex; flex-direction: column; gap: 12px; margin-top: 8px;';
 
   let cellToday;
-  if (activeTeamMatchup) {
+  if (isAllStarBreak(state.selectedDate)) {
+    cellToday = document.createElement('div');
+    cellToday.className = 'glass-card';
+    cellToday.style.cssText = 'padding: 20px; text-align: center; border: 1.5px solid var(--border-glass-highlight); display: flex; flex-direction: column; gap: 12px; align-items: center; background: linear-gradient(135deg, rgba(253, 186, 116, 0.06) 0%, rgba(56, 189, 248, 0.06) 100%); position: relative; overflow: hidden;';
+
+    const goldStar = `
+      <div style="position: absolute; right: -20px; top: -20px; font-size: 80px; opacity: 0.04; color: var(--color-gold); font-family: var(--font-title); pointer-events: none; user-select: none;">★</div>
+    `;
+
+    let contentHtml = '';
+    const dateStr = state.selectedDate;
+    if (dateStr === '2026-07-13') {
+      const derbyTime = '2026-07-14T00:00:00Z'; // 8 PM ET
+      contentHtml = `
+        ${goldStar}
+        <div style="font-size: 10.5px; font-weight: 800; text-transform: uppercase; color: var(--color-gold); letter-spacing: 1px; font-family: var(--font-title);">🌟 MLB All-Star Break</div>
+        <div style="font-size: 15px; font-weight: 800; color: var(--text-primary); margin-top: 4px;">⚾ Home Run Derby Tonight</div>
+        <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin: 4px 0 8px 0; max-width: 340px;">
+          The league's premier power hitters showcase their strength in the iconic midsummer slugfest tonight at 8:00 PM ET.
+        </div>
+        <div class="game-countdown-timer short-countdown" data-game-date="${derbyTime}" style="font-size: 10.5px; font-weight: 800; color: var(--color-win); background: rgba(16, 185, 129, 0.08); padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.25); display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-title);">
+          ⏱️ Calculating...
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); border-top: 1px dashed var(--border-glass); padding-top: 8px; width: 100%; margin-top: 4px; line-height: 1.5;">
+          <strong>Tomorrow:</strong> 96th MLB All-Star Game 🌟 (AL vs. NL) at 8:00 PM ET.<br>
+          <strong>Resumes:</strong> Regular season games resume in full on Friday, July 17th.
+        </div>
+      `;
+    } else if (dateStr === '2026-07-14') {
+      const asgTime = '2026-07-15T00:00:00Z'; // 8 PM ET
+      contentHtml = `
+        ${goldStar}
+        <div style="font-size: 10.5px; font-weight: 800; text-transform: uppercase; color: var(--color-gold); letter-spacing: 1px; font-family: var(--font-title);">🌟 MLB All-Star Break</div>
+        <div style="font-size: 15px; font-weight: 800; color: var(--text-primary); margin-top: 4px;">96th MLB All-Star Game Tonight</div>
+        <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin: 4px 0 8px 0; max-width: 340px;">
+          The American League and National League stars face off for midsummer bragging rights tonight at 8:00 PM ET.
+        </div>
+        <div class="game-countdown-timer short-countdown" data-game-date="${asgTime}" style="font-size: 10.5px; font-weight: 800; color: var(--color-win); background: rgba(16, 185, 129, 0.08); padding: 5px 12px; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.25); display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-title);">
+          ⏱️ Calculating...
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); border-top: 1px dashed var(--border-glass); padding-top: 8px; width: 100%; margin-top: 4px; line-height: 1.5;">
+          <strong>Tomorrow:</strong> All-Star Break travel & rest day (no games).<br>
+          <strong>Resumes:</strong> Second half begins Thursday, July 16th with Mets @ Phillies.
+        </div>
+      `;
+    } else if (dateStr === '2026-07-15') {
+      contentHtml = `
+        ${goldStar}
+        <div style="font-size: 10.5px; font-weight: 800; text-transform: uppercase; color: var(--color-gold); letter-spacing: 1px; font-family: var(--font-title);">🌟 MLB All-Star Break</div>
+        <div style="font-size: 15px; font-weight: 800; color: var(--text-primary); margin-top: 4px;">All-Star Rest Day</div>
+        <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin: 4px 0 8px 0; max-width: 340px;">
+          A travel and rest day for the entire league after the All-Star game. No baseball matches are scheduled for today.
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); border-top: 1px dashed var(--border-glass); padding-top: 8px; width: 100%; margin-top: 4px; line-height: 1.5;">
+          <strong>Tomorrow:</strong> Second half begins with a single matchup: Mets @ Phillies.<br>
+          <strong>Resumes:</strong> All other teams resume regular play on Friday, July 17th.
+        </div>
+      `;
+    } else {
+      contentHtml = `
+        ${goldStar}
+        <div style="font-size: 10.5px; font-weight: 800; text-transform: uppercase; color: var(--color-gold); letter-spacing: 1px; font-family: var(--font-title);">🌟 MLB All-Star Break</div>
+        <div style="font-size: 15px; font-weight: 800; color: var(--text-primary); margin-top: 4px;">Second Half Kickoff Tonight</div>
+        <div style="font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin: 4px 0 8px 0; max-width: 340px;">
+          The regular season resumes tonight with a single early second-half matchup: New York Mets @ Philadelphia Phillies.
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); border-top: 1px dashed var(--border-glass); padding-top: 8px; width: 100%; margin-top: 4px; line-height: 1.5;">
+          <strong>Tomorrow:</strong> The rest of the league resumes action in full on Friday, July 17th.<br>
+          <strong>Watch:</strong> Switch to the **Scores** page to view the live score of tonight's game.
+        </div>
+      `;
+    }
+
+    cellToday.innerHTML = contentHtml;
+  } else if (activeTeamMatchup) {
     cellToday = createGameCard(activeTeamMatchup, false);
     cellToday.style.marginTop = '0px';
     cellToday.style.border = '1.5px solid var(--border-glass-highlight)';
