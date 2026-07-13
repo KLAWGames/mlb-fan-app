@@ -63,6 +63,9 @@ let state = {
   highFivedTeams: [], // Track which team IDs have been high-fived
   previousMainView: 'dashboard', // Tracks previous view ('dashboard' | 'standings')
   hotPerformersTimeframe: 'Last 30 Games', // 'Last 10 Games' | 'Last 30 Games' | 'Season'
+  injuredPlayers: {
+    "Aaron Judge": "Injured 10-Day"
+  },
   hotBats: [
     { name: "Shohei Ohtani", teamAbbr: "LAD", teamId: 119, streak: 16 },
     { name: "Bobby Witt Jr.", teamAbbr: "KC", teamId: 118, streak: 15 },
@@ -628,7 +631,7 @@ async function fetchTeamRoster(teamId) {
 
   state.fetchingRosters[teamId] = true;
   try {
-    const res = await fetch(`https://statsapi.mlb.com/api/v1/teams/${teamId}/roster?rosterType=active&season=2026`);
+    const res = await fetch(`https://statsapi.mlb.com/api/v1/teams/${teamId}/roster?rosterType=40Man&season=2026`);
     if (!res.ok) throw new Error('API error');
     const data = await res.json();
     const batters = [];
@@ -636,7 +639,23 @@ async function fetchTeamRoster(teamId) {
       data.roster.forEach(item => {
         if (item.person && item.person.fullName) {
           const isPitcher = item.position && (item.position.abbreviation === 'P' || item.position.type === 'Pitcher');
-          if (!isPitcher) {
+          const isInjured = item.status && (
+            item.status.code.startsWith('D') || 
+            item.status.description.toLowerCase().includes('injured') || 
+            item.status.description.toLowerCase().includes('rehab') ||
+            item.status.code.includes('IL')
+          );
+          
+          if (isInjured) {
+            if (!state.injuredPlayers) state.injuredPlayers = {};
+            state.injuredPlayers[item.person.fullName] = item.status.description || 'IL';
+          } else {
+            if (state.injuredPlayers && state.injuredPlayers[item.person.fullName]) {
+              delete state.injuredPlayers[item.person.fullName];
+            }
+          }
+
+          if (!isPitcher && !isInjured) {
             batters.push(item.person.fullName);
           }
         }
@@ -1578,27 +1597,9 @@ function showRecapModal(isAutoTrigger = false) {
   } else {
     chartTitleText = 'Wild Card Race Trend';
     const leagueId = teamToday.leagueId;
-    const allLeague = state.processedStandingsYesterday?.leagueTeams?.[leagueId] || [];
-    const wcPool = allLeague.filter(t => !t.divisionLeader).sort((a, b) => a.wildCardRank - b.wildCardRank);
-    const activeIdx = wcPool.findIndex(t => t.id === activeTeamId);
+    const { selectedWCTeams } = getWildCardRaceTeams(leagueId, teamToday, state.processedStandingsYesterday || state.processedStandings);
     
-    if (wcPool.length > 0 && activeIdx >= 0) {
-      // Select active team + playoff spot holders + chasers
-      const selectedWCTeams = [];
-      for (let i = 0; i < Math.min(3, wcPool.length); i++) {
-        selectedWCTeams.push(wcPool[i]);
-      }
-      selectedWCTeams.push(wcPool[activeIdx]);
-      if (activeIdx + 1 < wcPool.length) {
-        selectedWCTeams.push(wcPool[activeIdx + 1]);
-      }
-      wcPool.forEach(t => {
-        if (t.wildCardGamesBack === wcPool[activeIdx].wildCardGamesBack) {
-          selectedWCTeams.push(t);
-        }
-      });
-      
-      // Revert Check: to go back to dual-team, swap this line with: chartNode = createDivisionRaceChart(teamToday, wcPool[activeIdx <= 2 ? 3 : 2]);
+    if (selectedWCTeams && selectedWCTeams.length > 0) {
       chartNode = createMultiTeamRaceChart(teamToday, selectedWCTeams);
       
       const colorA = teamToday.primaryColor || '#134a8e';
@@ -2048,7 +2049,7 @@ function showLeagueStreaksModal() {
 
   // 2. Hitting Streaks
   const hitSec = createSection('Active Hitting Streaks (10+ Games)', '⚡');
-  const hotBatsList = state.hotBats || [];
+  const hotBatsList = (state.hotBats || []).filter(b => !(state.injuredPlayers && state.injuredPlayers[b.name]));
   if (hotBatsList.length > 0) {
     hotBatsList.forEach(b => {
       const row = document.createElement('div');
@@ -2424,7 +2425,7 @@ function evaluateWatchableGames() {
     }
 
     // 5. Top Player Hitting Streak (from hotBats)
-    const hotBats = state.hotBats || [];
+    const hotBats = (state.hotBats || []).filter(b => !(state.injuredPlayers && state.injuredPlayers[b.name]));
     const playerWithStreak = hotBats.find(b => {
       const awayAbbr = awayTeam.abbreviation;
       const homeAbbr = homeTeam.abbreviation;
@@ -4884,6 +4885,10 @@ function getPlayerHitStreaks(teamId, dateStr) {
   
   const activeStreaks = [];
   players.forEach((name, idx) => {
+    // Skip if player is on the Injured List
+    const isInjured = state.injuredPlayers && state.injuredPlayers[name];
+    if (isInjured) return;
+
     // 25% chance of a hit streak per player
     const hasStreak = random() < 0.28;
     if (hasStreak) {
@@ -6788,10 +6793,15 @@ function HotPerformerCard(p, timeframe, teamName, isRookieHighlight = false, liv
     disciplineIntel += "Shows a high-risk, high-power approach.";
   }
 
+  const isInjured = state.injuredPlayers && state.injuredPlayers[p.name];
+  const nameHTML = isInjured 
+    ? `${p.name} <span class="status-badge" style="background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25); margin-left: 5px; padding: 1.5px 5px; border-radius: 4px; font-size: 9px; font-weight: 800; font-family: var(--font-title); display: inline-block; vertical-align: middle; line-height: 1;">IL</span>`
+    : p.name;
+
   card.innerHTML = `
     <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-glass); padding-bottom: 12px;">
       <div style="display: flex; flex-direction: column; gap: 2px;">
-        <span class="player-name" style="font-size: 17px; font-weight: 800; color: var(--color-gold); font-family: var(--font-title);">${p.name} <span style="font-size:12px; color:var(--text-muted); font-weight:600;">(${p.position})</span></span>
+        <span class="player-name" style="font-size: 17px; font-weight: 800; color: var(--color-gold); font-family: var(--font-title);">${nameHTML} <span style="font-size:12px; color:var(--text-muted); font-weight:600;">(${p.position})</span></span>
         <div style="display: flex; align-items: center; gap: 6px;">
           <span class="player-team" style="font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">${teamName}</span>
           <span style="font-size: 9px; opacity: 0.4; color: var(--text-muted);">|</span>
@@ -7157,24 +7167,37 @@ function getWildCardRaceTeams(leagueId, activeTeam, processedStandings) {
   const activeIdx = wcPool.findIndex(t => t.id === activeTeam.id);
   
   if (activeIdx >= 0) {
-    for (let i = 0; i < Math.min(3, wcPool.length); i++) {
+    // 1. All teams ahead must always be on the charts, plus the active team itself, plus at least the two teams behind
+    const maxIdxToShow = activeIdx + 2;
+    for (let i = 0; i <= Math.min(maxIdxToShow, wcPool.length - 1); i++) {
       selectedWCTeams.push(wcPool[i]);
     }
-    selectedWCTeams.push(wcPool[activeIdx]);
-    if (activeIdx + 1 < wcPool.length) {
-      selectedWCTeams.push(wcPool[activeIdx + 1]);
-    }
+    
+    // 2. Also include any teams that are tied in games back with the active team or the two teams behind
+    const includedIds = new Set(selectedWCTeams.map(t => t.id));
     wcPool.forEach(t => {
-      if (t.wildCardGamesBack === wcPool[activeIdx].wildCardGamesBack) {
-        selectedWCTeams.push(t);
+      if (!includedIds.has(t.id)) {
+        if (t.wildCardGamesBack === wcPool[activeIdx].wildCardGamesBack) {
+          selectedWCTeams.push(t);
+          includedIds.add(t.id);
+        }
       }
     });
   } else {
-    for (let i = 0; i < Math.min(5, wcPool.length); i++) {
+    // If active team is a division leader, just show the top 6 teams in the Wild Card pool
+    for (let i = 0; i < Math.min(6, wcPool.length); i++) {
       selectedWCTeams.push(wcPool[i]);
     }
   }
-  return { wcPool, selectedWCTeams };
+  
+  // Cleanly sort and deduplicate selectedWCTeams
+  const uniqueTeamsMap = {};
+  selectedWCTeams.forEach(t => {
+    uniqueTeamsMap[t.id] = t;
+  });
+  const dedupedTeams = Object.values(uniqueTeamsMap).sort((a, b) => a.wildCardRank - b.wildCardRank);
+  
+  return { wcPool, selectedWCTeams: dedupedTeams };
 }
 
 // Modal popup showing stand-alone SVG trend graphs, styled to match the app's modal templates
@@ -8352,8 +8375,15 @@ function renderMLBLeadersGraph(leaders, card, spinner, yesterdayPlayerHRsMap = {
     labelCol.style.cssText = 'width: 110px; display: flex; flex-direction: column; text-align: left; flex-shrink: 0;';
     
     const nameSpan = document.createElement('span');
-    nameSpan.style.cssText = 'font-size: 12px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-main);';
+    nameSpan.style.cssText = 'font-size: 12px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-main); display: inline-flex; align-items: center;';
     nameSpan.innerText = leader.person?.fullName || 'Player';
+    
+    if (state.injuredPlayers && state.injuredPlayers[leader.person?.fullName]) {
+      const ilBadge = document.createElement('span');
+      ilBadge.style.cssText = 'font-size: 8px; font-weight: 800; padding: 0.5px 3.5px; border-radius: 3px; background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25); font-family: var(--font-title); line-height: 1; margin-left: 5px; display: inline-block; flex-shrink: 0;';
+      ilBadge.innerText = 'IL';
+      nameSpan.appendChild(ilBadge);
+    }
     
     const teamSpan = document.createElement('span');
     teamSpan.style.cssText = 'font-size: 9.5px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; display: flex; align-items: center; gap: 6px;';
@@ -8896,6 +8926,13 @@ async function showDailyHRsModal(dateStr, labelText) {
       nameSpan.innerText = hr.batterName;
       nameSpan.style.cssText = 'font-size: 13px; font-weight: 800; color: var(--text-primary);';
       nameRow.appendChild(nameSpan);
+
+      if (state.injuredPlayers && state.injuredPlayers[hr.batterName]) {
+        const ilBadge = document.createElement('span');
+        ilBadge.style.cssText = 'font-size: 8px; font-weight: 800; padding: 0.5px 3.5px; border-radius: 3px; background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25); font-family: var(--font-title); line-height: 1; display: inline-block; flex-shrink: 0;';
+        ilBadge.innerText = 'IL';
+        nameRow.appendChild(ilBadge);
+      }
 
       const rank = leadersMap[hr.batterId];
       if (rank && rank <= 25) {
