@@ -5690,60 +5690,93 @@ function renderCalendar(scheduleData, teamId, container) {
       const games = gamesByDate[dateStr];
       if (games && games.length > 0) {
         const gamesContainer = document.createElement('div');
-        gamesContainer.style.cssText = 'display: flex; flex-direction: column; gap: 1px; flex-grow: 1; justify-content: center; width: 100%;';
+        gamesContainer.style.cssText = 'display: flex; flex-direction: column; gap: 2px; flex-grow: 1; justify-content: center; width: 100%; align-items: center;';
         
-        games.forEach((game) => {
-          const isHome = game.teams.home.team.id === teamId;
-          const oppObj = isHome ? game.teams.away.team : game.teams.home.team;
-          
-          const staticOpp = teamsData[oppObj.id];
-          const oppAbbr = staticOpp ? staticOpp.abbreviation : (oppObj.abbreviation || oppObj.name.substring(0, 3).toUpperCase());
-          const matchupPrefix = isHome ? 'vs' : '@';
-          
-          const gameText = document.createElement('div');
-          gameText.style.cssText = 'font-size: 7.5px; font-weight: 800; color: var(--text-primary); text-align: center; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.15;';
-          gameText.innerText = `${matchupPrefix} ${oppAbbr}`;
-          gamesContainer.appendChild(gameText);
-          
-          const scoreText = document.createElement('div');
-          scoreText.style.cssText = 'font-size: 7.5px; font-weight: 900; text-align: center; line-height: 1.15; font-family: var(--font-title);';
-          
+        // Render opponent abbreviation once
+        const firstGame = games[0];
+        const isHome = firstGame.teams.home.team.id === teamId;
+        const oppObj = isHome ? firstGame.teams.away.team : firstGame.teams.home.team;
+        
+        const staticOpp = teamsData[oppObj.id];
+        const oppAbbr = staticOpp ? staticOpp.abbreviation : (oppObj.abbreviation || oppObj.name.substring(0, 3).toUpperCase());
+        const matchupPrefix = isHome ? 'vs' : '@';
+        
+        const gameText = document.createElement('div');
+        gameText.style.cssText = 'font-size: 7.5px; font-weight: 800; color: var(--text-primary); text-align: center; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1;';
+        gameText.innerText = `${matchupPrefix} ${oppAbbr}`;
+        gamesContainer.appendChild(gameText);
+        
+        // Render all game scores side-by-side on the second row
+        const scoresRow = document.createElement('div');
+        scoresRow.style.cssText = 'display: flex; justify-content: center; align-items: center; gap: 3px; font-size: 7.5px; font-weight: 900; line-height: 1.1; font-family: var(--font-title); flex-wrap: wrap; width: 100%;';
+        
+        let hasWin = false;
+        let hasLoss = false;
+        let hasLive = false;
+        let hasSched = false;
+        
+        games.forEach((game, gIdx) => {
+          const gameIsHome = game.teams.home.team.id === teamId;
           const statusCode = game.status?.statusCode;
           const isCompleted = statusCode === 'F' || statusCode === 'O' || statusCode === 'FT';
           const isLive = statusCode === 'I' || game.status?.detailedState?.toLowerCase().includes('progress');
           
+          const scoreSpan = document.createElement('span');
+          scoreSpan.style.whiteSpace = 'nowrap';
+          
           if (isCompleted) {
-            const ourScore = isHome ? game.teams.home.score : game.teams.away.score;
-            const oppScore = isHome ? game.teams.away.score : game.teams.home.score;
-            const isWinner = isHome ? game.teams.home.isWinner : game.teams.away.isWinner;
+            const ourScore = gameIsHome ? game.teams.home.score : game.teams.away.score;
+            const oppScore = gameIsHome ? game.teams.away.score : game.teams.home.score;
+            const isWinner = gameIsHome ? game.teams.home.isWinner : game.teams.away.isWinner;
             
             if (isWinner) {
-              scoreText.innerText = `W ${ourScore}-${oppScore}`;
-              scoreText.style.color = '#34d399'; // Green color-win
-              dayCell.style.background = 'rgba(16, 185, 129, 0.08)';
-              dayCell.style.borderColor = 'rgba(16, 185, 129, 0.25)';
+              hasWin = true;
+              scoreSpan.innerText = `W ${ourScore}-${oppScore}`;
+              scoreSpan.style.color = '#34d399';
             } else {
-              scoreText.innerText = `L ${ourScore}-${oppScore}`;
-              scoreText.style.color = '#f87171'; // Red color-loss
-              dayCell.style.background = 'rgba(239, 68, 68, 0.08)';
-              dayCell.style.borderColor = 'rgba(239, 68, 68, 0.25)';
+              hasLoss = true;
+              scoreSpan.innerText = `L ${ourScore}-${oppScore}`;
+              scoreSpan.style.color = '#f87171';
             }
           } else if (isLive) {
-            const ourScore = isHome ? game.teams.home.score : game.teams.away.score;
-            const oppScore = isHome ? game.teams.away.score : game.teams.home.score;
-            scoreText.innerText = `LIVE ${ourScore}-${oppScore}`;
-            scoreText.style.color = '#fbbf24'; // Amber pulsing color
-            dayCell.style.background = 'rgba(245, 158, 11, 0.08)';
-            dayCell.style.borderColor = 'rgba(245, 158, 11, 0.25)';
+            hasLive = true;
+            const ourScore = gameIsHome ? game.teams.home.score : game.teams.away.score;
+            const oppScore = gameIsHome ? game.teams.away.score : game.teams.home.score;
+            scoreSpan.innerText = `LIVE ${ourScore}-${oppScore}`;
+            scoreSpan.style.color = '#fbbf24';
           } else {
-            scoreText.innerText = 'SCHED';
-            scoreText.style.color = '#38bdf8'; // Sky blue
-            dayCell.style.background = 'rgba(56, 189, 248, 0.04)';
-            dayCell.style.borderColor = 'rgba(56, 189, 248, 0.2)';
+            hasSched = true;
+            scoreSpan.innerText = 'SCHED';
+            scoreSpan.style.color = '#38bdf8';
           }
-          gamesContainer.appendChild(scoreText);
+          
+          if (gIdx > 0) {
+            const separator = document.createElement('span');
+            separator.innerText = '•';
+            separator.style.color = 'var(--text-muted)';
+            separator.style.margin = '0 1px';
+            scoresRow.appendChild(separator);
+          }
+          
+          scoresRow.appendChild(scoreSpan);
         });
         
+        // Dynamically style cell border and background based on overall outcomes
+        if (hasLive) {
+          dayCell.style.background = 'rgba(245, 158, 11, 0.08)';
+          dayCell.style.borderColor = 'rgba(245, 158, 11, 0.25)';
+        } else if (hasWin) {
+          dayCell.style.background = 'rgba(16, 185, 129, 0.08)';
+          dayCell.style.borderColor = 'rgba(16, 185, 129, 0.25)';
+        } else if (hasLoss) {
+          dayCell.style.background = 'rgba(239, 68, 68, 0.08)';
+          dayCell.style.borderColor = 'rgba(239, 68, 68, 0.25)';
+        } else if (hasSched) {
+          dayCell.style.background = 'rgba(56, 189, 248, 0.04)';
+          dayCell.style.borderColor = 'rgba(56, 189, 248, 0.2)';
+        }
+        
+        gamesContainer.appendChild(scoresRow);
         dayCell.appendChild(gamesContainer);
       }
       
