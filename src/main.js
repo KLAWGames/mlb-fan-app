@@ -6537,13 +6537,18 @@ function createDashboardView() {
               timerStr = "Starting soon";
             }
 
+            const startsToday = foundGame.officialDate === state.selectedDate;
+            const timerHtml = startsToday ? `
+              <span class="game-countdown-timer short-countdown" data-game-date="${foundGame.gameDate}" style="font-size: 10.5px; font-weight: 800; color: var(--color-win); background: rgba(16, 185, 129, 0.08); padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.25); width: fit-content; margin: 4px auto 0 auto; display: flex; align-items: center; gap: 4px;">
+                ⏱️ ${timerStr}
+              </span>
+            ` : '';
+
             nextGameInfo.innerHTML = `
               <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--color-gold); letter-spacing: 0.5px; margin-bottom: 2px;">Next Scheduled Game</span>
               <span style="font-weight: 800; font-size: 13px; color: var(--text-primary);">${matchupText}</span>
               <span style="font-weight: 700; color: var(--text-secondary);">${gameDateFormatted} at ${timeStr}</span>
-              <span class="game-countdown-timer short-countdown" data-game-date="${foundGame.gameDate}" style="font-size: 10.5px; font-weight: 800; color: var(--color-win); background: rgba(16, 185, 129, 0.08); padding: 3px 8px; border-radius: 6px; border: 1px solid rgba(16, 185, 129, 0.25); width: fit-content; margin: 4px auto 0 auto; display: flex; align-items: center; gap: 4px;">
-                ⏱️ ${timerStr}
-              </span>
+              ${timerHtml}
             `;
           } else {
             nextGameInfo.innerHTML = `<span style="color: var(--text-muted); font-style: italic;">No upcoming games scheduled in the next 14 days.</span>`;
@@ -6633,7 +6638,9 @@ function createDashboardView() {
     });
     cellPlayoff.appendChild(gtmBtn);
   }
-  bentoGrid.appendChild(cellPlayoff);
+  if (!isAllStarBreak(state.selectedDate)) {
+    bentoGrid.appendChild(cellPlayoff);
+  }
 
   const todayStr = getBaseballDate(0);
   if (state.selectedDate === todayStr) {

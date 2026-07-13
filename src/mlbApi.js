@@ -229,22 +229,9 @@ export async function fetchSchedule(dateStr) {
       games = data.dates[0].games;
     }
     
-    if (games.length === 0) {
-      console.warn(`No games found for ${dateStr} from API, using mock schedule.`);
-      // Adjust mock dates to match dateStr
-      return MOCK_GAMES.map(g => ({
-        ...g,
-        officialDate: dateStr,
-        gameDate: `${dateStr}T19:00:00Z`
-      }));
-    }
     return games;
   } catch (err) {
-    console.error(`Failed to fetch schedule for ${dateStr}, using fallback:`, err.message);
-    return MOCK_GAMES.map(g => ({
-      ...g,
-      officialDate: dateStr,
-      gameDate: `${dateStr}T19:00:00Z`
-    }));
+    console.error(`Failed to fetch schedule for ${dateStr}, using fallback empty array:`, err.message);
+    return [];
   }
 }
