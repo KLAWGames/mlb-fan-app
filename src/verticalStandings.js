@@ -787,7 +787,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
 
       if (gameData.oppAbbr) {
         const oppCircle = document.createElement('div');
-        oppCircle.className = `vertical-opponent-circle ${gameData.isInterleague ? 'interleague-cycle' : ''}`;
+        oppCircle.className = `vertical-opponent-circle ${gameData.statusClass} ${gameData.isInterleague ? 'interleague-cycle' : ''}`;
 
         if (gameData.isInterleague) {
           const oppTeamImg = document.createElement('img');
@@ -811,8 +811,13 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
         }
         node.appendChild(oppCircle);
       }
-      
-      // Additional logic would follow here for metadata...
+
+      if (gameData.metadataText) {
+        const metaDiv = document.createElement('div');
+        metaDiv.className = `vertical-node-metadata ${gameData.statusClass}`;
+        metaDiv.innerText = gameData.metadataText;
+        node.appendChild(metaDiv);
+      }
     }
 
     node.style.cursor = 'pointer';

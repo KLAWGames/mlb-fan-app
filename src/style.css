@@ -1668,6 +1668,46 @@ header {
   50%, 96% { border-color: #ef4444 !important; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4) !important; }
   100% { border-color: rgba(0, 229, 255, 0.6) !important; box-shadow: 0 0 10px rgba(0, 229, 255, 0.4) !important; }
 }
+
+/* Live-game doubleheader border combinations */
+.vertical-team-node.dh-border-cycle-live-live { border-color: #3b82f6 !important; box-shadow: 0 0 10px rgba(59, 130, 246, 0.4) !important; }
+.vertical-team-node.dh-border-cycle-win-live { animation: dhBorderWinLive 6s infinite ease-in-out !important; }
+.vertical-team-node.dh-border-cycle-live-win { animation: dhBorderLiveWin 6s infinite ease-in-out !important; }
+.vertical-team-node.dh-border-cycle-loss-live { animation: dhBorderLossLive 6s infinite ease-in-out !important; }
+.vertical-team-node.dh-border-cycle-live-loss { animation: dhBorderLiveLoss 6s infinite ease-in-out !important; }
+.vertical-team-node.dh-border-cycle-live-upcoming { animation: dhBorderLiveUpcoming 6s infinite ease-in-out !important; }
+.vertical-team-node.dh-border-cycle-upcoming-live { animation: dhBorderUpcomingLive 6s infinite ease-in-out !important; }
+
+@keyframes dhBorderWinLive {
+  0%, 46% { border-color: #10b981 !important; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4) !important; }
+  50%, 96% { border-color: #3b82f6 !important; box-shadow: 0 0 10px rgba(59, 130, 246, 0.4) !important; }
+  100% { border-color: #10b981 !important; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4) !important; }
+}
+@keyframes dhBorderLiveWin {
+  0%, 46% { border-color: #3b82f6 !important; box-shadow: 0 0 10px rgba(59, 130, 246, 0.4) !important; }
+  50%, 96% { border-color: #10b981 !important; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4) !important; }
+  100% { border-color: #3b82f6 !important; box-shadow: 0 0 10px rgba(59, 130, 246, 0.4) !important; }
+}
+@keyframes dhBorderLossLive {
+  0%, 46% { border-color: #ef4444 !important; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4) !important; }
+  50%, 96% { border-color: #3b82f6 !important; box-shadow: 0 0 10px rgba(59, 130, 246, 0.4) !important; }
+  100% { border-color: #ef4444 !important; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4) !important; }
+}
+@keyframes dhBorderLiveLoss {
+  0%, 46% { border-color: #3b82f6 !important; box-shadow: 0 0 10px rgba(59, 130, 246, 0.4) !important; }
+  50%, 96% { border-color: #ef4444 !important; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4) !important; }
+  100% { border-color: #3b82f6 !important; box-shadow: 0 0 10px rgba(59, 130, 246, 0.4) !important; }
+}
+@keyframes dhBorderLiveUpcoming {
+  0%, 46% { border-color: #3b82f6 !important; box-shadow: 0 0 10px rgba(59, 130, 246, 0.4) !important; }
+  50%, 96% { border-color: rgba(0, 229, 255, 0.6) !important; box-shadow: 0 0 10px rgba(0, 229, 255, 0.4) !important; }
+  100% { border-color: #3b82f6 !important; box-shadow: 0 0 10px rgba(59, 130, 246, 0.4) !important; }
+}
+@keyframes dhBorderUpcomingLive {
+  0%, 46% { border-color: rgba(0, 229, 255, 0.6) !important; box-shadow: 0 0 10px rgba(0, 229, 255, 0.4) !important; }
+  50%, 96% { border-color: #3b82f6 !important; box-shadow: 0 0 10px rgba(59, 130, 246, 0.4) !important; }
+  100% { border-color: rgba(0, 229, 255, 0.6) !important; box-shadow: 0 0 10px rgba(0, 229, 255, 0.4) !important; }
+}
 .recap-backdrop.calendar-backdrop-override {
   padding: 12px !important;
   width: 100vw !important;
