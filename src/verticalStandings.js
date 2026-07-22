@@ -845,14 +845,13 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       actionGrid.appendChild(calRow);
     }
 
-    // 3. Team Overview
+    // 3. Team Overview Modal (Run Differential Graph, Record, Last 10 & Stats)
     if (callbacks.openTeamOverview) {
       const btn = document.createElement('button');
       btn.className = 'vertical-action-card-btn';
-      btn.innerHTML = `<span class="icon">📈</span><div><div class="title">Team Overview</div><div class="sub">Main dashboard & team stats screen</div></div>`;
+      btn.innerHTML = `<span class="icon">📈</span><div><div class="title">Team Overview</div><div class="sub">Run diff graph, record, last 10 & stats</div></div>`;
       btn.addEventListener('click', () => {
-        backdrop.remove();
-        callbacks.openTeamOverview(team.id);
+        openSubView(callbacks.openTeamOverview, team.id);
       });
       actionGrid.appendChild(btn);
     }

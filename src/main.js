@@ -3195,8 +3195,8 @@ function showHrChaseModal() {
   backdrop.classList.add('show');
 }
 
-function showTeamSeasonModal() {
-  const activeTeamId = state.activeTeamId;
+function showTeamSeasonModal(targetTeamId = null) {
+  const activeTeamId = targetTeamId || state.activeTeamId;
   const team = state.processedStandings?.teamsMap?.[activeTeamId] || teamsData[activeTeamId];
   if (!team) return;
 
@@ -4053,11 +4053,7 @@ function render() {
           openGameAnalytics: (gameObj) => openGameAnalyticsCenter(gameObj),
           openGamesThatMatter: (teamId) => showGamesThatMatterModal(teamId),
           openTeamCalendar: (teamObj) => showTeamCalendarModal(teamObj),
-          openTeamOverview: (teamId) => {
-            state.activeTeamId = teamId;
-            state.activeView = 'dashboard';
-            render();
-          },
+          openTeamOverview: (teamId) => showTeamSeasonModal(teamId),
           openWhosHot: (teamId) => showWhosHotModal(teamId),
           openWhatHappenedYesterday: () => showRecapModal(false)
         }));
