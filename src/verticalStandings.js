@@ -263,11 +263,11 @@ export function createVerticalStandingsView(state, onBack) {
     }).filter(t => t.moved);
   }
 
-  // Group moving teams into visible spatial clusters so the camera focuses on each cluster in the viewport
+  // Group moving teams into visible spatial clusters sorted strictly top to bottom (best teams at 1st place first)
   function groupMoversIntoClusters(movers) {
     if (movers.length === 0) return [];
     
-    // Sort movers by vertical position (top to bottom)
+    // Sort movers by vertical position (smallest Y = top of page = best team at 1st place)
     const sorted = [...movers].sort((a, b) => {
       const yA = globalZeroLineY - (a.gbRel * globalPxPerGB);
       const yB = globalZeroLineY - (b.gbRel * globalPxPerGB);
@@ -277,16 +277,17 @@ export function createVerticalStandingsView(state, onBack) {
     const clusters = [];
     sorted.forEach(team => {
       const teamY = globalZeroLineY - (team.gbRel * globalPxPerGB);
-      // Group with an existing cluster if within ~220px vertical distance
       let cluster = clusters.find(c => Math.abs(c.centerY - teamY) < 220);
       if (!cluster) {
         cluster = { centerY: teamY, teams: [] };
         clusters.push(cluster);
       }
       cluster.teams.push(team);
-      // Update cluster average center Y position
       cluster.centerY = cluster.teams.reduce((sum, t) => sum + (globalZeroLineY - (t.gbRel * globalPxPerGB)), 0) / cluster.teams.length;
     });
+
+    // Ensure clusters array is strictly ordered from top (best teams) to bottom
+    clusters.sort((a, b) => a.centerY - b.centerY);
 
     return clusters;
   }
@@ -655,7 +656,7 @@ export function createVerticalStandingsView(state, onBack) {
     }
   }
 
-  // Guided Region Motion Replay: Camera pans explicitly to each cluster before animating interacting teams
+  // Guided Region Motion Replay: Always starts at top (best teams) and moves down section by section
   async function runMotionReplaySequence() {
     isPlayingAnimation = true;
     cancelAnimationRequested = false;
@@ -668,20 +669,24 @@ export function createVerticalStandingsView(state, onBack) {
     const snapYestEnd = computeSnapshotData(getSnapshotDataset('yesterday-end').processed);
     const snapTodayLive = computeSnapshotData(getSnapshotDataset('today-live').processed);
 
-    // PASS 1: Yesterday Standings Shift (Grouped into Visible Viewport Clusters)
+    // PASS 1: Yesterday Standings Shift (Ordered Top to Bottom starting at 1st place)
     const moversYesterday = getMovingTeams(snapYestStart, snapYestEnd);
     const clustersYesterday = groupMoversIntoClusters(moversYesterday);
 
-    // Set snapshot mode to Yesterday Start baseline
+    // Baseline: Yesterday Start
     activeSnapshotMode = 'yesterday-start';
     updateSnapshotBtnStyles();
     updateNodesPosition(false);
+
+    // Camera mounts at the very top of the standings (best teams)
+    scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
+    await new Promise(r => setTimeout(r, 600));
 
     if (clustersYesterday.length === 0) {
       infoBanner.innerText = 'PASS 1/2: Yesterday Shift — No standings shifts yesterday.';
       await new Promise(r => setTimeout(r, 800));
     } else {
-      infoBanner.innerText = `PASS 1/2: Yesterday Shift — Highlighting ${clustersYesterday.length} movement region(s) yesterday...`;
+      infoBanner.innerText = `PASS 1/2: Yesterday Shift — Starting at top of standings (1st Place)...`;
       await new Promise(r => setTimeout(r, 600));
 
       for (let c = 0; c < clustersYesterday.length; c++) {
@@ -696,7 +701,7 @@ export function createVerticalStandingsView(state, onBack) {
           top: Math.max(0, cluster.centerY - (scrollArea.clientHeight / 2) + 20),
           behavior: 'smooth'
         });
-        await new Promise(r => setTimeout(r, 550));
+        await new Promise(r => setTimeout(r, 600));
         if (cancelAnimationRequested) break;
 
         // 2. Attach focus glow rings and shift pills to teams in this cluster
@@ -711,15 +716,15 @@ export function createVerticalStandingsView(state, onBack) {
           }
         });
 
-        // 3. Simultaneously animate positions for teams in this cluster (and update snapshot mode to yesterday-end)
+        // 3. Simultaneously animate positions for teams in this cluster to yesterday-end
         activeSnapshotMode = 'yesterday-end';
         updateSnapshotBtnStyles();
         cluster.teams.forEach(team => {
           setSingleTeamPosition(team.id, 'yesterday-end');
         });
 
-        // 4. Generous pause (1.4s) so the user can comfortably take in each animation and score shift!
-        await new Promise(r => setTimeout(r, 1400));
+        // 4. Generous pause (1.5s) so the user can comfortably follow how this section changed!
+        await new Promise(r => setTimeout(r, 1500));
 
         // 5. Clean up focus glow rings and shift pills for this cluster
         cluster.teams.forEach(team => {
@@ -733,7 +738,7 @@ export function createVerticalStandingsView(state, onBack) {
       }
     }
 
-    // PASS 2: Today Live Shift (Grouped into Visible Viewport Clusters)
+    // PASS 2: Today Live Shift (Ordered Top to Bottom starting at 1st place)
     if (!cancelAnimationRequested) {
       const moversToday = getMovingTeams(snapYestEnd, snapTodayLive);
       const clustersToday = groupMoversIntoClusters(moversToday);
@@ -741,11 +746,15 @@ export function createVerticalStandingsView(state, onBack) {
       activeSnapshotMode = 'yesterday-end';
       updateSnapshotBtnStyles();
 
+      // Return camera to top of standings (best teams) for Pass 2
+      scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
+      await new Promise(r => setTimeout(r, 600));
+
       if (clustersToday.length === 0) {
         infoBanner.innerText = 'PASS 2/2: Today Live Shift — No standings shifts today yet.';
         await new Promise(r => setTimeout(r, 800));
       } else {
-        infoBanner.innerText = `PASS 2/2: Today Live Shift — Highlighting ${clustersToday.length} movement region(s) today...`;
+        infoBanner.innerText = `PASS 2/2: Today Live Shift — Starting at top of standings (1st Place)...`;
         await new Promise(r => setTimeout(r, 600));
 
         for (let c = 0; c < clustersToday.length; c++) {
@@ -760,7 +769,7 @@ export function createVerticalStandingsView(state, onBack) {
             top: Math.max(0, cluster.centerY - (scrollArea.clientHeight / 2) + 20),
             behavior: 'smooth'
           });
-          await new Promise(r => setTimeout(r, 550));
+          await new Promise(r => setTimeout(r, 600));
           if (cancelAnimationRequested) break;
 
           // 2. Attach focus glow rings and shift pills to teams in this cluster
@@ -782,8 +791,8 @@ export function createVerticalStandingsView(state, onBack) {
             setSingleTeamPosition(team.id, 'today-live');
           });
 
-          // 4. Generous pause (1.4s) so the user can comfortably take in the live movement!
-          await new Promise(r => setTimeout(r, 1400));
+          // 4. Generous pause (1.5s) so the user can comfortably follow how this section changed!
+          await new Promise(r => setTimeout(r, 1500));
 
           // 5. Clean up focus glow rings and shift pills for this cluster
           cluster.teams.forEach(team => {
