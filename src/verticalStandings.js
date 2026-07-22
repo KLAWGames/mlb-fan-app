@@ -255,6 +255,8 @@ export function createVerticalStandingsView(state, onBack) {
 
       return {
         ...teamB,
+        gbRelStart: gbA,
+        gbRelEnd: gbB,
         diff,
         moved,
         shiftLabel,
@@ -626,63 +628,56 @@ export function createVerticalStandingsView(state, onBack) {
     }
   }
 
-  // Step 1: Fade out old row labels for disappearing or changing rows
-  function fadeOutOldLabels(targetMode) {
+  // Step 1: Fade out old row labels for starting rows that will be vacated
+  function fadeOldClusterLabels(clusterTeams, targetMode) {
     const dataset = getSnapshotDataset(targetMode);
     const snapData = computeSnapshotData(dataset.processed);
-    const gbGroups = {};
-    snapData.teamsWithPos.forEach(t => {
-      const k = t.gbRel.toFixed(1);
-      if (!gbGroups[k]) gbGroups[k] = [];
-      gbGroups[k].push(t);
-    });
+    const targetActiveKeys = new Set(snapData.teamsWithPos.map(t => t.gbRel.toFixed(1)));
 
-    const activeRowKeys = new Set(Object.keys(gbGroups));
-
-    tickLabelElements.forEach(({ el, gbKey, isZero }) => {
-      const isNewActive = isZero || activeRowKeys.has(gbKey);
-      if (!isNewActive && el.style.display !== 'none') {
-        el.classList.add('fade-out');
+    clusterTeams.forEach(team => {
+      const startKey = team.gbRelStart !== undefined ? team.gbRelStart.toFixed(1) : null;
+      if (startKey && !targetActiveKeys.has(startKey)) {
+        const item = tickLabelElements.find(t => t.gbKey === startKey);
+        if (item && !item.isZero) {
+          item.el.classList.add('fade-out');
+        }
       }
     });
   }
 
-  // Step 3: Pop in new row labels AFTER team boxes arrive at their new location
-  function popInNewLabels(targetMode) {
-    const dataset = getSnapshotDataset(targetMode);
-    const snapData = computeSnapshotData(dataset.processed);
-    const gbGroups = {};
-    snapData.teamsWithPos.forEach(t => {
-      const k = t.gbRel.toFixed(1);
-      if (!gbGroups[k]) gbGroups[k] = [];
-      gbGroups[k].push(t);
+  // Step 3: Pop in new row labels AFTER team boxes arrive at their ending locations
+  function popInClusterLabels(clusterTeams) {
+    clusterTeams.forEach(team => {
+      const endKey = team.gbRelEnd !== undefined ? team.gbRelEnd.toFixed(1) : team.gbRel.toFixed(1);
+      const item = tickLabelElements.find(t => t.gbKey === endKey);
+      if (item) {
+        const wasHidden = item.el.style.display === 'none' || item.el.classList.contains('fade-out');
+        item.el.style.display = 'block';
+        item.el.classList.remove('fade-out');
+        if (wasHidden) {
+          item.el.classList.add('pop-in');
+          setTimeout(() => item.el.classList.remove('pop-in'), 450);
+        }
+      }
     });
+  }
 
-    const activeRowKeys = new Set(Object.keys(gbGroups));
+  // Synchronize all left axis tick labels cleanly for a static snapshot mode
+  function updateNodesPosition(animateScroll = true) {
+    const dataset = getSnapshotDataset(activeSnapshotMode);
+    const snapData = computeSnapshotData(dataset.processed);
+
+    const activeRowKeys = new Set(snapData.teamsWithPos.map(t => t.gbRel.toFixed(1)));
 
     tickLabelElements.forEach(({ el, gbKey, isZero }) => {
-      const isNewActive = isZero || activeRowKeys.has(gbKey);
-      if (isNewActive) {
-        const wasHidden = el.style.display === 'none' || el.classList.contains('fade-out');
+      if (isZero || activeRowKeys.has(gbKey)) {
         el.style.display = 'block';
         el.classList.remove('fade-out');
-        if (wasHidden) {
-          el.classList.add('pop-in');
-          setTimeout(() => el.classList.remove('pop-in'), 450);
-        }
       } else {
         el.style.display = 'none';
         el.classList.remove('fade-out');
       }
     });
-  }
-
-  // Update all team node positions simultaneously for full snapshot mode
-  function updateNodesPosition(animateScroll = true) {
-    const dataset = getSnapshotDataset(activeSnapshotMode);
-    const snapData = computeSnapshotData(dataset.processed);
-
-    popInNewLabels(activeSnapshotMode);
 
     snapData.teamsWithPos.forEach(team => {
       setSingleTeamPosition(team.id, activeSnapshotMode);
@@ -710,7 +705,7 @@ export function createVerticalStandingsView(state, onBack) {
     const moversYesterday = getMovingTeams(snapYestStart, snapYestEnd);
     const clustersYesterday = groupMoversIntoClusters(moversYesterday);
 
-    // Baseline: Yesterday Start
+    // Baseline: Yesterday Start (Labels are 100% synced to Yesterday Start occupied rows)
     activeSnapshotMode = 'yesterday-start';
     updateSnapshotBtnStyles();
     updateNodesPosition(false);
@@ -754,7 +749,7 @@ export function createVerticalStandingsView(state, onBack) {
         });
 
         // 3. STEP 1: OLD LABEL FADES AWAY BEFORE CARD MOVEMENT
-        fadeOutOldLabels('yesterday-end');
+        fadeOldClusterLabels(cluster.teams, 'yesterday-end');
         await new Promise(r => setTimeout(r, 300));
         if (cancelAnimationRequested) break;
 
@@ -770,7 +765,7 @@ export function createVerticalStandingsView(state, onBack) {
         if (cancelAnimationRequested) break;
 
         // 5. STEP 3: NEW LABEL POPS IN AFTER TEAM BOX ARRIVES AT NEW LOCATION!
-        popInNewLabels('yesterday-end');
+        popInClusterLabels(cluster.teams);
 
         // Hold final positions for 1.2s so user can absorb the shift & scores!
         await new Promise(r => setTimeout(r, 1200));
@@ -794,6 +789,7 @@ export function createVerticalStandingsView(state, onBack) {
 
       activeSnapshotMode = 'yesterday-end';
       updateSnapshotBtnStyles();
+      updateNodesPosition(false);
 
       // Return camera to top of standings (best teams) for Pass 2
       scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
@@ -834,7 +830,7 @@ export function createVerticalStandingsView(state, onBack) {
           });
 
           // 3. STEP 1: OLD LABEL FADES AWAY BEFORE CARD MOVEMENT
-          fadeOutOldLabels('today-live');
+          fadeOldClusterLabels(cluster.teams, 'today-live');
           await new Promise(r => setTimeout(r, 300));
           if (cancelAnimationRequested) break;
 
@@ -850,7 +846,7 @@ export function createVerticalStandingsView(state, onBack) {
           if (cancelAnimationRequested) break;
 
           // 5. STEP 3: NEW LABEL POPS IN AFTER TEAM BOX ARRIVES AT NEW LOCATION!
-          popInNewLabels('today-live');
+          popInClusterLabels(cluster.teams);
 
           // Hold final positions for 1.2s so user can absorb the shift & scores!
           await new Promise(r => setTimeout(r, 1200));
