@@ -798,75 +798,127 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       }
       */
 
-      // Simple Box Score Section
+      // Full Game Line Score / Box Score Section (Innings 1-9+ & R-H-E)
       const boxScoreContainer = document.createElement('div');
-      boxScoreContainer.style.cssText = 'margin-top: 10px; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 8px; padding: 8px; font-family: var(--font-title);';
+      boxScoreContainer.style.cssText = 'margin-top: 10px; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 10px; padding: 10px; font-family: var(--font-title);';
 
       const boxScoreHeader = document.createElement('div');
-      boxScoreHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; font-size: 10px; font-weight: 800; color: #00e5ff; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; padding: 0 4px;';
-      boxScoreHeader.innerHTML = `<span>Simple Box Score</span><span style="color: #94a3b8; font-weight: 700;">${statusText}</span>`;
+      boxScoreHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; font-size: 10px; font-weight: 800; color: #00e5ff; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; padding: 0 2px;';
+      boxScoreHeader.innerHTML = `<span>Full Game Box Score</span><span style="color: #94a3b8; font-weight: 700;">${statusText}</span>`;
       boxScoreContainer.appendChild(boxScoreHeader);
 
+      const tableWrapper = document.createElement('div');
+      tableWrapper.style.cssText = 'width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 6px; border: 1px solid rgba(0, 229, 255, 0.15);';
+
       const table = document.createElement('table');
-      table.style.cssText = 'width: 100%; border-collapse: collapse; font-size: 11.5px; color: #ffffff; text-align: center;';
+      table.style.cssText = 'width: 100%; min-width: 320px; border-collapse: collapse; font-size: 11px; color: #ffffff; text-align: center; white-space: nowrap;';
+
+      // Default 9 innings header
+      let ths = '<th style="padding: 6px 10px; text-align: left; background: #0a1822; position: sticky; left: 0; z-index: 2; border-right: 1px solid rgba(255,255,255,0.1);">Team</th>';
+      for (let i = 1; i <= 9; i++) {
+        ths += `<th style="padding: 6px 4px; width: 22px; background: rgba(0, 229, 255, 0.08); color: #94a3b8; font-size: 9.5px;">${i}</th>`;
+      }
+      ths += '<th style="padding: 6px 6px; width: 26px; background: rgba(0, 229, 255, 0.18); color: #00e5ff; font-weight: 900;">R</th>';
+      ths += '<th style="padding: 6px 6px; width: 26px; background: rgba(0, 229, 255, 0.12); color: #cbd5e1;">H</th>';
+      ths += '<th style="padding: 6px 6px; width: 26px; background: rgba(0, 229, 255, 0.12); color: #94a3b8;">E</th>';
+
+      let awayTds = `<td style="padding: 6px 10px; text-align: left; font-weight: 800; background: #071318; position: sticky; left: 0; z-index: 2; border-right: 1px solid rgba(255,255,255,0.1);"><span style="display: inline-flex; align-items: center; gap: 6px;"><img src="https://a.espncdn.com/i/teamlogos/mlb/500/${awayAbbr.toLowerCase()}.png" style="width: 16px; height: 16px; background: #fff; border-radius: 50%; padding: 1px;" />${awayAbbr}</span></td>`;
+      for (let i = 1; i <= 9; i++) {
+        awayTds += `<td id="box-away-i${i}" style="padding: 6px 4px; color: #94a3b8;">-</td>`;
+      }
+      awayTds += `<td style="padding: 6px; font-weight: 900; color: #00e5ff; background: rgba(0, 229, 255, 0.1);">${awayScore}</td>`;
+      awayTds += `<td id="box-away-h" style="padding: 6px; color: #cbd5e1;">-</td>`;
+      awayTds += `<td id="box-away-e" style="padding: 6px; color: #94a3b8;">-</td>`;
+
+      let homeTds = `<td style="padding: 6px 10px; text-align: left; font-weight: 800; background: #071318; position: sticky; left: 0; z-index: 2; border-right: 1px solid rgba(255,255,255,0.1);"><span style="display: inline-flex; align-items: center; gap: 6px;"><img src="https://a.espncdn.com/i/teamlogos/mlb/500/${homeAbbr.toLowerCase()}.png" style="width: 16px; height: 16px; background: #fff; border-radius: 50%; padding: 1px;" />${homeAbbr}</span></td>`;
+      for (let i = 1; i <= 9; i++) {
+        homeTds += `<td id="box-home-i${i}" style="padding: 6px 4px; color: #94a3b8;">-</td>`;
+      }
+      homeTds += `<td style="padding: 6px; font-weight: 900; color: #00e5ff; background: rgba(0, 229, 255, 0.1);">${homeScore}</td>`;
+      homeTds += `<td id="box-home-h" style="padding: 6px; color: #cbd5e1;">-</td>`;
+      homeTds += `<td id="box-home-e" style="padding: 6px; color: #94a3b8;">-</td>`;
 
       table.innerHTML = `
-        <thead>
-          <tr style="background: rgba(0, 229, 255, 0.1); color: #94a3b8; font-size: 9.5px; text-transform: uppercase;">
-            <th style="padding: 4px 8px; text-align: left;">Team</th>
-            <th style="padding: 4px; width: 32px;">R</th>
-            <th style="padding: 4px; width: 32px;">H</th>
-            <th style="padding: 4px; width: 32px;">E</th>
-          </tr>
-        </thead>
+        <thead><tr style="border-bottom: 1px solid rgba(0,229,255,0.2);">${ths}</tr></thead>
         <tbody>
-          <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
-            <td style="padding: 6px 8px; text-align: left; font-weight: 800;">
-              <span style="display: inline-flex; align-items: center; gap: 6px;">
-                <img src="https://a.espncdn.com/i/teamlogos/mlb/500/${awayAbbr.toLowerCase()}.png" style="width: 16px; height: 16px; background: #ffffff; border-radius: 50%; padding: 1px;" />
-                ${awayAbbr}
-              </span>
-            </td>
-            <td style="padding: 6px; font-weight: 900; color: #00e5ff;">${awayScore}</td>
-            <td id="box-away-hits" style="padding: 6px; color: #cbd5e1;">-</td>
-            <td id="box-away-errors" style="padding: 6px; color: #94a3b8;">-</td>
-          </tr>
-          <tr>
-            <td style="padding: 6px 8px; text-align: left; font-weight: 800;">
-              <span style="display: inline-flex; align-items: center; gap: 6px;">
-                <img src="https://a.espncdn.com/i/teamlogos/mlb/500/${homeAbbr.toLowerCase()}.png" style="width: 16px; height: 16px; background: #ffffff; border-radius: 50%; padding: 1px;" />
-                ${homeAbbr}
-              </span>
-            </td>
-            <td style="padding: 6px; font-weight: 900; color: #00e5ff;">${homeScore}</td>
-            <td id="box-home-hits" style="padding: 6px; color: #cbd5e1;">-</td>
-            <td id="box-home-errors" style="padding: 6px; color: #94a3b8;">-</td>
-          </tr>
+          <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">${awayTds}</tr>
+          <tr>${homeTds}</tr>
         </tbody>
       `;
 
-      boxScoreContainer.appendChild(table);
-      matchupBox.appendChild(boxScoreContainer);
+      tableWrapper.appendChild(table);
+      boxScoreContainer.appendChild(tableWrapper);
 
-      // Fetch live linescore metrics if gamePk exists
+      // Fetch live linescore per-inning details if gamePk exists
       if (game.gamePk) {
         fetch(`https://statsapi.mlb.com/api/v1/game/${game.gamePk}/linescore`)
           .then(res => res.json())
           .then(lsData => {
-            const awayH = lsData.teams?.away?.hits !== undefined ? lsData.teams.away.hits : '-';
-            const awayE = lsData.teams?.away?.errors !== undefined ? lsData.teams.away.errors : '-';
-            const homeH = lsData.teams?.home?.hits !== undefined ? lsData.teams.home.hits : '-';
-            const homeE = lsData.teams?.home?.errors !== undefined ? lsData.teams.home.errors : '-';
+            const innings = lsData.innings || [];
+            const numInnings = Math.max(9, innings.length);
 
-            const aH = boxScoreContainer.querySelector('#box-away-hits');
-            const aE = boxScoreContainer.querySelector('#box-away-errors');
-            const hH = boxScoreContainer.querySelector('#box-home-hits');
-            const hE = boxScoreContainer.querySelector('#box-home-errors');
+            // Rebuild if extra innings exist (> 9)
+            if (numInnings > 9) {
+              let newThs = '<th style="padding: 6px 10px; text-align: left; background: #0a1822; position: sticky; left: 0; z-index: 2; border-right: 1px solid rgba(255,255,255,0.1);">Team</th>';
+              for (let i = 1; i <= numInnings; i++) {
+                newThs += `<th style="padding: 6px 4px; width: 22px; background: rgba(0, 229, 255, 0.08); color: #94a3b8; font-size: 9.5px;">${i}</th>`;
+              }
+              newThs += '<th style="padding: 6px 6px; width: 26px; background: rgba(0, 229, 255, 0.18); color: #00e5ff; font-weight: 900;">R</th>';
+              newThs += '<th style="padding: 6px 6px; width: 26px; background: rgba(0, 229, 255, 0.12); color: #cbd5e1;">H</th>';
+              newThs += '<th style="padding: 6px 6px; width: 26px; background: rgba(0, 229, 255, 0.12); color: #94a3b8;">E</th>';
 
-            if (aH) aH.innerText = awayH;
-            if (aE) aE.innerText = awayE;
-            if (hH) hH.innerText = homeH;
-            if (hE) hE.innerText = homeE;
+              let newAwayTds = `<td style="padding: 6px 10px; text-align: left; font-weight: 800; background: #071318; position: sticky; left: 0; z-index: 2; border-right: 1px solid rgba(255,255,255,0.1);"><span style="display: inline-flex; align-items: center; gap: 6px;"><img src="https://a.espncdn.com/i/teamlogos/mlb/500/${awayAbbr.toLowerCase()}.png" style="width: 16px; height: 16px; background: #fff; border-radius: 50%; padding: 1px;" />${awayAbbr}</span></td>`;
+              for (let i = 1; i <= numInnings; i++) {
+                newAwayTds += `<td id="box-away-i${i}" style="padding: 6px 4px; color: #94a3b8;">-</td>`;
+              }
+              newAwayTds += `<td style="padding: 6px; font-weight: 900; color: #00e5ff; background: rgba(0, 229, 255, 0.1);">${awayScore}</td>`;
+              newAwayTds += `<td id="box-away-h" style="padding: 6px; color: #cbd5e1;">-</td>`;
+              newAwayTds += `<td id="box-away-e" style="padding: 6px; color: #94a3b8;">-</td>`;
+
+              let newHomeTds = `<td style="padding: 6px 10px; text-align: left; font-weight: 800; background: #071318; position: sticky; left: 0; z-index: 2; border-right: 1px solid rgba(255,255,255,0.1);"><span style="display: inline-flex; align-items: center; gap: 6px;"><img src="https://a.espncdn.com/i/teamlogos/mlb/500/${homeAbbr.toLowerCase()}.png" style="width: 16px; height: 16px; background: #fff; border-radius: 50%; padding: 1px;" />${homeAbbr}</span></td>`;
+              for (let i = 1; i <= numInnings; i++) {
+                newHomeTds += `<td id="box-home-i${i}" style="padding: 6px 4px; color: #94a3b8;">-</td>`;
+              }
+              newHomeTds += `<td style="padding: 6px; font-weight: 900; color: #00e5ff; background: rgba(0, 229, 255, 0.1);">${homeScore}</td>`;
+              newHomeTds += `<td id="box-home-h" style="padding: 6px; color: #cbd5e1;">-</td>`;
+              newHomeTds += `<td id="box-home-e" style="padding: 6px; color: #94a3b8;">-</td>`;
+
+              table.innerHTML = `
+                <thead><tr style="border-bottom: 1px solid rgba(0,229,255,0.2);">${newThs}</tr></thead>
+                <tbody>
+                  <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">${newAwayTds}</tr>
+                  <tr>${newHomeTds}</tr>
+                </tbody>
+              `;
+            }
+
+            // Populate per-inning runs
+            innings.forEach(ing => {
+              const num = ing.num;
+              const aCell = table.querySelector(`#box-away-i${num}`);
+              const hCell = table.querySelector(`#box-home-i${num}`);
+              if (aCell) {
+                const r = ing.away?.runs;
+                aCell.innerText = r !== undefined ? r : '-';
+                if (r > 0) aCell.style.color = '#ffffff';
+              }
+              if (hCell) {
+                const r = ing.home?.runs;
+                hCell.innerText = r !== undefined ? r : 'x';
+                if (r > 0) hCell.style.color = '#ffffff';
+              }
+            });
+
+            // Populate Totals (H & E)
+            const aH = table.querySelector('#box-away-h');
+            const aE = table.querySelector('#box-away-e');
+            const hH = table.querySelector('#box-home-h');
+            const hE = table.querySelector('#box-home-e');
+
+            if (aH) aH.innerText = lsData.teams?.away?.hits !== undefined ? lsData.teams.away.hits : '-';
+            if (aE) aE.innerText = lsData.teams?.away?.errors !== undefined ? lsData.teams.away.errors : '-';
+            if (hH) hH.innerText = lsData.teams?.home?.hits !== undefined ? lsData.teams.home.hits : '-';
+            if (hE) hE.innerText = lsData.teams?.home?.errors !== undefined ? lsData.teams.home.errors : '-';
           })
           .catch(() => {});
       }
