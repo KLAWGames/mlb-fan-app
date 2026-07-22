@@ -675,21 +675,28 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     const modal = document.createElement('div');
     modal.className = 'vertical-team-action-card';
 
-    // Helper to open a sub-experience and return to Team Action Modal when closed
+    // Helper to open a sub-experience and return to Team Action Modal smoothly when closed
     const openSubView = (callbackFn, arg) => {
       if (!callbackFn) return;
-      backdrop.style.display = 'none';
+      
+      // Smoothly scale & fade out the action modal
+      backdrop.classList.add('sub-open');
+
+      // Trigger the sub-experience modal
       callbackFn(arg);
 
-      const checkSubClosed = setInterval(() => {
+      // Listen for when sub-modal is removed from body and smoothly scale & fade back in
+      const observer = new MutationObserver(() => {
         const activeModal = document.querySelector('.recap-backdrop, .modal-overlay, .game-analytics-modal');
         if (!activeModal) {
-          clearInterval(checkSubClosed);
+          observer.disconnect();
           if (backdrop && document.body.contains(backdrop)) {
-            backdrop.style.display = 'flex';
+            backdrop.classList.remove('sub-open');
           }
         }
-      }, 150);
+      });
+
+      observer.observe(document.body, { childList: true, subtree: true });
     };
 
     // Modal Header
