@@ -2265,19 +2265,21 @@ header {
 }
 
 /* Vertical Standings Experience Styles */
+/* Vertical Standings Experience Styles */
 .vertical-standings-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 10000;
+  background: #071318;
+  color: #e2e8f0;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 120px);
-  min-height: 600px;
-  width: 100%;
-  background: #08131a;
-  color: #e2e8f0;
-  border-radius: 12px;
   overflow: hidden;
-  position: relative;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(0, 229, 255, 0.2);
   font-family: var(--font-body);
 }
 
@@ -2320,7 +2322,7 @@ header {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 110px;
+  left: 70px;
   width: 2px;
   background: linear-gradient(180deg, rgba(0, 229, 255, 0.6), rgba(0, 229, 255, 0.2));
   z-index: 2;
@@ -2328,7 +2330,7 @@ header {
 
 .vertical-timeline-tick {
   position: absolute;
-  left: 98px;
+  left: 58px;
   width: 12px;
   height: 1px;
   background: rgba(0, 229, 255, 0.4);
@@ -2336,29 +2338,30 @@ header {
 
 .vertical-timeline-tick-major {
   width: 18px;
-  left: 92px;
+  left: 52px;
   background: rgba(0, 229, 255, 0.8);
 }
 
 .vertical-timeline-tick-label {
   position: absolute;
-  left: 8px;
-  width: 78px;
+  left: 2px;
+  width: 48px;
   text-align: right;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   color: #00e5ff;
   font-family: var(--font-title);
   transform: translateY(-50%);
+  z-index: 3;
 }
 
 .vertical-timeline-tick-label.div-leader {
   color: #fbbf24;
-  font-size: 10.5px;
+  font-size: 10px;
   display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 3px;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
   text-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
 }
 
@@ -2372,22 +2375,10 @@ header {
   z-index: 3;
 }
 
-.vertical-cutoff-label {
-  position: absolute;
-  left: 125px;
-  top: 4px;
-  font-size: 10px;
-  font-weight: 800;
-  color: #fbbf24;
-  letter-spacing: 0.08em;
-  font-family: var(--font-title);
-  text-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
-}
-
 .vertical-team-node {
   position: absolute;
   height: 38px;
-  width: 105px;
+  width: 92px;
   background: #0d1a22;
   border-radius: 8px;
   display: flex;
@@ -2397,6 +2388,24 @@ header {
   z-index: 4;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   user-select: none;
+}
+
+.vertical-div-leader-badge {
+  position: absolute;
+  top: -19px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(245, 158, 11, 0.25);
+  border: 1px solid #fbbf24;
+  color: #fbbf24;
+  font-size: 8.5px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 8px;
+  white-space: nowrap;
+  font-family: var(--font-title);
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
+  z-index: 7;
 }
 
 .vertical-team-node.win {
@@ -2483,5 +2492,6 @@ header {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   z-index: 6;
 }
+
 
 

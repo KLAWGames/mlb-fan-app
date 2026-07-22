@@ -137,29 +137,29 @@ export function createVerticalStandingsView(state, onBack) {
     const zeroLineY = topPadding + (maxGBAhead * pxPerGB);
     const totalHeight = zeroLineY + (Math.abs(minGBBehind) * pxPerGB) + bottomPadding;
 
+    // 3. Group Teams by exact gbRel for Side-by-Side placement of ties and axis row matching
+    const gbGroups = {};
+    let maxTiedInRow = 1;
+    teamsWithPos.forEach(team => {
+      const key = team.gbRel.toFixed(1);
+      if (!gbGroups[key]) gbGroups[key] = [];
+      gbGroups[key].push(team);
+      if (gbGroups[key].length > maxTiedInRow) {
+        maxTiedInRow = gbGroups[key].length;
+      }
+    });
+
+    // Content box dimensions:
+    // Fits 3 teams easily (~375px width).
+    // If 4 or more teams are tied in a single row, extends width to enable smooth horizontal scrolling.
+    const minContentWidth = Math.max(375, 78 + (maxTiedInRow * 98) + 20);
     const contentBox = document.createElement('div');
-    contentBox.style.cssText = `position: relative; width: 100%; min-height: ${totalHeight}px; height: ${totalHeight}px;`;
+    contentBox.style.cssText = `position: relative; min-width: ${minContentWidth}px; width: ${minContentWidth}px; min-height: ${totalHeight}px; height: ${totalHeight}px;`;
 
     // 1. Continuous Vertical Axis Line
     const axis = document.createElement('div');
     axis.className = 'vertical-timeline-axis';
     contentBox.appendChild(axis);
-
-    // 2. Division Leaders Map for Axis Label Overrides
-    // Find division leaders in this league and their exact gbRel
-    const divLeaders = teamsWithPos.filter(t => t.divisionLeader);
-    const divLeaderMap = {}; // gbRel -> divisionName
-    divLeaders.forEach(t => {
-      divLeaderMap[t.gbRel.toFixed(1)] = t.divisionName;
-    });
-
-    // 3. Group Teams by exact gbRel for Side-by-Side placement of ties and axis row matching
-    const gbGroups = {};
-    teamsWithPos.forEach(team => {
-      const key = team.gbRel.toFixed(1);
-      if (!gbGroups[key]) gbGroups[key] = [];
-      gbGroups[key].push(team);
-    });
 
     // 4. Render Ticks and Labels (Only show label if a team is in that row OR if it's the 0.0 Wild Card cutoff)
     for (let gb = maxGBAhead; gb >= minGBBehind; gb -= 0.5) {
@@ -174,21 +174,18 @@ export function createVerticalStandingsView(state, onBack) {
       const gbKey = gb.toFixed(1);
       const isZero = Math.abs(gb) < 0.01;
       const hasTeam = Boolean(gbGroups[gbKey] && gbGroups[gbKey].length > 0);
-      const divLeaderName = divLeaderMap[gbKey];
 
       // Show label ONLY if a team is in that row OR if it is the Wild Card cutoff at zero
-      if (isZero || hasTeam || divLeaderName) {
+      if (isZero || hasTeam) {
         const label = document.createElement('div');
-        label.className = `vertical-timeline-tick-label ${divLeaderName || isZero ? 'div-leader' : ''}`;
+        label.className = `vertical-timeline-tick-label ${isZero ? 'div-leader' : ''}`;
         label.style.top = `${y}px`;
 
         if (isZero) {
           label.style.color = '#fbbf24';
           label.style.textShadow = '0 0 8px rgba(251, 191, 36, 0.5)';
           label.style.lineHeight = '1.1';
-          label.innerHTML = `<span style="font-size: 11px; font-weight: 800;">0.0 GB</span><br/><span style="font-size: 8.5px; font-weight: 800; letter-spacing: 0.04em;">WC CUTOFF</span>`;
-        } else if (divLeaderName) {
-          label.innerHTML = `<span>${divLeaderName}</span> ⭐`;
+          label.innerHTML = `<span style="font-size: 11px; font-weight: 800;">0.0 GB</span><br/><span style="font-size: 8px; font-weight: 800; letter-spacing: 0.04em;">WC CUTOFF</span>`;
         } else {
           const sign = gb > 0 ? '+' : '';
           label.innerText = `${sign}${gb.toFixed(1)} GB`;
@@ -216,13 +213,21 @@ export function createVerticalStandingsView(state, onBack) {
 
       group.forEach((team, colIdx) => {
         // Calculate X position (column offset for ties)
-        // Primary column at left: 125px, subsequent tie columns at +115px
-        const xPos = 125 + (colIdx * 115);
+        // Axis line at 70px. Nodes start at 78px, width 92px, gap 6px.
+        const xPos = 78 + (colIdx * 98);
 
         const node = document.createElement('div');
         node.className = 'vertical-team-node';
         node.style.top = `${yPos}px`;
         node.style.left = `${xPos}px`;
+
+        // If team is a division leader, render gold badge directly ABOVE the team node
+        if (team.divisionLeader) {
+          const leaderBadge = document.createElement('div');
+          leaderBadge.className = 'vertical-div-leader-badge';
+          leaderBadge.innerHTML = `${team.divisionName || 'Division Leader'} ⭐`;
+          node.appendChild(leaderBadge);
+        }
 
         // Check if favorite team
         const isFavorite = team.id === state.activeTeamId;
