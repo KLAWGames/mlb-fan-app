@@ -256,7 +256,11 @@ export function createVerticalStandingsView(state, onBack) {
           const teamScore = isAway ? game.teams.away.score : game.teams.home.score;
           const oppScore = isAway ? game.teams.home.score : game.teams.away.score;
 
-          if (statusCode === 'F' || detailedState.includes('Final') || detailedState.includes('Completed')) {
+          if (detailedState.includes('Postponed') || statusCode === 'D' || statusCode === 'DI' || statusCode === 'DR' || detailedState.includes('Cancelled') || detailedState.includes('Suspended')) {
+            // Postponed or Suspended Game
+            statusClass = 'postponed';
+            metadataText = detailedState.includes('Postponed') ? 'Postponed' : (detailedState || 'Postponed');
+          } else if (statusCode === 'F' || detailedState.includes('Final') || detailedState.includes('Completed')) {
             // Completed Game: Show Won/Lost + Score (Green for Win, Red for Loss)
             if (teamScore !== null && oppScore !== null) {
               isWin = teamScore > oppScore;
@@ -293,6 +297,39 @@ export function createVerticalStandingsView(state, onBack) {
         }
 
         node.classList.add(statusClass);
+
+        // Render Hot / Cold Streak tag if team is on a streak (W2+ or L2+)
+        let streakTag = null;
+        let streakTypeClass = null;
+
+        if (team.streakType === 'wins' && team.streakNumber >= 2) {
+          streakTag = `🔥 W${team.streakNumber}`;
+          streakTypeClass = 'hot';
+        } else if (team.streakType === 'losses' && team.streakNumber >= 2) {
+          streakTag = `❄️ L${team.streakNumber}`;
+          streakTypeClass = 'cold';
+        } else if (team.streakCode && team.streakCode !== '-') {
+          if (team.streakCode.startsWith('W')) {
+            const num = parseInt(team.streakCode.substring(1), 10);
+            if (num >= 2) {
+              streakTag = `🔥 W${num}`;
+              streakTypeClass = 'hot';
+            }
+          } else if (team.streakCode.startsWith('L')) {
+            const num = parseInt(team.streakCode.substring(1), 10);
+            if (num >= 2) {
+              streakTag = `❄️ L${num}`;
+              streakTypeClass = 'cold';
+            }
+          }
+        }
+
+        if (streakTag) {
+          const streakBadge = document.createElement('div');
+          streakBadge.className = `vertical-streak-badge ${streakTypeClass}`;
+          streakBadge.innerText = streakTag;
+          node.appendChild(streakBadge);
+        }
 
         // Primary Team Logo & Abbr
         const logoImg = document.createElement('img');
