@@ -159,16 +159,15 @@ export function calculateThreatLevels(teamsMap, targetTeamId) {
     let threat = 0;
 
     if (team.id === target.id) {
-      // Favorite team itself (very negative threat, we want them to win!)
+      // Favorite team itself
       threat = -1000;
     } else if (team.leagueId === target.leagueId) {
       // Same League
       const targetGb = target.wildCardGamesBack;
       const teamGb = team.wildCardGamesBack;
-      const diff = teamGb - targetGb; // < 0 means ahead of target, > 0 means behind
+      const diff = teamGb - targetGb; // < 0 means ahead of target, > 0 means behind target in Wild Card
       
-      const isHot = team.streakType === 'wins' && team.streakNumber >= 3;
-      const isCreeping = diff > 0 && diff <= 1.5;
+      const isSameDivision = team.divisionId === target.divisionId;
 
       if (divOutOfReach) {
         // Mode B: Division is out of reach (deficit >= 7.0 GB)
@@ -176,39 +175,49 @@ export function calculateThreatLevels(teamsMap, targetTeamId) {
           // Division leaders are not our competitors since they don't take wild card spots
           threat = 5;
         } else {
-          // All other non-leader league teams are Wild Card competitors
+          // Non-leader league teams in Wild Card
           if (diff < 0) {
-            // Ahead of us in Wild Card
+            // Ahead of us in Wild Card -> Threat to catch!
             threat = 80 - (Math.abs(diff) * 2);
           } else {
-            // Behind us in Wild Card
-            threat = 70 - (Math.abs(diff) * 2);
-          }
-          if (isCreeping && isHot) {
-            threat += 15;
+            // Trailing us in Wild Card
+            // User Rule: If trailing selected team by > 1.0 game, threat = 0 (does not matter)
+            if (diff > 1.0) {
+              threat = 0;
+            } else {
+              threat = 70 - (diff * 20); // Within 1.0 game -> Matters!
+            }
           }
         }
       } else {
         // Mode A: Division is within reach (deficit < 7.0 GB)
-        if (team.divisionId === target.divisionId) {
-          // SAME DIVISION (Highest threat)
+        if (isSameDivision) {
+          // SAME DIVISION
           if (target.divisionLeader) {
-            // We are leading division. The 2nd place team is our primary threat
-            if (team.divisionRank === 2) {
-              threat = 100;
+            // Target is leading division
+            // 2nd place team or trailing division rivals
+            const gamesBehind = team.gamesBack; // Since target has gamesBack = 0
+            if (gamesBehind > 1.0) {
+              threat = 0; // Trailing by > 1.0 game -> does not matter
             } else {
-              threat = 85 - (team.gamesBack * 2);
+              threat = 100 - (gamesBehind * 25); // Within 1.0 game -> Primary threat!
             }
           } else {
-            // We are chasing the leader. The division leader is our primary threat
+            // Target is chasing division leader
             if (team.divisionLeader) {
+              // Division leader is ahead of us -> Major threat to catch!
               threat = 98;
             } else if (team.divisionRank < target.divisionRank) {
-              // Team is ahead of us in division
+              // Ahead of us in division -> Threat to catch!
               threat = 90 - (team.gamesBack * 2);
             } else {
-              // Team is behind us in division
-              threat = 45 - (team.gamesBack * 2);
+              // Behind us in division
+              const gamesBehind = team.gamesBack - target.gamesBack;
+              if (gamesBehind > 1.0) {
+                threat = 0; // Trailing by > 1.0 game -> does not matter
+              } else {
+                threat = 75 - (gamesBehind * 25); // Within 1.0 game -> Matters!
+              }
             }
           }
         } else {
@@ -217,14 +226,15 @@ export function calculateThreatLevels(teamsMap, targetTeamId) {
             threat = 40;
           } else {
             if (diff < 0) {
-              // Ahead of us in Wild Card
+              // Ahead of us in Wild Card -> Threat to catch!
               threat = 75 - (Math.abs(diff) * 2);
             } else {
-              // Behind us in Wild Card
-              threat = 65 - (Math.abs(diff) * 2);
-            }
-            if (isCreeping && isHot) {
-              threat += 15;
+              // Trailing us in Wild Card
+              if (diff > 1.0) {
+                threat = 0; // Trailing by > 1.0 game -> does not matter
+              } else {
+                threat = 65 - (diff * 20); // Within 1.0 game -> Matters!
+              }
             }
           }
         }
