@@ -626,9 +626,9 @@ export function createVerticalStandingsView(state, onBack) {
     }
   }
 
-  // Update all team node positions simultaneously for full snapshot mode
-  function updateNodesPosition(animateScroll = true) {
-    const dataset = getSnapshotDataset(activeSnapshotMode);
+  // Animate left axis tick labels fade-out and pop-in scale emphasis
+  function animateTickLabels(targetMode) {
+    const dataset = getSnapshotDataset(targetMode);
     const snapData = computeSnapshotData(dataset.processed);
 
     const gbGroups = {};
@@ -639,13 +639,41 @@ export function createVerticalStandingsView(state, onBack) {
     });
 
     const activeRowKeys = new Set(Object.keys(gbGroups));
+
+    // 1. Fade out labels that are disappearing
     tickLabelElements.forEach(({ el, gbKey, isZero }) => {
-      if (isZero || activeRowKeys.has(gbKey)) {
-        el.style.display = 'block';
-      } else {
-        el.style.display = 'none';
+      const isNewActive = isZero || activeRowKeys.has(gbKey);
+      if (!isNewActive && el.style.display !== 'none') {
+        el.classList.add('fade-out');
       }
     });
+
+    // 2. Trigger pop-in scale animation on newly appeared / updated row labels
+    setTimeout(() => {
+      tickLabelElements.forEach(({ el, gbKey, isZero }) => {
+        const isNewActive = isZero || activeRowKeys.has(gbKey);
+        if (isNewActive) {
+          const wasHidden = el.style.display === 'none';
+          el.style.display = 'block';
+          el.classList.remove('fade-out');
+          if (wasHidden) {
+            el.classList.add('pop-in');
+            setTimeout(() => el.classList.remove('pop-in'), 450);
+          }
+        } else {
+          el.style.display = 'none';
+          el.classList.remove('fade-out');
+        }
+      });
+    }, 200);
+  }
+
+  // Update all team node positions simultaneously for full snapshot mode
+  function updateNodesPosition(animateScroll = true) {
+    const dataset = getSnapshotDataset(activeSnapshotMode);
+    const snapData = computeSnapshotData(dataset.processed);
+
+    animateTickLabels(activeSnapshotMode);
 
     snapData.teamsWithPos.forEach(team => {
       setSingleTeamPosition(team.id, activeSnapshotMode);
@@ -715,6 +743,9 @@ export function createVerticalStandingsView(state, onBack) {
             node.appendChild(badge);
           }
         });
+
+        // Fade old row tick labels for this section
+        animateTickLabels('yesterday-end');
 
         // 3. PRE-MOVEMENT HOLD (1.1s): Let user settle eyes on baseline & shift badges before cards move!
         await new Promise(r => setTimeout(r, 1100));
@@ -787,6 +818,9 @@ export function createVerticalStandingsView(state, onBack) {
               node.appendChild(badge);
             }
           });
+
+          // Fade old row tick labels for this section
+          animateTickLabels('today-live');
 
           // 3. PRE-MOVEMENT HOLD (1.1s): Let user settle eyes on baseline & shift badges before cards move!
           await new Promise(r => setTimeout(r, 1100));

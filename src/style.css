@@ -2421,6 +2421,34 @@ header {
   font-family: var(--font-title);
   transform: translateY(-50%);
   z-index: 3;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.vertical-timeline-tick-label.fade-out {
+  opacity: 0 !important;
+  transform: translateY(-50%) scale(0.7) !important;
+}
+
+.vertical-timeline-tick-label.pop-in {
+  animation: label-pop-in 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
+}
+
+@keyframes label-pop-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-50%) scale(0.6);
+    text-shadow: 0 0 0 transparent;
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.35);
+    text-shadow: 0 0 14px #00e5ff, 0 0 25px #00e5ff;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+    text-shadow: 0 0 8px rgba(0, 229, 255, 0.4);
+  }
 }
 
 .vertical-timeline-tick-label.div-leader {
