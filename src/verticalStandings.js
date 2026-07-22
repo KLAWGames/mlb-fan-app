@@ -786,6 +786,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
         </div>
       `;
 
+      /* Preserved for future use: Game Analytics Center Button
       if (callbacks.openGameAnalytics) {
         const analyticsBtn = document.createElement('button');
         analyticsBtn.className = 'vertical-action-btn primary';
@@ -794,6 +795,80 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
           openSubView(callbacks.openGameAnalytics, game);
         });
         matchupBox.appendChild(analyticsBtn);
+      }
+      */
+
+      // Simple Box Score Section
+      const boxScoreContainer = document.createElement('div');
+      boxScoreContainer.style.cssText = 'margin-top: 10px; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 8px; padding: 8px; font-family: var(--font-title);';
+
+      const boxScoreHeader = document.createElement('div');
+      boxScoreHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; font-size: 10px; font-weight: 800; color: #00e5ff; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; padding: 0 4px;';
+      boxScoreHeader.innerHTML = `<span>Simple Box Score</span><span style="color: #94a3b8; font-weight: 700;">${statusText}</span>`;
+      boxScoreContainer.appendChild(boxScoreHeader);
+
+      const table = document.createElement('table');
+      table.style.cssText = 'width: 100%; border-collapse: collapse; font-size: 11.5px; color: #ffffff; text-align: center;';
+
+      table.innerHTML = `
+        <thead>
+          <tr style="background: rgba(0, 229, 255, 0.1); color: #94a3b8; font-size: 9.5px; text-transform: uppercase;">
+            <th style="padding: 4px 8px; text-align: left;">Team</th>
+            <th style="padding: 4px; width: 32px;">R</th>
+            <th style="padding: 4px; width: 32px;">H</th>
+            <th style="padding: 4px; width: 32px;">E</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+            <td style="padding: 6px 8px; text-align: left; font-weight: 800;">
+              <span style="display: inline-flex; align-items: center; gap: 6px;">
+                <img src="https://a.espncdn.com/i/teamlogos/mlb/500/${awayAbbr.toLowerCase()}.png" style="width: 16px; height: 16px; background: #ffffff; border-radius: 50%; padding: 1px;" />
+                ${awayAbbr}
+              </span>
+            </td>
+            <td style="padding: 6px; font-weight: 900; color: #00e5ff;">${awayScore}</td>
+            <td id="box-away-hits" style="padding: 6px; color: #cbd5e1;">-</td>
+            <td id="box-away-errors" style="padding: 6px; color: #94a3b8;">-</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 8px; text-align: left; font-weight: 800;">
+              <span style="display: inline-flex; align-items: center; gap: 6px;">
+                <img src="https://a.espncdn.com/i/teamlogos/mlb/500/${homeAbbr.toLowerCase()}.png" style="width: 16px; height: 16px; background: #ffffff; border-radius: 50%; padding: 1px;" />
+                ${homeAbbr}
+              </span>
+            </td>
+            <td style="padding: 6px; font-weight: 900; color: #00e5ff;">${homeScore}</td>
+            <td id="box-home-hits" style="padding: 6px; color: #cbd5e1;">-</td>
+            <td id="box-home-errors" style="padding: 6px; color: #94a3b8;">-</td>
+          </tr>
+        </tbody>
+      `;
+
+      boxScoreContainer.appendChild(table);
+      matchupBox.appendChild(boxScoreContainer);
+
+      // Fetch live linescore metrics if gamePk exists
+      if (game.gamePk) {
+        fetch(`https://statsapi.mlb.com/api/v1/game/${game.gamePk}/linescore`)
+          .then(res => res.json())
+          .then(lsData => {
+            const awayH = lsData.teams?.away?.hits !== undefined ? lsData.teams.away.hits : '-';
+            const awayE = lsData.teams?.away?.errors !== undefined ? lsData.teams.away.errors : '-';
+            const homeH = lsData.teams?.home?.hits !== undefined ? lsData.teams.home.hits : '-';
+            const homeE = lsData.teams?.home?.errors !== undefined ? lsData.teams.home.errors : '-';
+
+            const aH = boxScoreContainer.querySelector('#box-away-hits');
+            const aE = boxScoreContainer.querySelector('#box-away-errors');
+            const hH = boxScoreContainer.querySelector('#box-home-hits');
+            const hE = boxScoreContainer.querySelector('#box-home-errors');
+
+            if (aH) aH.innerText = awayH;
+            if (aE) aE.innerText = awayE;
+            if (hH) hH.innerText = homeH;
+            if (hE) hE.innerText = homeE;
+          })
+          .catch(() => {});
       }
 
       modal.appendChild(matchupBox);
