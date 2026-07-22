@@ -614,8 +614,25 @@ export function createVerticalStandingsView(state, onBack) {
 
     const divLetter = getDivisionLetter(team);
     if (divLetter) {
+      const teamDivId = team.divisionId || (teamsData[team.id] ? teamsData[team.id].divisionId : null);
+      const teamDivName = team.divisionName || (teamsData[team.id] ? teamsData[team.id].divisionName : null);
+
+      const hasCloseRival = snapData.teamsWithPos.some(other => {
+        if (parseInt(other.id, 10) === teamIdNum) return false;
+        const otherDivId = other.divisionId || (teamsData[other.id] ? teamsData[other.id].divisionId : null);
+        const otherDivName = other.divisionName || (teamsData[other.id] ? teamsData[other.id].divisionName : null);
+
+        const sameDiv = (teamDivId && otherDivId && teamDivId === otherDivId) ||
+                        (teamDivName && otherDivName && teamDivName === otherDivName);
+
+        if (!sameDiv) return false;
+
+        const gbDiff = Math.abs(team.gbRel - other.gbRel);
+        return gbDiff <= 1.0;
+      });
+
       const divBadge = document.createElement('div');
-      divBadge.className = 'vertical-division-code';
+      divBadge.className = `vertical-division-code ${hasCloseRival ? 'pulse-rivalry' : ''}`;
       divBadge.innerText = divLetter;
       node.appendChild(divBadge);
     }
