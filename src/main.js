@@ -5556,6 +5556,15 @@ function showTeamCalendarModal(teamObj) {
   const originalOverflow = document.body.style.overflow;
   document.body.style.overflow = 'hidden';
 
+  // Robustly resolve numeric teamId and team object
+  let rawId = teamObj?.id || teamObj?.teamId || teamObj;
+  let staticTeam = teamsData[rawId];
+  if (!staticTeam && typeof rawId === 'string') {
+    staticTeam = Object.values(teamsData).find(t => t.abbreviation === rawId || t.name === rawId || t.shortName === rawId);
+  }
+  const teamIdNum = staticTeam ? parseInt(staticTeam.id, 10) : (parseInt(rawId, 10) || parseInt(state.activeTeamId, 10) || 147);
+  const activeTeamObj = staticTeam || teamsData[teamIdNum] || teamObj || {};
+
   const backdrop = document.createElement('div');
   backdrop.className = 'recap-backdrop full-page-calendar-backdrop';
   backdrop.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #071318; z-index: 100000; display: flex; flex-direction: column; overflow: hidden; padding: 0; margin: 0; box-sizing: border-box;';
@@ -5586,8 +5595,9 @@ function showTeamCalendarModal(teamObj) {
   const logoDisc = document.createElement('div');
   logoDisc.style.cssText = 'width: 34px; height: 34px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 2px; box-shadow: 0 0 10px rgba(0, 229, 255, 0.35); flex-shrink: 0;';
 
+  const teamAbbr = activeTeamObj.abbreviation || 'MLB';
   const logoImg = document.createElement('img');
-  logoImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${teamObj.abbreviation.toLowerCase()}.png`;
+  logoImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${teamAbbr.toLowerCase()}.png`;
   logoImg.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
   logoDisc.appendChild(logoImg);
   titleInfo.appendChild(logoDisc);
@@ -5597,11 +5607,11 @@ function showTeamCalendarModal(teamObj) {
   
   const title = document.createElement('div');
   title.style.cssText = 'font-size: 17px; font-weight: 900; color: #ffffff; font-family: var(--font-title); display: flex; align-items: center; gap: 8px;';
-  title.innerText = `${teamObj.shortName || teamObj.name} Calendar`;
+  title.innerText = `${activeTeamObj.shortName || activeTeamObj.name || 'Team'} Calendar`;
 
   const subText = document.createElement('div');
   subText.style.cssText = 'font-size: 11px; color: #94a3b8; font-weight: 600;';
-  subText.innerText = `${teamObj.wins || 0}-${teamObj.losses || 0} | 2026 Season`;
+  subText.innerText = `${activeTeamObj.wins || 0}-${activeTeamObj.losses || 0} | 2026 Season Schedule`;
   
   titleTextGroup.appendChild(title);
   titleTextGroup.appendChild(subText);
@@ -5685,46 +5695,67 @@ function showTeamCalendarModal(teamObj) {
   
   // Fetch full schedule
   if (!state.teamSchedulesCache) state.teamSchedulesCache = {};
-  const cacheKey = teamObj.id;
+  const cacheKey = teamIdNum;
   
   let fetchPromise;
   if (state.teamSchedulesCache[cacheKey]) {
     fetchPromise = Promise.resolve(state.teamSchedulesCache[cacheKey]);
   } else {
-    const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=${teamObj.id}&startDate=2026-03-01&endDate=2026-10-31`;
+    const url = `https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId=${teamIdNum}&startDate=2026-03-01&endDate=2026-10-31`;
     fetchPromise = fetch(url)
       .then(res => res.json())
       .then(data => {
         state.teamSchedulesCache[cacheKey] = data;
         return data;
-      });
+      })
+      .catch(() => ({ dates: [] }));
   }
   
   fetchPromise
     .then(data => {
       loader.remove();
-      renderCalendar(data, teamObj.id, body);
+      renderCalendar(data, teamIdNum, body);
     })
     .catch(err => {
       console.error(err);
-      loader.innerHTML = `<span style="color: #ef4444; font-weight: 700; font-size: 14px;">Failed to load schedule.</span>`;
+      loader.remove();
+      renderCalendar({ dates: [] }, teamIdNum, body);
     });
 }
 
-function renderCalendar(scheduleData, teamId, container) {
-  // Parse games into gamesByDate map
+function renderCalendar(scheduleData, teamIdNum, container) {
   const gamesByDate = {};
-  if (scheduleData.dates) {
+  
+  // 1. Populate games from MLB API scheduleData
+  if (scheduleData && scheduleData.dates) {
     scheduleData.dates.forEach(d => {
-      if (d.games) {
-        const filteredGames = d.games.filter(g => g.gameType !== 'S');
-        if (filteredGames.length > 0) {
-          gamesByDate[d.date] = filteredGames;
-        }
+      if (d.games && d.games.length > 0) {
+        gamesByDate[d.date] = d.games;
       }
     });
   }
-  
+
+  // 2. Combine with local state schedules as fallback/supplement
+  const localSchedules = [
+    ...(state.rawSchedule || []),
+    ...(state.rawScheduleYesterday || []),
+    ...(state.rawScheduleDayBeforeYesterday || [])
+  ];
+
+  localSchedules.forEach(g => {
+    const awayId = parseInt(g.teams?.away?.team?.id, 10);
+    const homeId = parseInt(g.teams?.home?.team?.id, 10);
+    if (awayId === teamIdNum || homeId === teamIdNum) {
+      let gDate = g.gameDate ? g.gameDate.split('T')[0] : null;
+      if (!gDate && g.officialDate) gDate = g.officialDate;
+      if (gDate) {
+        if (!gamesByDate[gDate]) gamesByDate[gDate] = [];
+        const exists = gamesByDate[gDate].some(ex => ex.gamePk === g.gamePk || ex.id === g.id);
+        if (!exists) gamesByDate[gDate].push(g);
+      }
+    }
+  });
+
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const selectedMonthNum = state.selectedDate ? parseInt(state.selectedDate.split('-')[1], 10) : (new Date().getMonth() + 1);
 
@@ -5792,11 +5823,14 @@ function renderCalendar(scheduleData, teamId, container) {
         gamesContainer.style.cssText = 'display: flex; flex-direction: column; gap: 2px; flex-grow: 1; justify-content: center; width: 100%; align-items: center; overflow: hidden;';
         
         const firstGame = games[0];
-        const isHome = firstGame.teams.home.team.id === teamId;
-        const oppObj = isHome ? firstGame.teams.away.team : firstGame.teams.home.team;
+        const homeId = parseInt(firstGame.teams?.home?.team?.id, 10);
+        const awayId = parseInt(firstGame.teams?.away?.team?.id, 10);
+        const isHome = homeId === teamIdNum;
+        const oppId = isHome ? awayId : homeId;
+        const oppObj = isHome ? firstGame.teams?.away?.team : firstGame.teams?.home?.team;
         
-        const staticOpp = teamsData[oppObj.id];
-        const oppAbbr = staticOpp ? staticOpp.abbreviation : (oppObj.abbreviation || oppObj.name.substring(0, 3).toUpperCase());
+        const staticOpp = teamsData[oppId];
+        const oppAbbr = staticOpp ? staticOpp.abbreviation : (oppObj?.abbreviation || oppObj?.name || 'OPP').substring(0, 3).toUpperCase();
         const matchupPrefix = isHome ? 'vs' : '@';
         
         const gameText = document.createElement('div');
@@ -5813,19 +5847,20 @@ function renderCalendar(scheduleData, teamId, container) {
         let hasSched = false;
         
         games.forEach((game, gIdx) => {
-          const gameIsHome = game.teams.home.team.id === teamId;
+          const gameHomeId = parseInt(game.teams?.home?.team?.id, 10);
+          const gameIsHome = gameHomeId === teamIdNum;
           const statusCode = game.status?.statusCode;
-          const isCompleted = statusCode === 'F' || statusCode === 'O' || statusCode === 'FT';
-          const isLive = statusCode === 'I' || game.status?.detailedState?.toLowerCase().includes('progress');
+          const isCompleted = statusCode === 'F' || statusCode === 'O' || statusCode === 'FT' || statusCode === 'FINAL';
+          const isLive = statusCode === 'I' || game.status?.detailedState?.toLowerCase().includes('progress') || game.status?.detailedState?.toLowerCase().includes('in game');
           
           const scoreSpan = document.createElement('span');
           scoreSpan.style.whiteSpace = 'nowrap';
           
-          if (isCompleted) {
-            const ourScore = gameIsHome ? game.teams.home.score : game.teams.away.score;
-            const oppScore = gameIsHome ? game.teams.away.score : game.teams.home.score;
-            const isWinner = gameIsHome ? game.teams.home.isWinner : game.teams.away.isWinner;
-            
+          const ourScore = gameIsHome ? game.teams?.home?.score : game.teams?.away?.score;
+          const oppScore = gameIsHome ? game.teams?.away?.score : game.teams?.home?.score;
+
+          if (isCompleted && ourScore !== undefined && oppScore !== undefined) {
+            const isWinner = ourScore > oppScore;
             if (isWinner) {
               hasWin = true;
               scoreSpan.innerText = `W ${ourScore}-${oppScore}`;
@@ -5835,10 +5870,8 @@ function renderCalendar(scheduleData, teamId, container) {
               scoreSpan.innerText = `L ${ourScore}-${oppScore}`;
               scoreSpan.style.color = '#f87171';
             }
-          } else if (isLive) {
+          } else if (isLive && ourScore !== undefined && oppScore !== undefined) {
             hasLive = true;
-            const ourScore = gameIsHome ? game.teams.home.score : game.teams.away.score;
-            const oppScore = gameIsHome ? game.teams.away.score : game.teams.home.score;
             scoreSpan.innerText = `LIVE ${ourScore}-${oppScore}`;
             scoreSpan.style.color = '#fbbf24';
           } else {
@@ -5898,12 +5931,12 @@ function renderCalendar(scheduleData, teamId, container) {
     container.appendChild(monthEl);
   }
   
-  // Programmatically scroll the current month into view
-  const currentMonthId = `cal-month-2026-${String(currentMonthNum + 1).padStart(2, '0')}`;
+  // Automatically scroll to current target month upon loading
+  const currentMonthId = `cal-month-2026-${String(selectedMonthNum).padStart(2, '0')}`;
   setTimeout(() => {
-    const currentMonthEl = container.querySelector(`#${currentMonthId}`);
-    if (currentMonthEl) {
-      currentMonthEl.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    const targetMonthEl = container.querySelector(`#${currentMonthId}`);
+    if (targetMonthEl) {
+      targetMonthEl.scrollIntoView({ block: 'start', behavior: 'auto' });
     }
   }, 100);
 }
