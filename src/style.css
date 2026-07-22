@@ -2865,6 +2865,19 @@ header {
   margin-top: 2px;
 }
 
+/* Universal White Backing Disc for Team & Opponent Logos across all Modals, Cards & Calendars */
+.calendar-day-cell img,
+.recap-content img,
+.vertical-modal-matchup-box img,
+.game-analytics-modal img,
+.recap-body img,
+.whos-hot-modal img {
+  background: #ffffff !important;
+  border-radius: 50% !important;
+  padding: 1.5px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+
 
 
 

@@ -675,6 +675,23 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     const modal = document.createElement('div');
     modal.className = 'vertical-team-action-card';
 
+    // Helper to open a sub-experience and return to Team Action Modal when closed
+    const openSubView = (callbackFn, arg) => {
+      if (!callbackFn) return;
+      backdrop.style.display = 'none';
+      callbackFn(arg);
+
+      const checkSubClosed = setInterval(() => {
+        const activeModal = document.querySelector('.recap-backdrop, .modal-overlay, .game-analytics-modal');
+        if (!activeModal) {
+          clearInterval(checkSubClosed);
+          if (backdrop && document.body.contains(backdrop)) {
+            backdrop.style.display = 'flex';
+          }
+        }
+      }, 150);
+    };
+
     // Modal Header
     const header = document.createElement('div');
     header.style.cssText = 'display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(0, 229, 255, 0.2); padding-bottom: 12px; margin-bottom: 16px;';
@@ -707,12 +724,29 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     modal.appendChild(header);
 
     // Game Matchup Section
+    let oppAbbr = '';
     if (game) {
       const matchupBox = document.createElement('div');
       matchupBox.className = 'vertical-modal-matchup-box';
 
       const awayObj = game.teams?.away;
       const homeObj = game.teams?.home;
+
+      const teamIdNum = parseInt(team.id, 10);
+      const isAway = parseInt(awayObj?.team?.id, 10) === teamIdNum;
+      const oppTeamObj = isAway ? homeObj?.team : awayObj?.team;
+      const oppTeamId = parseInt(oppTeamObj?.id, 10);
+
+      const oppStatic = teamsData[oppTeamId];
+      if (oppStatic) {
+        oppAbbr = oppStatic.abbreviation;
+      } else if (oppTeamObj?.name) {
+        const found = Object.values(teamsData).find(t => 
+          t.name.toLowerCase().includes(oppTeamObj.name.toLowerCase()) || 
+          oppTeamObj.name.toLowerCase().includes(t.name.toLowerCase())
+        );
+        oppAbbr = found ? found.abbreviation : (oppTeamObj.triCode || oppTeamObj.name.substring(0, 3).toUpperCase());
+      }
 
       const awayName = awayObj?.team?.name || 'Away';
       const homeName = homeObj?.team?.name || 'Home';
@@ -727,14 +761,18 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       matchupBox.innerHTML = `
         <div style="font-size: 11px; font-weight: 800; color: #00e5ff; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Game Matchup Info (${statusText})</div>
         <div style="display: flex; align-items: center; justify-content: space-around; background: rgba(0, 0, 0, 0.4); padding: 12px; border-radius: 10px; border: 1px solid rgba(0, 229, 255, 0.2);">
-          <div style="text-align: center;">
-            <img src="https://a.espncdn.com/i/teamlogos/mlb/500/${awayAbbr.toLowerCase()}.png" style="width: 28px; height: 28px; object-fit: contain; margin-bottom: 2px;" />
+          <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 2px; box-shadow: 0 1px 4px rgba(0,0,0,0.4); margin-bottom: 4px;">
+              <img src="https://a.espncdn.com/i/teamlogos/mlb/500/${awayAbbr.toLowerCase()}.png" style="width: 100%; height: 100%; object-fit: contain;" />
+            </div>
             <div style="font-weight: 800; font-size: 12px; color: #fff;">${awayAbbr}</div>
             <div style="font-size: 16px; font-weight: 900; color: #00e5ff;">${awayScore}</div>
           </div>
           <div style="font-size: 13px; font-weight: 800; color: #94a3b8;">VS</div>
-          <div style="text-align: center;">
-            <img src="https://a.espncdn.com/i/teamlogos/mlb/500/${homeAbbr.toLowerCase()}.png" style="width: 28px; height: 28px; object-fit: contain; margin-bottom: 2px;" />
+          <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 2px; box-shadow: 0 1px 4px rgba(0,0,0,0.4); margin-bottom: 4px;">
+              <img src="https://a.espncdn.com/i/teamlogos/mlb/500/${homeAbbr.toLowerCase()}.png" style="width: 100%; height: 100%; object-fit: contain;" />
+            </div>
             <div style="font-weight: 800; font-size: 12px; color: #fff;">${homeAbbr}</div>
             <div style="font-size: 16px; font-weight: 900; color: #00e5ff;">${homeScore}</div>
           </div>
@@ -746,8 +784,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
         analyticsBtn.className = 'vertical-action-btn primary';
         analyticsBtn.innerHTML = `<span>📊</span> <span>Open Game Analytics Center</span>`;
         analyticsBtn.addEventListener('click', () => {
-          backdrop.remove();
-          callbacks.openGameAnalytics(game);
+          openSubView(callbacks.openGameAnalytics, game);
         });
         matchupBox.appendChild(analyticsBtn);
       }
@@ -770,8 +807,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       btn.className = 'vertical-action-card-btn';
       btn.innerHTML = `<span class="icon">🎯</span><div><div class="title">Games That Matter</div><div class="sub">Playoff race & rooting guide</div></div>`;
       btn.addEventListener('click', () => {
-        backdrop.remove();
-        callbacks.openGamesThatMatter(team.id);
+        openSubView(callbacks.openGamesThatMatter, team.id);
       });
       actionGrid.appendChild(btn);
     }
@@ -786,8 +822,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       btn1.style.cssText = 'flex: 1; padding: 10px 12px; gap: 8px; margin: 0; min-width: 0;';
       btn1.innerHTML = `<span class="icon" style="font-size: 18px;">📅</span><div style="min-width: 0;"><div class="title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${team.abbreviation} Calendar</div><div class="sub" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Team schedule</div></div>`;
       btn1.addEventListener('click', () => {
-        backdrop.remove();
-        callbacks.openTeamCalendar(teamsData[team.id] || team);
+        openSubView(callbacks.openTeamCalendar, teamsData[team.id] || team);
       });
       calRow.appendChild(btn1);
 
@@ -802,8 +837,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
         btn2.style.cssText = 'flex: 1; padding: 10px 12px; gap: 8px; margin: 0; min-width: 0;';
         btn2.innerHTML = `<span class="icon" style="font-size: 18px;">📅</span><div style="min-width: 0;"><div class="title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${oppAbbr} Calendar</div><div class="sub" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Opponent schedule</div></div>`;
         btn2.addEventListener('click', () => {
-          backdrop.remove();
-          callbacks.openTeamCalendar(oppTeamObj);
+          openSubView(callbacks.openTeamCalendar, oppTeamObj);
         });
         calRow.appendChild(btn2);
       }
@@ -829,8 +863,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       btn.className = 'vertical-action-card-btn';
       btn.innerHTML = `<span class="icon">🔥</span><div><div class="title">Who's Hot</div><div class="sub">Hot hitters, pitchers & streaks</div></div>`;
       btn.addEventListener('click', () => {
-        backdrop.remove();
-        callbacks.openWhosHot(team.id);
+        openSubView(callbacks.openWhosHot, team.id);
       });
       actionGrid.appendChild(btn);
     }
@@ -841,8 +874,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       btn.className = 'vertical-action-card-btn';
       btn.innerHTML = `<span class="icon">⏪</span><div><div class="title">What Happened Yesterday</div><div class="sub">Yesterday's full game recaps & scores</div></div>`;
       btn.addEventListener('click', () => {
-        backdrop.remove();
-        callbacks.openWhatHappenedYesterday();
+        openSubView(callbacks.openWhatHappenedYesterday);
       });
       actionGrid.appendChild(btn);
     }
