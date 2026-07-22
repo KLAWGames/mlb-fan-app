@@ -3,6 +3,8 @@ import { teamsData } from './teamsData.js';
 import { fetchStandings, fetchSchedule, formatLocalDate } from './mlbApi.js';
 import { processStandings, analyzeMatchups } from './rootingEngine.js';
 import { openGameAnalyticsCenter, reconstructGameFromSeasonGame, fetchLiveGameFeed } from './gameAnalytics.js';
+import { mountRecapApp } from './recap/mount.jsx';
+import { createVerticalStandingsView } from './verticalStandings.js';
 
 function formatOffDayDate(dateStr) {
   if (!dateStr) return '';
@@ -4040,6 +4042,15 @@ function render() {
       case 'game-central':
         main.appendChild(createGameCentralView());
         break;
+      case 'recap-scroll':
+        main.appendChild(createRecapScrollView());
+        break;
+      case 'vertical-standings':
+        main.appendChild(createVerticalStandingsView(state, () => {
+          state.activeView = 'settings';
+          render();
+        }));
+        break;
 
 
       case 'team-leaders':
@@ -4601,6 +4612,16 @@ function createSettingsView() {
   const actionsGroup = document.createElement('div');
   actionsGroup.style.cssText = 'display: flex; flex-direction: column; gap: 10px; margin-top: auto; margin-bottom: 12px;';
 
+  const verticalStandingsBtn = document.createElement('button');
+  verticalStandingsBtn.style.cssText = 'width: 100%; padding: 14px 16px; font-size: 14px; font-weight: 700; color: #00e5ff; background: rgba(0, 229, 255, 0.08); border: 1.5px solid rgba(0, 229, 255, 0.4); border-radius: 12px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; box-shadow: 0 0 10px rgba(0, 229, 255, 0.15); outline: none;';
+  verticalStandingsBtn.innerHTML = '📊 Vertical Standings';
+  verticalStandingsBtn.addEventListener('click', () => {
+    state.previousMainView = 'settings';
+    state.activeView = 'vertical-standings';
+    render();
+  });
+  actionsGroup.appendChild(verticalStandingsBtn);
+
   const configureBtn = document.createElement('button');
   configureBtn.style.cssText = 'width: 100%; padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-primary); background: var(--bg-card-hover); border: 1px solid var(--border-glass-highlight); border-radius: 12px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; box-shadow: var(--shadow-sm); outline: none;';
   configureBtn.innerHTML = '👥 Configure Tracked Teams';
@@ -4650,6 +4671,15 @@ function createSettingsView() {
     }
   });
 
+  const recapBtn = document.createElement('button');
+  recapBtn.style.cssText = 'width: 100%; padding: 14px 16px; font-size: 14px; font-weight: 800; color: #ffffff; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border: none; border-radius: 12px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2); outline: none;';
+  recapBtn.innerHTML = '🎬 Play Yesterday\'s 3D Recap';
+  recapBtn.addEventListener('click', () => {
+    state.activeView = 'recap-scroll';
+    render();
+  });
+
+  actionsGroup.appendChild(recapBtn);
   actionsGroup.appendChild(configureBtn);
   actionsGroup.appendChild(creditsBtn);
   actionsGroup.appendChild(devNotesBtn);
@@ -9646,13 +9676,28 @@ function createTeamLeadersView() {
 
   return container;
 }
+function createRecapScrollView() {
+  const container = document.createElement('div');
+  container.className = 'recap-scroll-view-root';
+  container.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; background: #0b0f19; overflow: hidden;';
 
+  // Mount React Recap component
+  setTimeout(() => {
+    mountRecapApp(container, {
+      activeTeamId: state.activeTeamId,
+      yesterdaySchedule: state.rawScheduleYesterday,
+      yesterdayStandings: state.processedStandingsYesterday,
+      dayBeforeStandings: state.processedStandingsDayBeforeYesterday,
+      teamsData: teamsData,
+      onClose: () => {
+        state.activeView = 'settings';
+        render();
+      }
+    });
+  }, 0);
 
-
-
-
-
-
+  return container;
+}
 
 // Fire application initialization
 document.addEventListener('DOMContentLoaded', init);
