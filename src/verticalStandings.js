@@ -591,10 +591,13 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     for (const key in tierGroups) {
       const group = tierGroups[key];
       group.forEach((t, idx) => {
-        assignments[t.id] = {
+        const item = {
           col: idx,
           tierGB: parseFloat(key)
         };
+        assignments[t.id] = item;
+        assignments[String(t.id)] = item;
+        assignments[parseInt(t.id, 10)] = item;
       });
     }
 
@@ -614,10 +617,10 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     if (!node) return;
 
     const assignments = computeTierAssignments(snapData.teamsWithPos);
-    const info = assignments[team.id] || { col: 0, tierGB: team.gbRel };
+    const info = assignments[team.id] || assignments[String(team.id)] || assignments[parseInt(team.id, 10)] || { col: 0, tierGB: team.gbRel };
 
     const yPos = globalZeroLineY - (info.tierGB * globalPxPerGB) - 19;
-    const xPos = 78 + (info.col * 112);
+    const xPos = 78 + (info.col * 116);
 
     node.style.top = `${yPos}px`;
     node.style.left = `${xPos}px`;
@@ -665,7 +668,6 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       node.className = `vertical-team-node doubleheader-node dh-border-cycle-${g1Data.statusClass}-${g2Data.statusClass}`;
       if (team.id === state.activeTeamId) node.classList.add('favorite');
 
-      // Streak Badge
       if (streakTag) {
         const streakBadge = document.createElement('div');
         streakBadge.className = `vertical-streak-badge ${streakTypeClass || 'hot'}`;
@@ -673,7 +675,6 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
         node.appendChild(streakBadge);
       }
 
-      // Team Logo Badge
       const logoBadge = document.createElement('div');
       logoBadge.style.cssText = 'width: 24px; height: 24px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 2px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);';
       const logoImg = document.createElement('img');
@@ -683,7 +684,6 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       logoBadge.appendChild(logoImg);
       node.appendChild(logoBadge);
 
-      // Abbreviation + Fuse Timer Bar
       const abbrContainer = document.createElement('div');
       abbrContainer.className = 'vertical-team-abbr-container';
       
@@ -701,7 +701,6 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
 
       node.appendChild(abbrContainer);
 
-      // Division Code Badge
       const divLetter = getDivisionLetter(team);
       if (divLetter) {
         const divBadge = document.createElement('div');
@@ -710,7 +709,6 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
         node.appendChild(divBadge);
       }
 
-      // Content Wrapper with Game 1 & Game 2 groups
       const dhContentWrapper = document.createElement('div');
       dhContentWrapper.className = 'vertical-dh-content-wrapper';
 
