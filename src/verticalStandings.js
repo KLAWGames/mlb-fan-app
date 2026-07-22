@@ -696,7 +696,7 @@ export function createVerticalStandingsView(state, onBack) {
 
         infoBanner.innerText = `PASS 1/2 (Yesterday Region ${c + 1}/${clustersYesterday.length}): ${teamNames}`;
 
-        // 1. Scroll camera smoothly to center this cluster in the viewport frame
+        // 1. Scroll camera smoothly to center this section in the viewport frame
         scrollArea.scrollTo({
           top: Math.max(0, cluster.centerY - (scrollArea.clientHeight / 2) + 20),
           behavior: 'smooth'
@@ -704,7 +704,7 @@ export function createVerticalStandingsView(state, onBack) {
         await new Promise(r => setTimeout(r, 600));
         if (cancelAnimationRequested) break;
 
-        // 2. Attach focus glow rings and shift pills to teams in this cluster
+        // 2. Attach focus glow rings and shift pills to teams in this section BEFORE movement
         cluster.teams.forEach(team => {
           const node = teamNodesMap[team.id];
           if (node) {
@@ -716,17 +716,21 @@ export function createVerticalStandingsView(state, onBack) {
           }
         });
 
-        // 3. Simultaneously animate positions for teams in this cluster to yesterday-end
+        // 3. PRE-MOVEMENT HOLD (1.1s): Let user settle eyes on baseline & shift badges before cards move!
+        await new Promise(r => setTimeout(r, 1100));
+        if (cancelAnimationRequested) break;
+
+        // 4. SHOW CHANGE ANIMATION: Simultaneously animate positions for teams in this section
         activeSnapshotMode = 'yesterday-end';
         updateSnapshotBtnStyles();
         cluster.teams.forEach(team => {
           setSingleTeamPosition(team.id, 'yesterday-end');
         });
 
-        // 4. Generous pause (1.5s) so the user can comfortably follow how this section changed!
-        await new Promise(r => setTimeout(r, 1500));
+        // 5. POST-MOVEMENT HOLD (1.6s): Hold final positions so user can absorb the shift & scores!
+        await new Promise(r => setTimeout(r, 1600));
 
-        // 5. Clean up focus glow rings and shift pills for this cluster
+        // 6. Clean up focus glow rings and shift pills before moving to next section
         cluster.teams.forEach(team => {
           const node = teamNodesMap[team.id];
           if (node) {
@@ -764,7 +768,7 @@ export function createVerticalStandingsView(state, onBack) {
 
           infoBanner.innerText = `PASS 2/2 (Today Live Region ${c + 1}/${clustersToday.length}): ${teamNames}`;
 
-          // 1. Scroll camera smoothly to center this cluster in the viewport frame
+          // 1. Scroll camera smoothly to center this section in the viewport frame
           scrollArea.scrollTo({
             top: Math.max(0, cluster.centerY - (scrollArea.clientHeight / 2) + 20),
             behavior: 'smooth'
@@ -772,7 +776,7 @@ export function createVerticalStandingsView(state, onBack) {
           await new Promise(r => setTimeout(r, 600));
           if (cancelAnimationRequested) break;
 
-          // 2. Attach focus glow rings and shift pills to teams in this cluster
+          // 2. Attach focus glow rings and shift pills to teams in this section BEFORE movement
           cluster.teams.forEach(team => {
             const node = teamNodesMap[team.id];
             if (node) {
@@ -784,17 +788,21 @@ export function createVerticalStandingsView(state, onBack) {
             }
           });
 
-          // 3. Simultaneously animate positions for teams in this cluster to today-live
+          // 3. PRE-MOVEMENT HOLD (1.1s): Let user settle eyes on baseline & shift badges before cards move!
+          await new Promise(r => setTimeout(r, 1100));
+          if (cancelAnimationRequested) break;
+
+          // 4. SHOW CHANGE ANIMATION: Simultaneously animate positions for teams in this section to today-live
           activeSnapshotMode = 'today-live';
           updateSnapshotBtnStyles();
           cluster.teams.forEach(team => {
             setSingleTeamPosition(team.id, 'today-live');
           });
 
-          // 4. Generous pause (1.5s) so the user can comfortably follow how this section changed!
-          await new Promise(r => setTimeout(r, 1500));
+          // 5. POST-MOVEMENT HOLD (1.6s): Hold final positions so user can absorb the shift & scores!
+          await new Promise(r => setTimeout(r, 1600));
 
-          // 5. Clean up focus glow rings and shift pills for this cluster
+          // 6. Clean up focus glow rings and shift pills before moving to next section
           cluster.teams.forEach(team => {
             const node = teamNodesMap[team.id];
             if (node) {
