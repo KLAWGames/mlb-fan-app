@@ -776,16 +776,39 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       actionGrid.appendChild(btn);
     }
 
-    // 2. Team Calendar
+    // 2. Dual Team Calendar Buttons (Selected Team vs Opposing Team)
     if (callbacks.openTeamCalendar) {
-      const btn = document.createElement('button');
-      btn.className = 'vertical-action-card-btn';
-      btn.innerHTML = `<span class="icon">📅</span><div><div class="title">${team.abbreviation} Calendar</div><div class="sub">Full schedule, wins/losses, scores & start times</div></div>`;
-      btn.addEventListener('click', () => {
+      const calRow = document.createElement('div');
+      calRow.style.cssText = 'display: flex; gap: 8px; width: 100%;';
+
+      const btn1 = document.createElement('button');
+      btn1.className = 'vertical-action-card-btn';
+      btn1.style.cssText = 'flex: 1; padding: 10px 12px; gap: 8px; margin: 0; min-width: 0;';
+      btn1.innerHTML = `<span class="icon" style="font-size: 18px;">📅</span><div style="min-width: 0;"><div class="title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${team.abbreviation} Calendar</div><div class="sub" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Team schedule</div></div>`;
+      btn1.addEventListener('click', () => {
         backdrop.remove();
         callbacks.openTeamCalendar(teamsData[team.id] || team);
       });
-      actionGrid.appendChild(btn);
+      calRow.appendChild(btn1);
+
+      let oppTeamObj = null;
+      if (oppAbbr) {
+        oppTeamObj = Object.values(teamsData).find(t => t.abbreviation.toLowerCase() === oppAbbr.toLowerCase());
+      }
+
+      if (oppTeamObj) {
+        const btn2 = document.createElement('button');
+        btn2.className = 'vertical-action-card-btn';
+        btn2.style.cssText = 'flex: 1; padding: 10px 12px; gap: 8px; margin: 0; min-width: 0;';
+        btn2.innerHTML = `<span class="icon" style="font-size: 18px;">📅</span><div style="min-width: 0;"><div class="title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${oppAbbr} Calendar</div><div class="sub" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Opponent schedule</div></div>`;
+        btn2.addEventListener('click', () => {
+          backdrop.remove();
+          callbacks.openTeamCalendar(oppTeamObj);
+        });
+        calRow.appendChild(btn2);
+      }
+
+      actionGrid.appendChild(calRow);
     }
 
     // 3. Team Overview

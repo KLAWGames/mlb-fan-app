@@ -5576,27 +5576,28 @@ function showTeamCalendarModal(teamObj) {
   
   const content = document.createElement('div');
   content.className = 'recap-content';
-  content.style.cssText = 'max-height: 85vh; width: 95%; max-width: 600px; display: flex; flex-direction: column;';
+  content.style.cssText = 'max-height: 88vh; width: 95%; max-width: 640px; display: flex; flex-direction: column; background: #0d1a22; border: 1.5px solid #00e5ff; box-shadow: 0 0 35px rgba(0, 229, 255, 0.25), 0 10px 30px rgba(0,0,0,0.8); border-radius: 16px; padding: 20px; color: #ffffff;';
   
   const header = document.createElement('div');
   header.className = 'recap-header';
-  header.style.cssText = 'border-bottom: 1px solid var(--border-glass); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;';
+  header.style.cssText = 'border-bottom: 1px solid rgba(0, 229, 255, 0.2); padding-bottom: 12px; display: flex; justify-content: space-between; align-items: center;';
   
   const title = document.createElement('h2');
-  title.style.cssText = 'font-size: 15px; font-weight: 800; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 8px; font-family: var(--font-title);';
+  title.style.cssText = 'font-size: 16px; font-weight: 900; color: #ffffff; margin: 0; display: flex; align-items: center; gap: 8px; font-family: var(--font-title);';
   
   const badge = document.createElement('span');
   badge.style.cssText = `background: ${teamObj.primaryColor || '#64748b'}; color: ${teamObj.textColor || '#ffffff'}; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 800;`;
   badge.innerText = teamObj.abbreviation;
   
   const titleText = document.createElement('span');
-  titleText.innerText = `${teamObj.shortName} Season Calendar`;
+  titleText.innerText = `${teamObj.shortName || teamObj.name} Season Calendar`;
   
   title.appendChild(badge);
   title.appendChild(titleText);
   
   const closeBtn = document.createElement('button');
   closeBtn.className = 'recap-close-btn';
+  closeBtn.style.cssText = 'background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; width: 32px; height: 32px; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;';
   closeBtn.innerHTML = '×';
   closeBtn.addEventListener('click', closeModal);
   
@@ -5612,8 +5613,8 @@ function showTeamCalendarModal(teamObj) {
   const loader = document.createElement('div');
   loader.style.cssText = 'display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 0; gap: 12px;';
   loader.innerHTML = `
-    <div style="border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid ${teamObj.primaryColor || '#64748b'}; border-radius: 50%; width: 28px; height: 28px; animation: spin 1s linear infinite;"></div>
-    <span style="font-size: 12.5px; color: var(--text-secondary); font-weight: 500;">Loading team schedule...</span>
+    <div style="border: 3px solid rgba(0, 229, 255, 0.2); border-top: 3px solid #00e5ff; border-radius: 50%; width: 28px; height: 28px; animation: spin 1s linear infinite;"></div>
+    <span style="font-size: 12.5px; color: #94a3b8; font-weight: 600;">Loading team schedule...</span>
   `;
   body.appendChild(loader);
   content.appendChild(body);
@@ -5648,7 +5649,7 @@ function showTeamCalendarModal(teamObj) {
     })
     .catch(err => {
       console.error(err);
-      loader.innerHTML = `<span style="color: var(--color-loss); font-weight: 700; font-size: 13px;">Failed to load schedule.</span>`;
+      loader.innerHTML = `<span style="color: #ef4444; font-weight: 700; font-size: 13px;">Failed to load schedule.</span>`;
     });
 }
 
@@ -5681,17 +5682,17 @@ function renderCalendar(scheduleData, teamId, container) {
     const monthEl = document.createElement('div');
     monthEl.className = 'calendar-month-section';
     monthEl.id = `cal-month-2026-${String(m + 1).padStart(2, '0')}`;
-    monthEl.style.cssText = 'display: flex; flex-direction: column; gap: 8px; border-bottom: 1px dashed rgba(255,255,255,0.06); padding-bottom: 16px; margin-bottom: 8px;';
+    monthEl.style.cssText = 'display: flex; flex-direction: column; gap: 8px; border-bottom: 1px dashed rgba(0,229,255,0.15); padding-bottom: 16px; margin-bottom: 8px;';
     
     // Month Name Header
     const mHeader = document.createElement('div');
-    mHeader.style.cssText = 'font-size: 13.5px; font-weight: 800; color: var(--text-primary); text-align: left; padding: 2px 4px; font-family: var(--font-title); border-left: 3px solid var(--color-gold); line-height: 1.1; margin-bottom: 4px;';
+    mHeader.style.cssText = 'font-size: 14px; font-weight: 900; color: #00e5ff; text-align: left; padding: 2px 6px; font-family: var(--font-title); border-left: 3px solid #fbbf24; line-height: 1.1; margin-bottom: 6px;';
     mHeader.innerText = `${monthName} ${year}`;
     monthEl.appendChild(mHeader);
     
     // Weekday Headers Grid
     const weekHeadersGrid = document.createElement('div');
-    weekHeadersGrid.style.cssText = 'display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 2px;';
+    weekHeadersGrid.style.cssText = 'display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; font-size: 9px; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 2px;';
     ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach(dayName => {
       const dayNameEl = document.createElement('div');
       dayNameEl.innerText = dayName;
@@ -5706,7 +5707,7 @@ function renderCalendar(scheduleData, teamId, container) {
     // Spacer empty cells
     for (let s = 0; s < firstDayOffset; s++) {
       const spacer = document.createElement('div');
-      spacer.style.cssText = 'aspect-ratio: 1.25; background: rgba(0,0,0,0.03); border: 1px solid transparent; border-radius: 5px; opacity: 0.15;';
+      spacer.style.cssText = 'aspect-ratio: 1.25; background: rgba(0,0,0,0.2); border: 1px solid transparent; border-radius: 6px; opacity: 0.15;';
       daysGrid.appendChild(spacer);
     }
     
@@ -5715,7 +5716,7 @@ function renderCalendar(scheduleData, teamId, container) {
       const dateStr = `2026-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const dayCell = document.createElement('div');
       dayCell.className = 'calendar-day-cell';
-      dayCell.style.cssText = 'aspect-ratio: 1.25; background: rgba(255,255,255,0.02); border: 1px solid var(--border-glass); border-radius: 5px; display: flex; flex-direction: column; justify-content: space-between; padding: 4px; box-sizing: border-box; transition: all 0.2s ease; overflow: hidden;';
+      dayCell.style.cssText = 'aspect-ratio: 1.25; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 6px; display: flex; flex-direction: column; justify-content: space-between; padding: 4px; box-sizing: border-box; transition: all 0.2s ease; overflow: hidden;';
       
       const dayNum = document.createElement('span');
       dayNum.style.cssText = 'font-size: 9px; font-weight: 700; color: var(--text-muted); align-self: flex-start; line-height: 1;';
