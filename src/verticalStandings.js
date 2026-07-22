@@ -515,34 +515,40 @@ export function createVerticalStandingsView(state, onBack) {
         node.appendChild(streakBadge);
       }
 
-      // Team Logo
+      // Primary Team Logo with high-contrast light backing
+      const logoBadge = document.createElement('div');
+      logoBadge.style.cssText = 'width: 24px; height: 24px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 2px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);';
+
       const logoImg = document.createElement('img');
       logoImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${team.abbreviation.toLowerCase()}.png`;
       logoImg.alt = team.abbreviation;
-      logoImg.style.cssText = 'width: 22px; height: 22px; object-fit: contain; flex-shrink: 0;';
+      logoImg.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
       logoImg.onerror = () => {
         const fallback = document.createElement('div');
-        fallback.style.cssText = `width: 22px; height: 22px; border-radius: 4px; background: ${team.primaryColor}; color: ${team.textColor}; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 800;`;
+        fallback.style.cssText = `width: 20px; height: 20px; border-radius: 50%; background: ${team.primaryColor}; color: ${team.textColor}; display: flex; align-items: center; justify-content: center; font-size: 8.5px; font-weight: 800;`;
         fallback.innerText = team.abbreviation.substring(0, 2);
-        if (logoImg.parentNode) logoImg.parentNode.replaceChild(fallback, logoImg);
+        if (logoBadge.parentNode) logoBadge.replaceChild(fallback, logoImg);
       };
-      node.appendChild(logoImg);
+      logoBadge.appendChild(logoImg);
+      node.appendChild(logoBadge);
 
       const abbrSpan = document.createElement('span');
       abbrSpan.style.cssText = 'font-family: var(--font-title); font-weight: 800; font-size: 13px; color: #ffffff;';
       abbrSpan.innerText = team.abbreviation;
       node.appendChild(abbrSpan);
 
-      // Corner Opponent Circle
+      // Small Corner Opponent Circle with high-contrast white backing
       if (oppAbbr) {
         const oppCircle = document.createElement('div');
         oppCircle.className = `vertical-opponent-circle ${statusClass}`;
         
         const oppImg = document.createElement('img');
         oppImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${oppAbbr.toLowerCase()}.png`;
-        oppImg.style.cssText = 'width: 14px; height: 14px; object-fit: contain;';
+        oppImg.style.cssText = 'width: 16px; height: 16px; object-fit: contain;';
         oppImg.onerror = () => {
           oppCircle.innerText = oppAbbr.substring(0, 2);
+          oppCircle.style.color = '#0f172a';
+          oppCircle.style.fontWeight = '900';
         };
         oppCircle.appendChild(oppImg);
         node.appendChild(oppCircle);
