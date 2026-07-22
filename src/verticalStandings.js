@@ -397,7 +397,12 @@ export function createVerticalStandingsView(state, onBack) {
       }
 
       // Game & Matchup Status for activeSnapshotMode
-      const game = schedule.find(g => g.teams?.away?.team?.id === team.id || g.teams?.home?.team?.id === team.id);
+      const teamIdNum = parseInt(team.id, 10);
+      const game = schedule.find(g => {
+        const awayId = parseInt(g.teams?.away?.team?.id, 10);
+        const homeId = parseInt(g.teams?.home?.team?.id, 10);
+        return awayId === teamIdNum || homeId === teamIdNum;
+      });
 
       let statusClass = 'upcoming';
       let metadataText = '';
@@ -405,10 +410,21 @@ export function createVerticalStandingsView(state, onBack) {
       let isWin = false;
 
       if (game) {
-        const isAway = game.teams.away.team.id === team.id;
+        const awayId = parseInt(game.teams?.away?.team?.id, 10);
+        const isAway = awayId === teamIdNum;
         const oppTeamObj = isAway ? game.teams.home.team : game.teams.away.team;
-        const oppStatic = teamsData[oppTeamObj.id];
-        oppAbbr = oppStatic ? oppStatic.abbreviation : oppTeamObj.name.substring(0, 3).toUpperCase();
+        const oppTeamId = parseInt(oppTeamObj?.id, 10);
+
+        const oppStatic = teamsData[oppTeamId];
+        if (oppStatic) {
+          oppAbbr = oppStatic.abbreviation;
+        } else if (oppTeamObj?.name) {
+          const found = Object.values(teamsData).find(t => 
+            t.name.toLowerCase().includes(oppTeamObj.name.toLowerCase()) || 
+            oppTeamObj.name.toLowerCase().includes(t.name.toLowerCase())
+          );
+          oppAbbr = found ? found.abbreviation : (oppTeamObj.triCode || oppTeamObj.name.substring(0, 3).toUpperCase());
+        }
 
         const detailedState = game.status?.detailedState || '';
         const statusCode = game.status?.statusCode || '';
