@@ -153,7 +153,15 @@ export function createVerticalStandingsView(state, onBack) {
       divLeaderMap[t.gbRel.toFixed(1)] = t.divisionName;
     });
 
-    // 3. Render Ticks and Labels every 0.5 GB
+    // 3. Group Teams by exact gbRel for Side-by-Side placement of ties and axis row matching
+    const gbGroups = {};
+    teamsWithPos.forEach(team => {
+      const key = team.gbRel.toFixed(1);
+      if (!gbGroups[key]) gbGroups[key] = [];
+      gbGroups[key].push(team);
+    });
+
+    // 4. Render Ticks and Labels (Only show label if a team is in that row OR if it's the 0.0 Wild Card cutoff)
     for (let gb = maxGBAhead; gb >= minGBBehind; gb -= 0.5) {
       const y = zeroLineY - (gb * pxPerGB);
       const isMajor = Math.abs(gb % 1) < 0.01;
@@ -163,16 +171,23 @@ export function createVerticalStandingsView(state, onBack) {
       tick.style.top = `${y}px`;
       contentBox.appendChild(tick);
 
-      // Render label for major ticks or division leader positions
       const gbKey = gb.toFixed(1);
+      const isZero = Math.abs(gb) < 0.01;
+      const hasTeam = Boolean(gbGroups[gbKey] && gbGroups[gbKey].length > 0);
       const divLeaderName = divLeaderMap[gbKey];
 
-      if (isMajor || divLeaderName) {
+      // Show label ONLY if a team is in that row OR if it is the Wild Card cutoff at zero
+      if (isZero || hasTeam || divLeaderName) {
         const label = document.createElement('div');
-        label.className = `vertical-timeline-tick-label ${divLeaderName ? 'div-leader' : ''}`;
+        label.className = `vertical-timeline-tick-label ${divLeaderName || isZero ? 'div-leader' : ''}`;
         label.style.top = `${y}px`;
 
-        if (divLeaderName) {
+        if (isZero) {
+          label.style.color = '#fbbf24';
+          label.style.textShadow = '0 0 8px rgba(251, 191, 36, 0.5)';
+          label.style.lineHeight = '1.1';
+          label.innerHTML = `<span style="font-size: 11px; font-weight: 800;">0.0 GB</span><br/><span style="font-size: 8.5px; font-weight: 800; letter-spacing: 0.04em;">WC CUTOFF</span>`;
+        } else if (divLeaderName) {
           label.innerHTML = `<span>${divLeaderName}</span> ⭐`;
         } else {
           const sign = gb > 0 ? '+' : '';
@@ -182,25 +197,11 @@ export function createVerticalStandingsView(state, onBack) {
       }
     }
 
-    // 4. Render Zero Cutoff Line (0.0 GB)
+    // 5. Render Zero Cutoff Line (0.0 GB)
     const cutoffLine = document.createElement('div');
     cutoffLine.className = 'vertical-cutoff-line';
     cutoffLine.style.top = `${zeroLineY}px`;
-
-    const cutoffLabel = document.createElement('div');
-    cutoffLabel.className = 'vertical-cutoff-label';
-    cutoffLabel.innerText = '0.0 GB — WILD CARD CUTOFF LINE';
-    cutoffLine.appendChild(cutoffLabel);
-
     contentBox.appendChild(cutoffLine);
-
-    // 5. Group Teams by exact gbRel for Side-by-Side placement of ties
-    const gbGroups = {};
-    teamsWithPos.forEach(team => {
-      const key = team.gbRel.toFixed(1);
-      if (!gbGroups[key]) gbGroups[key] = [];
-      gbGroups[key].push(team);
-    });
 
     let favoriteNodeEl = null;
 
