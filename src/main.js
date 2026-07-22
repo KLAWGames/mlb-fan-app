@@ -5704,7 +5704,7 @@ function renderCalendar(scheduleData, teamId, container) {
     // Spacer empty cells
     for (let s = 0; s < firstDayOffset; s++) {
       const spacer = document.createElement('div');
-      spacer.style.cssText = 'aspect-ratio: 1.25; background: rgba(0,0,0,0.2); border: 1px solid transparent; border-radius: 6px; opacity: 0.15;';
+      spacer.style.cssText = 'min-height: 52px; aspect-ratio: 1; background: rgba(0,0,0,0.2); border: 1px solid transparent; border-radius: 6px; opacity: 0.15;';
       daysGrid.appendChild(spacer);
     }
     
@@ -5713,17 +5713,18 @@ function renderCalendar(scheduleData, teamId, container) {
       const dateStr = `2026-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const dayCell = document.createElement('div');
       dayCell.className = 'calendar-day-cell';
-      dayCell.style.cssText = 'aspect-ratio: 1.25; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 6px; display: flex; flex-direction: column; justify-content: space-between; padding: 4px; box-sizing: border-box; transition: all 0.2s ease; overflow: hidden;';
+      dayCell.style.cssText = 'min-height: 52px; aspect-ratio: 1; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 6px; display: flex; flex-direction: column; justify-content: space-between; padding: 4px 3px; box-sizing: border-box; transition: all 0.2s ease; overflow: visible;';
       
       const dayNum = document.createElement('span');
-      dayNum.style.cssText = 'font-size: 9px; font-weight: 700; color: var(--text-muted); align-self: flex-start; line-height: 1;';
+      dayNum.style.cssText = 'font-size: 9.5px; font-weight: 800; color: #94a3b8; align-self: flex-start; line-height: 1; margin-bottom: 2px;';
       dayNum.innerText = day;
       dayCell.appendChild(dayNum);
       
       // Is selected date?
       if (dateStr === state.selectedDate) {
-        dayCell.style.borderColor = 'var(--color-gold)';
-        dayNum.style.color = 'var(--color-gold)';
+        dayCell.style.borderColor = '#fbbf24';
+        dayCell.style.background = 'rgba(251, 191, 36, 0.12)';
+        dayNum.style.color = '#fbbf24';
       }
       
       const games = gamesByDate[dateStr];
@@ -5741,13 +5742,13 @@ function renderCalendar(scheduleData, teamId, container) {
         const matchupPrefix = isHome ? 'vs' : '@';
         
         const gameText = document.createElement('div');
-        gameText.style.cssText = 'font-size: 7.5px; font-weight: 800; color: var(--text-primary); text-align: center; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1;';
+        gameText.style.cssText = 'font-size: 8.5px; font-weight: 800; color: #00e5ff; text-align: center; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; font-family: var(--font-title);';
         gameText.innerText = `${matchupPrefix} ${oppAbbr}`;
         gamesContainer.appendChild(gameText);
         
         // Render all game scores side-by-side on the second row
         const scoresRow = document.createElement('div');
-        scoresRow.style.cssText = 'display: flex; justify-content: center; align-items: center; gap: 3px; font-size: 7.5px; font-weight: 900; line-height: 1.1; font-family: var(--font-title); flex-wrap: wrap; width: 100%;';
+        scoresRow.style.cssText = 'display: flex; justify-content: center; align-items: center; gap: 2px; font-size: 8.5px; font-weight: 900; line-height: 1.1; font-family: var(--font-title); flex-wrap: wrap; width: 100%;';
         
         let hasWin = false;
         let hasLoss = false;
@@ -5785,14 +5786,20 @@ function renderCalendar(scheduleData, teamId, container) {
             scoreSpan.style.color = '#fbbf24';
           } else {
             hasSched = true;
-            scoreSpan.innerText = 'SCHED';
+            if (game.gameDate) {
+              const d = new Date(game.gameDate);
+              const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+              scoreSpan.innerText = timeStr;
+            } else {
+              scoreSpan.innerText = 'SCHED';
+            }
             scoreSpan.style.color = '#38bdf8';
           }
           
           if (gIdx > 0) {
             const separator = document.createElement('span');
             separator.innerText = '•';
-            separator.style.color = 'var(--text-muted)';
+            separator.style.color = '#94a3b8';
             separator.style.margin = '0 1px';
             scoresRow.appendChild(separator);
           }
