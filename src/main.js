@@ -5565,6 +5565,10 @@ function showTeamCalendarModal(teamObj) {
   const teamIdNum = staticTeam ? parseInt(staticTeam.id, 10) : (parseInt(rawId, 10) || parseInt(state.activeTeamId, 10) || 147);
   const activeTeamObj = staticTeam || teamsData[teamIdNum] || teamObj || {};
 
+  const standingsTeam = state.processedStandings?.teamsMap?.[teamIdNum] || state.processedStandingsYesterday?.teamsMap?.[teamIdNum];
+  const displayWins = standingsTeam?.wins !== undefined ? standingsTeam.wins : (activeTeamObj.wins || 0);
+  const displayLosses = standingsTeam?.losses !== undefined ? standingsTeam.losses : (activeTeamObj.losses || 0);
+
   const backdrop = document.createElement('div');
   backdrop.className = 'recap-backdrop full-page-calendar-backdrop';
   backdrop.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #071318; z-index: 100000; display: flex; flex-direction: column; overflow: hidden; padding: 0; margin: 0; box-sizing: border-box;';
@@ -5611,7 +5615,7 @@ function showTeamCalendarModal(teamObj) {
 
   const subText = document.createElement('div');
   subText.style.cssText = 'font-size: 11px; color: #94a3b8; font-weight: 600;';
-  subText.innerText = `${activeTeamObj.wins || 0}-${activeTeamObj.losses || 0} | 2026 Regular Season`;
+  subText.innerText = `${displayWins}-${displayLosses} | 2026 Regular Season`;
   
   titleTextGroup.appendChild(title);
   titleTextGroup.appendChild(subText);
@@ -5784,14 +5788,14 @@ function renderCalendar(scheduleData, teamIdNum, container) {
     });
     monthEl.appendChild(weekHeadersGrid);
     
-    // Days Grid - 7 STRICTLY EQUAL Square Columns (aspect-ratio: 1 fits whole month grid on screen!)
+    // Days Grid - 7 STRICTLY EQUAL Columns with explicit min-height 48px so tiles NEVER collapse
     const daysGrid = document.createElement('div');
     daysGrid.style.cssText = 'display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; width: 100%; box-sizing: border-box; overflow-x: hidden;';
     
     // Spacer empty cells
     for (let s = 0; s < firstDayOffset; s++) {
       const spacer = document.createElement('div');
-      spacer.style.cssText = 'aspect-ratio: 1; min-height: 0; background: rgba(0,0,0,0.2); border: 1px solid transparent; border-radius: 4px; opacity: 0.15;';
+      spacer.style.cssText = 'min-height: 48px; background: rgba(0,0,0,0.2); border: 1px solid transparent; border-radius: 4px; opacity: 0.15; width: 100%;';
       daysGrid.appendChild(spacer);
     }
     
@@ -5800,7 +5804,7 @@ function renderCalendar(scheduleData, teamIdNum, container) {
       const dateStr = `2026-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const dayCell = document.createElement('div');
       dayCell.className = 'calendar-day-cell';
-      dayCell.style.cssText = 'aspect-ratio: 1; min-height: 0; background: rgba(13, 26, 34, 0.9); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 4px; display: flex; flex-direction: column; justify-content: space-between; padding: 2px; box-sizing: border-box; transition: all 0.2s ease; overflow: hidden; width: 100%;';
+      dayCell.style.cssText = 'min-height: 48px; background: rgba(13, 26, 34, 0.9); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 4px; display: flex; flex-direction: column; justify-content: space-between; padding: 2px 1px; box-sizing: border-box; transition: all 0.2s ease; overflow: hidden; width: 100%;';
       
       const dayNum = document.createElement('span');
       dayNum.style.cssText = 'font-size: 8.5px; font-weight: 800; color: #94a3b8; align-self: flex-start; line-height: 1; padding-left: 1px;';
@@ -5891,7 +5895,7 @@ function renderCalendar(scheduleData, teamIdNum, container) {
     const trailingSpacers = (7 - (totalCells % 7)) % 7;
     for (let t = 0; t < trailingSpacers; t++) {
       const spacer = document.createElement('div');
-      spacer.style.cssText = 'aspect-ratio: 1; min-height: 0; background: rgba(0,0,0,0.03); border: 1px solid transparent; border-radius: 4px; opacity: 0.15;';
+      spacer.style.cssText = 'min-height: 48px; background: rgba(0,0,0,0.03); border: 1px solid transparent; border-radius: 4px; opacity: 0.15; width: 100%;';
       daysGrid.appendChild(spacer);
     }
     
