@@ -111,21 +111,21 @@ export function createVerticalStandingsView(state, onBack) {
     if (isPlayingAnimation) cancelAnimationRequested = true;
     activeSnapshotMode = 'yesterday-start';
     updateSnapshotBtnStyles();
-    updateNodesPosition(true);
+    updateNodesPosition(false);
   });
 
   btnYestEnd.addEventListener('click', () => {
     if (isPlayingAnimation) cancelAnimationRequested = true;
     activeSnapshotMode = 'yesterday-end';
     updateSnapshotBtnStyles();
-    updateNodesPosition(true);
+    updateNodesPosition(false);
   });
 
   btnTodayLive.addEventListener('click', () => {
     if (isPlayingAnimation) cancelAnimationRequested = true;
     activeSnapshotMode = 'today-live';
     updateSnapshotBtnStyles();
-    updateNodesPosition(true);
+    updateNodesPosition(false);
   });
 
   snapshotGroup.appendChild(btnYestStart);
