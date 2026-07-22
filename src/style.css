@@ -2509,6 +2509,40 @@ header {
   transform: scale(1.1) !important;
 }
 
+.vertical-shift-pill {
+  position: absolute;
+  bottom: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 900;
+  padding: 2px 7px;
+  border-radius: 10px;
+  white-space: nowrap;
+  font-family: var(--font-title);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  z-index: 26;
+  animation: bounce-in 0.3s ease;
+}
+
+.vertical-shift-pill.gain {
+  background: #065f46;
+  color: #6ee7b7;
+  border: 1px solid #10b981;
+}
+
+.vertical-shift-pill.loss {
+  background: #7f1d1d;
+  color: #fca5a5;
+  border: 1px solid #ef4444;
+}
+
+.vertical-shift-pill.tie {
+  background: #78350f;
+  color: #fde68a;
+  border: 1px solid #fbbf24;
+}
+
 @keyframes pulse-favorite {
   0% {
     box-shadow: 0 0 8px rgba(251, 191, 36, 0.7), 0 0 0 0 rgba(251, 191, 36, 0.5);

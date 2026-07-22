@@ -152,7 +152,7 @@ export function createVerticalStandingsView(state, onBack) {
   // Banner status for key legend & motion replay info
   const infoBanner = document.createElement('div');
   infoBanner.className = 'vertical-standings-key-box';
-  infoBanner.innerText = 'Viewing Live Standings. Tap "Play Shift" to watch team-by-team movement.';
+  infoBanner.innerText = 'Viewing Live Standings. Tap "Play Shift" to highlight key standings movements.';
   container.appendChild(infoBanner);
 
   // Scroll Area for Timeline
@@ -213,6 +213,54 @@ export function createVerticalStandingsView(state, onBack) {
     });
 
     return { teamsWithPos, cutoffTeam };
+  }
+
+  // Detect teams that gained/lost ground or tied between snapA and snapB
+  function getMovingTeams(snapA, snapB) {
+    const gbGroupsA = {};
+    snapA.teamsWithPos.forEach(t => {
+      const k = t.gbRel.toFixed(1);
+      gbGroupsA[k] = (gbGroupsA[k] || 0) + 1;
+    });
+
+    const gbGroupsB = {};
+    snapB.teamsWithPos.forEach(t => {
+      const k = t.gbRel.toFixed(1);
+      gbGroupsB[k] = (gbGroupsB[k] || 0) + 1;
+    });
+
+    return snapB.teamsWithPos.map(teamB => {
+      const teamA = snapA.teamsWithPos.find(t => parseInt(t.id, 10) === parseInt(teamB.id, 10));
+      const gbA = teamA ? teamA.gbRel : teamB.gbRel;
+      const gbB = teamB.gbRel;
+      const diff = gbB - gbA;
+
+      const isTiedB = (gbGroupsB[gbB.toFixed(1)] || 0) > 1;
+      const isTiedA = (gbGroupsA[gbA.toFixed(1)] || 0) > 1;
+
+      const moved = Math.abs(diff) >= 0.25 || (isTiedB && !isTiedA);
+
+      let shiftLabel = '';
+      let shiftClass = '';
+      if (diff > 0) {
+        shiftLabel = `+${diff.toFixed(1)} GB 📈`;
+        shiftClass = 'gain';
+      } else if (diff < 0) {
+        shiftLabel = `${diff.toFixed(1)} GB 📉`;
+        shiftClass = 'loss';
+      } else if (isTiedB) {
+        shiftLabel = 'TIED 🤝';
+        shiftClass = 'tie';
+      }
+
+      return {
+        ...teamB,
+        diff,
+        moved,
+        shiftLabel,
+        shiftClass
+      };
+    }).filter(t => t.moved);
   }
 
   // Main Timeline Rendering Function
@@ -579,7 +627,7 @@ export function createVerticalStandingsView(state, onBack) {
     }
   }
 
-  // Detailed Team-by-Team Replay Sequence
+  // Standings Shift Replay: Focuses strictly on teams that gained/lost ground or tied
   async function runMotionReplaySequence() {
     isPlayingAnimation = true;
     cancelAnimationRequested = false;
@@ -588,59 +636,97 @@ export function createVerticalStandingsView(state, onBack) {
     playMotionBtn.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
     playMotionBtn.style.color = '#ffffff';
 
-    const snapToday = computeSnapshotData(state.processedStandings);
-    const sortedTeams = snapToday.teamsWithPos; // Teams sorted 1st place down to 15th place
+    const snapYestStart = computeSnapshotData(getSnapshotDataset('yesterday-start').processed);
+    const snapYestEnd = computeSnapshotData(getSnapshotDataset('yesterday-end').processed);
+    const snapTodayLive = computeSnapshotData(getSnapshotDataset('today-live').processed);
 
-    // STEP 1: Set ALL teams to Yesterday Start initially
+    // PASS 1: Yesterday Standings Shift (Focus on teams that gained/lost ground or tied yesterday)
+    const moversYesterday = getMovingTeams(snapYestStart, snapYestEnd);
+
+    // Set snapshot mode to Yesterday Start
     activeSnapshotMode = 'yesterday-start';
     updateSnapshotBtnStyles();
     updateNodesPosition(false);
 
-    // PASS 1: Yesterday Movement (Team by Team)
-    infoBanner.innerText = 'PASS 1/2: Yesterday Shift — Watching each team\'s movement yesterday...';
-    await new Promise(r => setTimeout(r, 600));
-
-    for (let i = 0; i < sortedTeams.length; i++) {
-      if (cancelAnimationRequested) break;
-      const team = sortedTeams[i];
-      const node = teamNodesMap[team.id];
-
-      infoBanner.innerText = `PASS 1/2 (Yesterday): ${team.name} (${i + 1}/${sortedTeams.length})`;
-      scrollToTeamNode(team.id);
-      await new Promise(r => setTimeout(r, 450));
-      if (cancelAnimationRequested) break;
-
-      // Animate team from yesterday-start -> yesterday-end
-      if (node) node.classList.add('animating-focus');
-      setSingleTeamPosition(team.id, 'yesterday-end');
-      
+    if (moversYesterday.length === 0) {
+      infoBanner.innerText = 'PASS 1/2: Yesterday Shift — No standings shifts yesterday.';
       await new Promise(r => setTimeout(r, 900));
-      if (node) node.classList.remove('animating-focus');
-    }
-
-    // PASS 2: Today Movement (Team by Team)
-    if (!cancelAnimationRequested) {
-      infoBanner.innerText = 'PASS 2/2: Today Shift — Watching each team\'s movement today...';
-      activeSnapshotMode = 'yesterday-end';
-      updateSnapshotBtnStyles();
+    } else {
+      infoBanner.innerText = `PASS 1/2: Yesterday Shift — Highlighting ${moversYesterday.length} teams that shifted yesterday...`;
       await new Promise(r => setTimeout(r, 600));
 
-      for (let i = 0; i < sortedTeams.length; i++) {
+      for (let i = 0; i < moversYesterday.length; i++) {
         if (cancelAnimationRequested) break;
-        const team = sortedTeams[i];
+        const team = moversYesterday[i];
         const node = teamNodesMap[team.id];
 
-        infoBanner.innerText = `PASS 2/2 (Today Live): ${team.name} (${i + 1}/${sortedTeams.length})`;
+        infoBanner.innerText = `PASS 1/2 (Yesterday): ${team.name} ${team.shiftLabel} (${i + 1}/${moversYesterday.length})`;
         scrollToTeamNode(team.id);
-        await new Promise(r => setTimeout(r, 450));
+        await new Promise(r => setTimeout(r, 400));
         if (cancelAnimationRequested) break;
 
-        // Animate team from yesterday-end -> today-live
-        if (node) node.classList.add('animating-focus');
-        setSingleTeamPosition(team.id, 'today-live');
+        // Add cyan focus glow and floating shift pill
+        if (node) {
+          node.classList.add('animating-focus');
+          const badge = document.createElement('div');
+          badge.className = `vertical-shift-pill ${team.shiftClass}`;
+          badge.innerText = team.shiftLabel;
+          node.appendChild(badge);
+        }
 
+        setSingleTeamPosition(team.id, 'yesterday-end');
+
+        await new Promise(r => setTimeout(r, 950));
+        if (node) {
+          node.classList.remove('animating-focus');
+          const badge = node.querySelector('.vertical-shift-pill');
+          if (badge) badge.remove();
+        }
+      }
+    }
+
+    // PASS 2: Today Live Shift (Focus on teams that gained/lost ground or tied today)
+    if (!cancelAnimationRequested) {
+      const moversToday = getMovingTeams(snapYestEnd, snapTodayLive);
+
+      activeSnapshotMode = 'yesterday-end';
+      updateSnapshotBtnStyles();
+
+      if (moversToday.length === 0) {
+        infoBanner.innerText = 'PASS 2/2: Today Live Shift — No standings shifts today yet.';
         await new Promise(r => setTimeout(r, 900));
-        if (node) node.classList.remove('animating-focus');
+      } else {
+        infoBanner.innerText = `PASS 2/2: Today Live Shift — Highlighting ${moversToday.length} teams shifting today...`;
+        await new Promise(r => setTimeout(r, 600));
+
+        for (let i = 0; i < moversToday.length; i++) {
+          if (cancelAnimationRequested) break;
+          const team = moversToday[i];
+          const node = teamNodesMap[team.id];
+
+          infoBanner.innerText = `PASS 2/2 (Today Live): ${team.name} ${team.shiftLabel} (${i + 1}/${moversToday.length})`;
+          scrollToTeamNode(team.id);
+          await new Promise(r => setTimeout(r, 400));
+          if (cancelAnimationRequested) break;
+
+          // Add cyan focus glow and floating shift pill
+          if (node) {
+            node.classList.add('animating-focus');
+            const badge = document.createElement('div');
+            badge.className = `vertical-shift-pill ${team.shiftClass}`;
+            badge.innerText = team.shiftLabel;
+            node.appendChild(badge);
+          }
+
+          setSingleTeamPosition(team.id, 'today-live');
+
+          await new Promise(r => setTimeout(r, 950));
+          if (node) {
+            node.classList.remove('animating-focus');
+            const badge = node.querySelector('.vertical-shift-pill');
+            if (badge) badge.remove();
+          }
+        }
       }
     }
 
