@@ -582,8 +582,10 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     const columnYPositions = {}; // colIndex -> array of Y positions
     const assignments = {}; // teamId -> { col, exactY, gbRel }
 
-    // Minimum vertical spacing between box centers to avoid ANY visual collision (48px)
-    const minVerticalClearance = 48;
+    // Minimum vertical spacing between box centers to avoid ANY visual collision.
+    // Full node visual footprint: 38px height + 8px padding/border + ~18px metadata pill below + ~8px badges above = ~72px.
+    // Use 80px clearance to guarantee zero overlap including metadata pills.
+    const minVerticalClearance = 80;
 
     sorted.forEach(team => {
       // Calculate exact continuous Y position corresponding to exact Games Back
