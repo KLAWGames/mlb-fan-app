@@ -730,16 +730,26 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     header.appendChild(closeBtn);
     modal.appendChild(header);
 
-    // Game Matchup Section
+    // Game Matchup & Full Line Score Box Score Section
     let oppAbbr = '';
-    if (game) {
+    let targetGame = game;
+    const teamIdNum = parseInt(team.id, 10);
+
+    if (!targetGame && state.rawSchedule && state.rawSchedule.length > 0) {
+      targetGame = state.rawSchedule.find(g => {
+        const awayId = parseInt(g.teams?.away?.team?.id, 10);
+        const homeId = parseInt(g.teams?.home?.team?.id, 10);
+        return awayId === teamIdNum || homeId === teamIdNum;
+      });
+    }
+
+    if (targetGame) {
       const matchupBox = document.createElement('div');
       matchupBox.className = 'vertical-modal-matchup-box';
 
-      const awayObj = game.teams?.away;
-      const homeObj = game.teams?.home;
+      const awayObj = targetGame.teams?.away;
+      const homeObj = targetGame.teams?.home;
 
-      const teamIdNum = parseInt(team.id, 10);
       const isAway = parseInt(awayObj?.team?.id, 10) === teamIdNum;
       const oppTeamObj = isAway ? homeObj?.team : awayObj?.team;
       const oppTeamId = parseInt(oppTeamObj?.id, 10);
@@ -763,7 +773,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       const awayScore = awayObj?.score !== null && awayObj?.score !== undefined ? awayObj.score : '-';
       const homeScore = homeObj?.score !== null && homeObj?.score !== undefined ? homeObj.score : '-';
 
-      const statusText = game.status?.detailedState || 'Scheduled';
+      const statusText = targetGame.status?.detailedState || 'Scheduled';
 
       matchupBox.innerHTML = `
         <div style="font-size: 11px; font-weight: 800; color: #00e5ff; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Game Matchup Info (${statusText})</div>
@@ -850,8 +860,9 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       boxScoreContainer.appendChild(tableWrapper);
 
       // Fetch live linescore per-inning details if gamePk exists
-      if (game.gamePk) {
-        fetch(`https://statsapi.mlb.com/api/v1/game/${game.gamePk}/linescore`)
+      const gamePk = targetGame.gamePk || targetGame.id;
+      if (gamePk) {
+        fetch(`https://statsapi.mlb.com/api/v1/game/${gamePk}/linescore`)
           .then(res => res.json())
           .then(lsData => {
             const innings = lsData.innings || [];
