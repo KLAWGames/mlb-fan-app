@@ -336,13 +336,13 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     // Find max allocated columns across all 3 snapshots to compute contentBox minWidth
     let maxColsOverall = 1;
     [snapToday, snapYestEnd, snapYestStart].forEach(snap => {
-      const assign = computeTierAssignments(snap.teamsWithPos);
+      const assign = computeContinuousTeamColumns(snap.teamsWithPos);
       const cols = Object.values(assign).map(a => a.col);
       const m = cols.length > 0 ? Math.max(...cols) + 1 : 1;
       if (m > maxColsOverall) maxColsOverall = m;
     });
 
-    const minContentWidth = Math.max(400, 78 + (maxColsOverall * 112) + 30);
+    const minContentWidth = Math.max(400, 78 + (maxColsOverall * 116) + 30);
     const contentBox = document.createElement('div');
     contentBox.style.cssText = `position: relative; min-width: ${minContentWidth}px; width: ${minContentWidth}px; min-height: ${totalHeight}px; height: ${totalHeight}px;`;
 
@@ -572,34 +572,46 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     return group;
   }
 
-  // Compute horizontal column assignment for all teams based on 0.5 GB quantum tiers
-  function computeTierAssignments(teamsWithPos) {
+  // Compute horizontal column assignment for all teams using exact Games Back (gbRel) Y positions
+  function computeContinuousTeamColumns(teamsWithPos) {
     if (!teamsWithPos || teamsWithPos.length === 0) return {};
 
-    // Sort teams by gbRel descending (best teams at top first)
+    // Sort teams by gbRel descending (best teams at top of standings first)
     const sorted = [...teamsWithPos].sort((a, b) => b.gbRel - a.gbRel);
 
-    const tierGroups = {};
-    sorted.forEach(team => {
-      // Quantize gbRel to 0.5 GB tiers (e.g. 0.0, -0.5, -1.0, -1.5 ... -4.5)
-      const quantizedGB = (Math.round(team.gbRel * 2) / 2).toFixed(1);
-      if (!tierGroups[quantizedGB]) tierGroups[quantizedGB] = [];
-      tierGroups[quantizedGB].push(team);
-    });
+    const columnYPositions = {}; // colIndex -> array of Y positions
+    const assignments = {}; // teamId -> { col, exactY, gbRel }
 
-    const assignments = {}; // teamId -> { col, tierGB }
-    for (const key in tierGroups) {
-      const group = tierGroups[key];
-      group.forEach((t, idx) => {
-        const item = {
-          col: idx,
-          tierGB: parseFloat(key)
-        };
-        assignments[t.id] = item;
-        assignments[String(t.id)] = item;
-        assignments[parseInt(t.id, 10)] = item;
-      });
-    }
+    // Minimum vertical spacing between box centers to avoid ANY visual collision (48px)
+    const minVerticalClearance = 48;
+
+    sorted.forEach(team => {
+      // Calculate exact continuous Y position corresponding to exact Games Back
+      const exactY = globalZeroLineY - (team.gbRel * globalPxPerGB) - 19;
+
+      let assignedCol = 0;
+      while (true) {
+        const positions = columnYPositions[assignedCol] || [];
+        const hasCollision = positions.some(prevY => Math.abs(prevY - exactY) < minVerticalClearance);
+
+        if (!hasCollision) {
+          if (!columnYPositions[assignedCol]) columnYPositions[assignedCol] = [];
+          columnYPositions[assignedCol].push(exactY);
+          
+          const item = {
+            col: assignedCol,
+            exactY: exactY,
+            gbRel: team.gbRel
+          };
+          assignments[team.id] = item;
+          assignments[String(team.id)] = item;
+          assignments[parseInt(team.id, 10)] = item;
+          break;
+        }
+
+        assignedCol++; // Shift to next column if vertical clearance in current column is < 48px
+      }
+    });
 
     return assignments;
   }
@@ -616,10 +628,14 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     const node = teamNodesMap[team.id];
     if (!node) return;
 
-    const assignments = computeTierAssignments(snapData.teamsWithPos);
-    const info = assignments[team.id] || assignments[String(team.id)] || assignments[parseInt(team.id, 10)] || { col: 0, tierGB: team.gbRel };
+    const assignments = computeContinuousTeamColumns(snapData.teamsWithPos);
+    const info = assignments[team.id] || assignments[String(team.id)] || assignments[parseInt(team.id, 10)] || { 
+      col: 0, 
+      exactY: globalZeroLineY - (team.gbRel * globalPxPerGB) - 19, 
+      gbRel: team.gbRel 
+    };
 
-    const yPos = globalZeroLineY - (info.tierGB * globalPxPerGB) - 19;
+    const yPos = info.exactY;
     const xPos = 78 + (info.col * 116);
 
     node.style.top = `${yPos}px`;
