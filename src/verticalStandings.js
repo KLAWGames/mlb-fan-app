@@ -865,6 +865,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
 
       tableWrapper.appendChild(table);
       boxScoreContainer.appendChild(tableWrapper);
+      matchupBox.appendChild(boxScoreContainer);
 
       // Fetch live linescore per-inning details if gamePk exists
       const gamePk = targetGame.gamePk || targetGame.id;
