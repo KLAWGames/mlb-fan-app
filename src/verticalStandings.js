@@ -333,18 +333,16 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     globalZeroLineY = topPadding + (maxGBAheadVal * globalPxPerGB);
     const totalHeight = globalZeroLineY + (Math.abs(minGBBehindVal) * globalPxPerGB) + bottomPadding;
 
-    // Find max tied teams across all 3 snapshots to compute contentBox minWidth
-    let maxTiedInRow = 1;
+    // Find max allocated columns across all 3 snapshots to compute contentBox minWidth
+    let maxColsOverall = 1;
     [snapToday, snapYestEnd, snapYestStart].forEach(snap => {
-      const gbGroups = {};
-      snap.teamsWithPos.forEach(t => {
-        const k = t.gbRel.toFixed(1);
-        gbGroups[k] = (gbGroups[k] || 0) + 1;
-        if (gbGroups[k] > maxTiedInRow) maxTiedInRow = gbGroups[k];
-      });
+      const cols = computeTeamColumns(snap.teamsWithPos);
+      const values = Object.values(cols);
+      const m = values.length > 0 ? Math.max(...values) + 1 : 1;
+      if (m > maxColsOverall) maxColsOverall = m;
     });
 
-    const minContentWidth = Math.max(400, 78 + (maxTiedInRow * 112) + 30);
+    const minContentWidth = Math.max(400, 78 + (maxColsOverall * 112) + 30);
     const contentBox = document.createElement('div');
     contentBox.style.cssText = `position: relative; min-width: ${minContentWidth}px; width: ${minContentWidth}px; min-height: ${totalHeight}px; height: ${totalHeight}px;`;
 
@@ -574,6 +572,39 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     return group;
   }
 
+  // Compute horizontal column assignment for all teams to guarantee ZERO vertical or horizontal overlaps (min 56px Y clearance)
+  function computeTeamColumns(teamsWithPos) {
+    if (!teamsWithPos || teamsWithPos.length === 0) return {};
+    
+    // Sort teams by gbRel descending (best teams at top first)
+    const sorted = [...teamsWithPos].sort((a, b) => b.gbRel - a.gbRel);
+    
+    const colYPositions = {}; // colIndex -> array of Y positions
+    const colAssignments = {}; // teamId -> colIndex
+
+    const minVerticalClearance = 56; // 56px minimum Y clearance between box centers
+
+    sorted.forEach(team => {
+      const y = globalZeroLineY - (team.gbRel * globalPxPerGB);
+      
+      let assignedCol = 0;
+      while (true) {
+        const positions = colYPositions[assignedCol] || [];
+        const hasOverlap = positions.some(prevY => Math.abs(prevY - y) < minVerticalClearance);
+        
+        if (!hasOverlap) {
+          if (!colYPositions[assignedCol]) colYPositions[assignedCol] = [];
+          colYPositions[assignedCol].push(y);
+          colAssignments[team.id] = assignedCol;
+          break;
+        }
+        assignedCol++; // Try next column to the right if vertical space is occupied
+      }
+    });
+
+    return colAssignments;
+  }
+
   // Position a single team node for a target snapshot mode with automatic left-alignment re-indexing
   function setSingleTeamPosition(teamId, mode) {
     const dataset = getSnapshotDataset(mode);
@@ -586,17 +617,8 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     const node = teamNodesMap[team.id];
     if (!node) return;
 
-    const gbGroups = {};
-    snapData.teamsWithPos.forEach(t => {
-      const k = t.gbRel.toFixed(1);
-      if (!gbGroups[k]) gbGroups[k] = [];
-      gbGroups[k].push(t);
-    });
-
-    const gbKey = team.gbRel.toFixed(1);
-    const group = gbGroups[gbKey] || [team];
-    const colIdx = group.findIndex(t => parseInt(t.id, 10) === parseInt(team.id, 10));
-    const col = colIdx >= 0 ? colIdx : 0;
+    const colAssignments = computeTeamColumns(snapData.teamsWithPos);
+    const col = colAssignments[team.id] !== undefined ? colAssignments[team.id] : 0;
 
     const yPos = globalZeroLineY - (team.gbRel * globalPxPerGB) - 19;
     const xPos = 78 + (col * 112);
