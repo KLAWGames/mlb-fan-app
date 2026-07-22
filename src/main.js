@@ -5803,10 +5803,10 @@ function renderCalendar(scheduleData, teamIdNum, container) {
       const dateStr = `2026-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const dayCell = document.createElement('div');
       dayCell.className = 'calendar-day-cell';
-      dayCell.style.cssText = 'min-height: 60px; background: rgba(13, 26, 34, 0.9); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 6px; display: flex; flex-direction: column; justify-content: space-between; padding: 4px 2px; box-sizing: border-box; transition: all 0.2s ease; overflow: hidden; width: 100%;';
+      dayCell.style.cssText = 'min-height: 68px; background: rgba(13, 26, 34, 0.95); border: 1px solid rgba(0, 229, 255, 0.25); border-radius: 6px; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 3px; padding: 5px 3px; box-sizing: border-box; transition: all 0.2s ease; overflow: visible; width: 100%;';
       
       const dayNum = document.createElement('span');
-      dayNum.style.cssText = 'font-size: clamp(9px, 1.8vw, 11px); font-weight: 800; color: #94a3b8; align-self: flex-start; line-height: 1; margin-bottom: 2px; padding-left: 2px;';
+      dayNum.style.cssText = 'font-size: 11px; font-weight: 800; color: #94a3b8; align-self: flex-start; line-height: 1; margin-bottom: 2px; padding-left: 2px;';
       dayNum.innerText = day;
       dayCell.appendChild(dayNum);
       
@@ -5820,7 +5820,7 @@ function renderCalendar(scheduleData, teamIdNum, container) {
       const games = gamesByDate[dateStr];
       if (games && games.length > 0) {
         const gamesContainer = document.createElement('div');
-        gamesContainer.style.cssText = 'display: flex; flex-direction: column; gap: 2px; flex-grow: 1; justify-content: center; width: 100%; align-items: center; overflow: hidden;';
+        gamesContainer.style.cssText = 'display: flex; flex-direction: column; gap: 3px; flex-grow: 1; justify-content: center; width: 100%; align-items: center;';
         
         const firstGame = games[0];
         const homeId = parseInt(firstGame.teams?.home?.team?.id, 10);
@@ -5834,12 +5834,12 @@ function renderCalendar(scheduleData, teamIdNum, container) {
         const matchupPrefix = isHome ? 'vs' : '@';
         
         const gameText = document.createElement('div');
-        gameText.style.cssText = 'font-size: clamp(8px, 1.6vw, 10.5px); font-weight: 900; color: #00e5ff; text-align: center; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; font-family: var(--font-title); width: 100%;';
+        gameText.style.cssText = 'font-size: 11px; font-weight: 900; color: #00e5ff; text-align: center; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; font-family: var(--font-title); width: 100%;';
         gameText.innerText = `${matchupPrefix} ${oppAbbr}`;
         gamesContainer.appendChild(gameText);
         
         const scoresRow = document.createElement('div');
-        scoresRow.style.cssText = 'display: flex; justify-content: center; align-items: center; gap: 2px; font-size: clamp(8px, 1.6vw, 10.5px); font-weight: 900; line-height: 1.1; font-family: var(--font-title); flex-wrap: wrap; width: 100%; overflow: hidden;';
+        scoresRow.style.cssText = 'display: flex; justify-content: center; align-items: center; gap: 3px; font-size: 11px; font-weight: 900; line-height: 1.1; font-family: var(--font-title); flex-wrap: wrap; width: 100%;';
         
         let hasWin = false;
         let hasLoss = false;
