@@ -298,26 +298,26 @@ export function createVerticalStandingsView(state, onBack) {
 
         node.classList.add(statusClass);
 
-        // Render Hot / Cold Streak tag if team is on a streak (W2+ or L2+)
+        // Render Hot / Cold Streak tag if team is on a streak of 4+ games (W4+ or L4+)
         let streakTag = null;
         let streakTypeClass = null;
 
-        if (team.streakType === 'wins' && team.streakNumber >= 2) {
+        if (team.streakType === 'wins' && team.streakNumber >= 4) {
           streakTag = `🔥 W${team.streakNumber}`;
           streakTypeClass = 'hot';
-        } else if (team.streakType === 'losses' && team.streakNumber >= 2) {
+        } else if (team.streakType === 'losses' && team.streakNumber >= 4) {
           streakTag = `❄️ L${team.streakNumber}`;
           streakTypeClass = 'cold';
         } else if (team.streakCode && team.streakCode !== '-') {
           if (team.streakCode.startsWith('W')) {
             const num = parseInt(team.streakCode.substring(1), 10);
-            if (num >= 2) {
+            if (num >= 4) {
               streakTag = `🔥 W${num}`;
               streakTypeClass = 'hot';
             }
           } else if (team.streakCode.startsWith('L')) {
             const num = parseInt(team.streakCode.substring(1), 10);
-            if (num >= 2) {
+            if (num >= 4) {
               streakTag = `❄️ L${num}`;
               streakTypeClass = 'cold';
             }
