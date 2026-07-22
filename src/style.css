@@ -1568,14 +1568,18 @@ header {
 /* Dark Cyber Child Overrides inside Feature Modals */
 .recap-content p,
 .recap-content span,
-.recap-content label {
-  color: #e2e8f0;
+.recap-content label,
+.recap-content td,
+.recap-content th {
+  color: #cbd5e1;
 }
 
 .recap-content h1,
 .recap-content h2,
 .recap-content h3,
-.recap-content h4 {
+.recap-content h4,
+.recap-content strong,
+.recap-content b {
   color: #ffffff !important;
 }
 
@@ -1584,9 +1588,52 @@ header {
 .recap-content .whos-hot-card,
 .recap-content .game-card,
 .recap-content .matchup-card {
-  background: rgba(15, 23, 42, 0.75) !important;
-  border: 1px solid rgba(0, 229, 255, 0.2) !important;
+  background: rgba(15, 23, 42, 0.8) !important;
+  border: 1px solid rgba(0, 229, 255, 0.25) !important;
   color: #ffffff !important;
+}
+
+.recap-content .game-card.neutral {
+  opacity: 1 !important;
+  background: rgba(15, 23, 42, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+.recap-content .card-expand-hint {
+  background: rgba(0, 229, 255, 0.15) !important;
+  color: #00e5ff !important;
+  border: 1px solid rgba(0, 229, 255, 0.3) !important;
+  font-weight: 700 !important;
+}
+
+.recap-content .rooting-banner {
+  background: rgba(7, 19, 24, 0.95) !important;
+  border: 1px solid rgba(0, 229, 255, 0.3) !important;
+  color: #ffffff !important;
+}
+
+.recap-content .rooting-explanation {
+  color: #cbd5e1 !important;
+}
+
+.recap-content .tiebreaker-detail {
+  background: rgba(15, 23, 42, 0.85) !important;
+  color: #cbd5e1 !important;
+  border: 1px dashed #fbbf24 !important;
+}
+
+.recap-content .team-name {
+  color: #ffffff !important;
+  font-weight: 800 !important;
+}
+
+.recap-content .team-name.favorite {
+  color: #fbbf24 !important;
+}
+
+.recap-content .team-score {
+  color: #ffffff !important;
+  font-weight: 900 !important;
 }
 
 .recap-content input,
@@ -1594,6 +1641,16 @@ header {
   background: rgba(10, 24, 34, 0.9) !important;
   color: #ffffff !important;
   border: 1px solid rgba(0, 229, 255, 0.3) !important;
+}
+
+/* SVG Chart contrast in dark mode */
+.recap-content svg text {
+  fill: #cbd5e1 !important;
+  color: #cbd5e1 !important;
+}
+
+.recap-content svg line {
+  stroke: rgba(0, 229, 255, 0.2) !important;
 }
 
 .high-five-btn {
