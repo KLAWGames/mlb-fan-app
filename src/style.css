@@ -1492,7 +1492,7 @@ header {
 
 /* Doubleheader Cycling Node, Fuse Timer Bar & Border Keyframes */
 .vertical-team-node.doubleheader-node {
-  position: relative !important;
+  position: absolute !important;
 }
 
 .vertical-team-abbr-container {
@@ -1503,45 +1503,57 @@ header {
 }
 
 .fuse-timer-bar {
-  width: 34px !important;
-  height: 4px !important;
-  background: rgba(0, 0, 0, 0.75) !important;
-  border: 1px solid rgba(0, 229, 255, 0.4) !important;
+  width: 32px !important;
+  height: 3px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
   border-radius: 3px !important;
   overflow: hidden !important;
-  margin-top: 3px !important;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.8) !important;
+  margin-top: 2px !important;
 }
 
 .fuse-timer-progress {
   height: 100% !important;
-  background: linear-gradient(90deg, #ff0055 0%, #ffcc00 50%, #00e5ff 100%) !important;
   width: 100% !important;
-  border-radius: 2px !important;
-  box-shadow: 0 0 8px #00e5ff !important;
-  animation: fuseTimerShrink 6s infinite linear !important;
+  border-radius: 3px !important;
+  background: #00e5ff !important;
+  box-shadow: 0 0 6px #00e5ff, 0 0 12px rgba(0, 229, 255, 0.5) !important;
+  transform-origin: left center !important;
+  animation: fuseTimerBurn 6s infinite linear !important;
 }
 
-@keyframes fuseTimerShrink {
+@keyframes fuseTimerBurn {
   0% {
-    width: 100%;
+    transform: scaleX(1);
     background: #00e5ff;
+    box-shadow: 0 0 6px #00e5ff, 0 0 12px rgba(0, 229, 255, 0.5);
   }
-  45% {
-    width: 0%;
-    background: #ff0055;
+  35% {
+    background: #fbbf24;
+    box-shadow: 0 0 6px #fbbf24, 0 0 12px rgba(251, 191, 36, 0.5);
+  }
+  47% {
+    transform: scaleX(0);
+    background: #ff3366;
+    box-shadow: 0 0 8px #ff3366, 0 0 14px rgba(255, 51, 102, 0.6);
   }
   50% {
-    width: 100%;
+    transform: scaleX(1);
     background: #00e5ff;
+    box-shadow: 0 0 6px #00e5ff, 0 0 12px rgba(0, 229, 255, 0.5);
   }
-  95% {
-    width: 0%;
-    background: #ff0055;
+  85% {
+    background: #fbbf24;
+    box-shadow: 0 0 6px #fbbf24, 0 0 12px rgba(251, 191, 36, 0.5);
+  }
+  97% {
+    transform: scaleX(0);
+    background: #ff3366;
+    box-shadow: 0 0 8px #ff3366, 0 0 14px rgba(255, 51, 102, 0.6);
   }
   100% {
-    width: 100%;
+    transform: scaleX(1);
     background: #00e5ff;
+    box-shadow: 0 0 6px #00e5ff, 0 0 12px rgba(0, 229, 255, 0.5);
   }
 }
 
