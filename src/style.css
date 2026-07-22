@@ -1503,37 +1503,45 @@ header {
 }
 
 .fuse-timer-bar {
-  width: 26px !important;
-  height: 2.5px !important;
-  background: rgba(255, 255, 255, 0.2) !important;
-  border-radius: 2px !important;
+  width: 34px !important;
+  height: 4px !important;
+  background: rgba(0, 0, 0, 0.75) !important;
+  border: 1px solid rgba(0, 229, 255, 0.4) !important;
+  border-radius: 3px !important;
   overflow: hidden !important;
-  margin-top: 2px !important;
+  margin-top: 3px !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.8) !important;
 }
 
 .fuse-timer-progress {
   height: 100% !important;
-  background: linear-gradient(90deg, #00e5ff, #fbbf24) !important;
+  background: linear-gradient(90deg, #ff0055 0%, #ffcc00 50%, #00e5ff 100%) !important;
   width: 100% !important;
   border-radius: 2px !important;
+  box-shadow: 0 0 8px #00e5ff !important;
   animation: fuseTimerShrink 6s infinite linear !important;
 }
 
 @keyframes fuseTimerShrink {
   0% {
     width: 100%;
+    background: #00e5ff;
   }
-  47% {
+  45% {
     width: 0%;
+    background: #ff0055;
   }
   50% {
     width: 100%;
+    background: #00e5ff;
   }
-  97% {
+  95% {
     width: 0%;
+    background: #ff0055;
   }
   100% {
     width: 100%;
+    background: #00e5ff;
   }
 }
 
@@ -1549,25 +1557,26 @@ header {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
+  transition: opacity 0.25s ease-in-out !important;
 }
 
 .dh-game-group.dh-game-1 {
-  animation: dhGame1Cycle 6s infinite ease-in-out !important;
+  animation: dhGame1Cycle 6s infinite linear !important;
 }
 
 .dh-game-group.dh-game-2 {
-  animation: dhGame2Cycle 6s infinite ease-in-out !important;
+  animation: dhGame2Cycle 6s infinite linear !important;
 }
 
 @keyframes dhGame1Cycle {
-  0%, 46% {
+  0%, 45% {
     opacity: 1;
     transform: scale(1);
     visibility: visible;
   }
-  50%, 96% {
+  48%, 97% {
     opacity: 0;
-    transform: scale(0.92);
+    transform: scale(0.95);
     visibility: hidden;
   }
   100% {
@@ -1578,19 +1587,19 @@ header {
 }
 
 @keyframes dhGame2Cycle {
-  0%, 46% {
+  0%, 47% {
     opacity: 0;
-    transform: scale(0.92);
+    transform: scale(0.95);
     visibility: hidden;
   }
-  50%, 96% {
+  50%, 95% {
     opacity: 1;
     transform: scale(1);
     visibility: visible;
   }
-  100% {
+  98%, 100% {
     opacity: 0;
-    transform: scale(0.92);
+    transform: scale(0.95);
     visibility: hidden;
   }
 }
