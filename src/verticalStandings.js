@@ -572,40 +572,45 @@ export function createVerticalStandingsView(state, onBack) {
     }
   }
 
-  // Automatic Motion Replay Sequence
+  // Cinematic Motion Replay Sequence: Starts at top team (1st place) and pans down through all teams showing movement
   async function runMotionReplaySequence() {
     isPlayingAnimation = true;
     playMotionBtn.disabled = true;
     playMotionBtn.innerHTML = '⏳ Playing...';
 
-    // Step 1: Yesterday Start
+    // Step 1: Yesterday Start (Mount at top of standings - best team)
     activeSnapshotMode = 'yesterday-start';
     updateSnapshotBtnStyles();
-    infoBanner.innerText = 'Step 1/3: Yesterday Start — Standings before yesterday\'s games began';
-    updateNodesPosition(true);
+    infoBanner.innerText = 'Step 1/3: Yesterday Start — Mounting at top of standings (1st Place)...';
+    updateNodesPosition(false);
 
+    // Scroll smoothly to top of timeline
+    scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
     await new Promise(r => setTimeout(r, 1400));
 
-    // Step 2: Yesterday End (Today Start)
+    // Step 2: Yesterday End (Pan down through all teams while standings shift)
     activeSnapshotMode = 'yesterday-end';
     updateSnapshotBtnStyles();
-    infoBanner.innerText = 'Step 2/3: Yesterday End — Standings after yesterday\'s games completed';
+    infoBanner.innerText = 'Step 2/3: Yesterday End — Panning down through all teams to show movement...';
+    updateNodesPosition(false);
+
+    // Smoothly pan camera down the timeline to the bottom
+    const maxScrollTop = Math.max(0, scrollArea.scrollHeight - scrollArea.clientHeight);
+    scrollArea.scrollTo({ top: maxScrollTop, behavior: 'smooth' });
+    await new Promise(r => setTimeout(r, 2400));
+
+    // Step 3: Today Live (Transition to Today Live & center focus on favorite team)
+    activeSnapshotMode = 'today-live';
+    updateSnapshotBtnStyles();
+    infoBanner.innerText = 'Step 3/3: Today Live — Current standings & live movement...';
     updateNodesPosition(true);
 
     await new Promise(r => setTimeout(r, 1800));
 
-    // Step 3: Today Live
-    activeSnapshotMode = 'today-live';
-    updateSnapshotBtnStyles();
-    infoBanner.innerText = 'Step 3/3: Today Live — Current standings & live movement today';
-    updateNodesPosition(true);
-
-    await new Promise(r => setTimeout(r, 1600));
-
     isPlayingAnimation = false;
     playMotionBtn.disabled = false;
     playMotionBtn.innerHTML = '▶ Play Shift';
-    infoBanner.innerText = 'Animation complete! Tap any step or tap "Play Shift" to replay again.';
+    infoBanner.innerText = 'Replay complete! Tap any step or "Play Shift" to run again.';
   }
 
   renderTimeline();
