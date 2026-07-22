@@ -152,7 +152,7 @@ export function createVerticalStandingsView(state, onBack) {
   // Banner status for key legend & motion replay info
   const infoBanner = document.createElement('div');
   infoBanner.className = 'vertical-standings-key-box';
-  infoBanner.innerText = 'Viewing Live Standings. Tap "Play Shift" to highlight key standings movements.';
+  infoBanner.innerText = 'Viewing Live Standings. Tap "Play Shift" to watch simultaneous team movements.';
   container.appendChild(infoBanner);
 
   // Scroll Area for Timeline
@@ -398,7 +398,7 @@ export function createVerticalStandingsView(state, onBack) {
     }
   }
 
-  // Position a single team node for a target snapshot mode
+  // Position a single team node for a target snapshot mode with automatic left-alignment re-indexing
   function setSingleTeamPosition(teamId, mode) {
     const dataset = getSnapshotDataset(mode);
     const snapData = computeSnapshotData(dataset.processed);
@@ -410,6 +410,7 @@ export function createVerticalStandingsView(state, onBack) {
     const node = teamNodesMap[team.id];
     if (!node) return;
 
+    // Group teams by exact gbRel to compute deterministic left-aligned column positions
     const gbGroups = {};
     snapData.teamsWithPos.forEach(t => {
       const k = t.gbRel.toFixed(1);
@@ -597,7 +598,7 @@ export function createVerticalStandingsView(state, onBack) {
     }
   }
 
-  // Update all team node positions for full snapshot mode
+  // Update all team node positions simultaneously for full snapshot mode
   function updateNodesPosition(animateScroll = true) {
     const dataset = getSnapshotDataset(activeSnapshotMode);
     const snapData = computeSnapshotData(dataset.processed);
@@ -627,7 +628,7 @@ export function createVerticalStandingsView(state, onBack) {
     }
   }
 
-  // Standings Shift Replay: Focuses strictly on teams that gained/lost ground or tied
+  // Simultaneous Group Motion Replay: Interacting teams animate simultaneously in the exact same frame!
   async function runMotionReplaySequence() {
     isPlayingAnimation = true;
     cancelAnimationRequested = false;
@@ -640,10 +641,10 @@ export function createVerticalStandingsView(state, onBack) {
     const snapYestEnd = computeSnapshotData(getSnapshotDataset('yesterday-end').processed);
     const snapTodayLive = computeSnapshotData(getSnapshotDataset('today-live').processed);
 
-    // PASS 1: Yesterday Standings Shift (Focus on teams that gained/lost ground or tied yesterday)
+    // PASS 1: Yesterday Standings Shift (All Interacting Teams Animate Simultaneously)
     const moversYesterday = getMovingTeams(snapYestStart, snapYestEnd);
 
-    // Set snapshot mode to Yesterday Start
+    // Set all teams to Yesterday Start baseline
     activeSnapshotMode = 'yesterday-start';
     updateSnapshotBtnStyles();
     updateNodesPosition(false);
@@ -652,64 +653,17 @@ export function createVerticalStandingsView(state, onBack) {
       infoBanner.innerText = 'PASS 1/2: Yesterday Shift — No standings shifts yesterday.';
       await new Promise(r => setTimeout(r, 900));
     } else {
-      infoBanner.innerText = `PASS 1/2: Yesterday Shift — Highlighting ${moversYesterday.length} teams that shifted yesterday...`;
-      await new Promise(r => setTimeout(r, 600));
+      infoBanner.innerText = `PASS 1/2: Yesterday Shift — ${moversYesterday.length} teams shifting simultaneously yesterday...`;
+      
+      // Center camera on average focal region of moving teams
+      const avgY = moversYesterday.reduce((acc, t) => acc + (globalZeroLineY - (t.gbRel * globalPxPerGB)), 0) / moversYesterday.length;
+      scrollArea.scrollTo({ top: Math.max(0, avgY - scrollArea.clientHeight / 2), behavior: 'smooth' });
+      await new Promise(r => setTimeout(r, 700));
 
-      for (let i = 0; i < moversYesterday.length; i++) {
-        if (cancelAnimationRequested) break;
-        const team = moversYesterday[i];
-        const node = teamNodesMap[team.id];
-
-        infoBanner.innerText = `PASS 1/2 (Yesterday): ${team.name} ${team.shiftLabel} (${i + 1}/${moversYesterday.length})`;
-        scrollToTeamNode(team.id);
-        await new Promise(r => setTimeout(r, 400));
-        if (cancelAnimationRequested) break;
-
-        // Add cyan focus glow and floating shift pill
-        if (node) {
-          node.classList.add('animating-focus');
-          const badge = document.createElement('div');
-          badge.className = `vertical-shift-pill ${team.shiftClass}`;
-          badge.innerText = team.shiftLabel;
-          node.appendChild(badge);
-        }
-
-        setSingleTeamPosition(team.id, 'yesterday-end');
-
-        await new Promise(r => setTimeout(r, 950));
-        if (node) {
-          node.classList.remove('animating-focus');
-          const badge = node.querySelector('.vertical-shift-pill');
-          if (badge) badge.remove();
-        }
-      }
-    }
-
-    // PASS 2: Today Live Shift (Focus on teams that gained/lost ground or tied today)
-    if (!cancelAnimationRequested) {
-      const moversToday = getMovingTeams(snapYestEnd, snapTodayLive);
-
-      activeSnapshotMode = 'yesterday-end';
-      updateSnapshotBtnStyles();
-
-      if (moversToday.length === 0) {
-        infoBanner.innerText = 'PASS 2/2: Today Live Shift — No standings shifts today yet.';
-        await new Promise(r => setTimeout(r, 900));
-      } else {
-        infoBanner.innerText = `PASS 2/2: Today Live Shift — Highlighting ${moversToday.length} teams shifting today...`;
-        await new Promise(r => setTimeout(r, 600));
-
-        for (let i = 0; i < moversToday.length; i++) {
-          if (cancelAnimationRequested) break;
-          const team = moversToday[i];
+      if (!cancelAnimationRequested) {
+        // Attach shift pills and focus glows to ALL moving teams simultaneously
+        moversYesterday.forEach(team => {
           const node = teamNodesMap[team.id];
-
-          infoBanner.innerText = `PASS 2/2 (Today Live): ${team.name} ${team.shiftLabel} (${i + 1}/${moversToday.length})`;
-          scrollToTeamNode(team.id);
-          await new Promise(r => setTimeout(r, 400));
-          if (cancelAnimationRequested) break;
-
-          // Add cyan focus glow and floating shift pill
           if (node) {
             node.classList.add('animating-focus');
             const badge = document.createElement('div');
@@ -717,15 +671,69 @@ export function createVerticalStandingsView(state, onBack) {
             badge.innerText = team.shiftLabel;
             node.appendChild(badge);
           }
+        });
 
-          setSingleTeamPosition(team.id, 'today-live');
+        // Trigger simultaneous position update for ALL teams to Yesterday End in one frame!
+        activeSnapshotMode = 'yesterday-end';
+        updateSnapshotBtnStyles();
+        updateNodesPosition(false);
 
-          await new Promise(r => setTimeout(r, 950));
+        await new Promise(r => setTimeout(r, 1800));
+
+        // Clean up focus glows and shift pills
+        moversYesterday.forEach(team => {
+          const node = teamNodesMap[team.id];
           if (node) {
             node.classList.remove('animating-focus');
             const badge = node.querySelector('.vertical-shift-pill');
             if (badge) badge.remove();
           }
+        });
+      }
+    }
+
+    // PASS 2: Today Live Standings Shift (All Interacting Teams Animate Simultaneously)
+    if (!cancelAnimationRequested) {
+      const moversToday = getMovingTeams(snapYestEnd, snapTodayLive);
+
+      if (moversToday.length === 0) {
+        infoBanner.innerText = 'PASS 2/2: Today Live Shift — No standings shifts today yet.';
+        await new Promise(r => setTimeout(r, 900));
+      } else {
+        infoBanner.innerText = `PASS 2/2: Today Live Shift — ${moversToday.length} teams shifting simultaneously today...`;
+
+        const avgY = moversToday.reduce((acc, t) => acc + (globalZeroLineY - (t.gbRel * globalPxPerGB)), 0) / moversToday.length;
+        scrollArea.scrollTo({ top: Math.max(0, avgY - scrollArea.clientHeight / 2), behavior: 'smooth' });
+        await new Promise(r => setTimeout(r, 700));
+
+        if (!cancelAnimationRequested) {
+          // Attach shift pills and focus glows to ALL moving teams simultaneously
+          moversToday.forEach(team => {
+            const node = teamNodesMap[team.id];
+            if (node) {
+              node.classList.add('animating-focus');
+              const badge = document.createElement('div');
+              badge.className = `vertical-shift-pill ${team.shiftClass}`;
+              badge.innerText = team.shiftLabel;
+              node.appendChild(badge);
+            }
+          });
+
+          // Trigger simultaneous position update for ALL teams to Today Live in one frame!
+          activeSnapshotMode = 'today-live';
+          updateSnapshotBtnStyles();
+          updateNodesPosition(false);
+
+          await new Promise(r => setTimeout(r, 1800));
+
+          moversToday.forEach(team => {
+            const node = teamNodesMap[team.id];
+            if (node) {
+              node.classList.remove('animating-focus');
+              const badge = node.querySelector('.vertical-shift-pill');
+              if (badge) badge.remove();
+            }
+          });
         }
       }
     }
