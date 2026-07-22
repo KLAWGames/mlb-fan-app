@@ -111,21 +111,21 @@ export function createVerticalStandingsView(state, onBack) {
     if (isPlayingAnimation) cancelAnimationRequested = true;
     activeSnapshotMode = 'yesterday-start';
     updateSnapshotBtnStyles();
-    updateNodesPosition(false);
+    updateNodesPosition(false, true);
   });
 
   btnYestEnd.addEventListener('click', () => {
     if (isPlayingAnimation) cancelAnimationRequested = true;
     activeSnapshotMode = 'yesterday-end';
     updateSnapshotBtnStyles();
-    updateNodesPosition(false);
+    updateNodesPosition(false, true);
   });
 
   btnTodayLive.addEventListener('click', () => {
     if (isPlayingAnimation) cancelAnimationRequested = true;
     activeSnapshotMode = 'today-live';
     updateSnapshotBtnStyles();
-    updateNodesPosition(false);
+    updateNodesPosition(false, true);
   });
 
   snapshotGroup.appendChild(btnYestStart);
@@ -628,6 +628,49 @@ export function createVerticalStandingsView(state, onBack) {
     }
   }
 
+  let manualPopInTimer = null;
+
+  // Fade out old row labels for disappearing or changing rows
+  function fadeOutOldLabels(targetMode) {
+    if (manualPopInTimer) {
+      clearTimeout(manualPopInTimer);
+      manualPopInTimer = null;
+    }
+    const dataset = getSnapshotDataset(targetMode);
+    const snapData = computeSnapshotData(dataset.processed);
+    const targetActiveKeys = new Set(snapData.teamsWithPos.map(t => t.gbRel.toFixed(1)));
+
+    tickLabelElements.forEach(({ el, gbKey, isZero }) => {
+      const isNewActive = isZero || targetActiveKeys.has(gbKey);
+      if (!isNewActive && el.style.display !== 'none') {
+        el.classList.add('fade-out');
+      }
+    });
+  }
+
+  // Pop in new row labels AFTER team boxes arrive at their new location
+  function popInNewLabels(targetMode) {
+    const dataset = getSnapshotDataset(targetMode);
+    const snapData = computeSnapshotData(dataset.processed);
+    const targetActiveKeys = new Set(snapData.teamsWithPos.map(t => t.gbRel.toFixed(1)));
+
+    tickLabelElements.forEach(({ el, gbKey, isZero }) => {
+      const isNewActive = isZero || targetActiveKeys.has(gbKey);
+      if (isNewActive) {
+        const wasHidden = el.style.display === 'none' || el.classList.contains('fade-out');
+        el.style.display = 'block';
+        el.classList.remove('fade-out');
+        if (wasHidden) {
+          el.classList.add('pop-in');
+          setTimeout(() => el.classList.remove('pop-in'), 450);
+        }
+      } else {
+        el.style.display = 'none';
+        el.classList.remove('fade-out');
+      }
+    });
+  }
+
   // Step 1: Fade out old row labels for starting rows that will be vacated
   function fadeOldClusterLabels(clusterTeams, targetMode) {
     const dataset = getSnapshotDataset(targetMode);
@@ -662,26 +705,32 @@ export function createVerticalStandingsView(state, onBack) {
     });
   }
 
-  // Synchronize all left axis tick labels cleanly for a static snapshot mode
-  function updateNodesPosition(animateScroll = true) {
+  // Synchronize all left axis tick labels cleanly for a static snapshot mode with manual button support
+  function updateNodesPosition(animateScroll = true, isManualButtonClick = false) {
     const dataset = getSnapshotDataset(activeSnapshotMode);
     const snapData = computeSnapshotData(dataset.processed);
 
-    const activeRowKeys = new Set(snapData.teamsWithPos.map(t => t.gbRel.toFixed(1)));
+    if (isManualButtonClick) {
+      // 1. Fade out old labels for rows that are being vacated
+      fadeOutOldLabels(activeSnapshotMode);
 
-    tickLabelElements.forEach(({ el, gbKey, isZero }) => {
-      if (isZero || activeRowKeys.has(gbKey)) {
-        el.style.display = 'block';
-        el.classList.remove('fade-out');
-      } else {
-        el.style.display = 'none';
-        el.classList.remove('fade-out');
-      }
-    });
+      // 2. Animate team node card positions to target snapshot
+      snapData.teamsWithPos.forEach(team => {
+        setSingleTeamPosition(team.id, activeSnapshotMode);
+      });
 
-    snapData.teamsWithPos.forEach(team => {
-      setSingleTeamPosition(team.id, activeSnapshotMode);
-    });
+      // 3. Pop in new labels AFTER team boxes arrive at their new location (~1250ms)
+      manualPopInTimer = setTimeout(() => {
+        popInNewLabels(activeSnapshotMode);
+        manualPopInTimer = null;
+      }, 1250);
+    } else {
+      popInNewLabels(activeSnapshotMode);
+
+      snapData.teamsWithPos.forEach(team => {
+        setSingleTeamPosition(team.id, activeSnapshotMode);
+      });
+    }
 
     if (animateScroll) {
       scrollToTeamNode(state.activeTeamId);
