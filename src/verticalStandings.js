@@ -242,6 +242,7 @@ export function createVerticalStandingsView(state, onBack) {
         let metadataText = '';
         let oppTeamId = null;
         let oppAbbr = '';
+        let isWin = false;
 
         if (game) {
           const isAway = game.teams.away.team.id === team.id;
@@ -252,23 +253,30 @@ export function createVerticalStandingsView(state, onBack) {
 
           const detailedState = game.status?.detailedState || '';
           const statusCode = game.status?.statusCode || '';
+          const teamScore = isAway ? game.teams.away.score : game.teams.home.score;
+          const oppScore = isAway ? game.teams.home.score : game.teams.away.score;
 
           if (statusCode === 'F' || detailedState.includes('Final') || detailedState.includes('Completed')) {
-            // Completed Game
-            const teamScore = isAway ? game.teams.away.score : game.teams.home.score;
-            const oppScore = isAway ? game.teams.home.score : game.teams.away.score;
+            // Completed Game: Show Won/Lost + Score (Green for Win, Red for Loss)
             if (teamScore !== null && oppScore !== null) {
-              statusClass = teamScore > oppScore ? 'win' : 'loss';
+              isWin = teamScore > oppScore;
+              statusClass = isWin ? 'win' : 'loss';
+              metadataText = isWin ? `Won: ${teamScore} - ${oppScore}` : `Lost: ${teamScore} - ${oppScore}`;
             } else {
               statusClass = 'win';
+              metadataText = 'Final';
             }
           } else if (statusCode === 'I' || detailedState.includes('In Progress') || detailedState.includes('Live')) {
-            // Live Game
+            // Live Game: Show Live Score + Inning
             statusClass = 'live';
             const inn = game.linescore?.currentInningOrdinal ? `${game.linescore.currentInningOrdinal} INN` : 'LIVE';
-            metadataText = `LIVE - ${inn}`;
+            if (teamScore !== null && oppScore !== null) {
+              metadataText = `${teamScore} - ${oppScore} (${inn})`;
+            } else {
+              metadataText = `LIVE - ${inn}`;
+            }
           } else {
-            // Upcoming Game
+            // Upcoming Game: Show Start Time
             statusClass = 'upcoming';
             if (game.gameDate) {
               const d = new Date(game.gameDate);
@@ -320,10 +328,10 @@ export function createVerticalStandingsView(state, onBack) {
           node.appendChild(oppCircle);
         }
 
-        // Metadata Text below node (Inning or Start Time)
+        // Metadata Text below node (Win/Loss Score, Live Score, or Start Time)
         if (metadataText) {
           const metaDiv = document.createElement('div');
-          metaDiv.className = 'vertical-node-metadata';
+          metaDiv.className = `vertical-node-metadata ${statusClass}`;
           metaDiv.innerText = metadataText;
           node.appendChild(metaDiv);
         }
