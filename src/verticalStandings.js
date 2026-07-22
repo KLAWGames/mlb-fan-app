@@ -429,6 +429,14 @@ export function createVerticalStandingsView(state, onBack) {
     }
   }
 
+  function getDivisionLetter(team) {
+    const divName = team.divisionName || (teamsData[team.id] ? teamsData[team.id].divisionName : '') || '';
+    if (divName.includes('East')) return 'E';
+    if (divName.includes('Central')) return 'C';
+    if (divName.includes('West')) return 'W';
+    return '';
+  }
+
   // Position a single team node for a target snapshot mode with automatic left-alignment re-indexing
   function setSingleTeamPosition(teamId, mode) {
     const dataset = getSnapshotDataset(mode);
@@ -603,6 +611,14 @@ export function createVerticalStandingsView(state, onBack) {
     abbrSpan.style.cssText = 'font-family: var(--font-title); font-weight: 800; font-size: 13px; color: #ffffff;';
     abbrSpan.innerText = team.abbreviation;
     node.appendChild(abbrSpan);
+
+    const divLetter = getDivisionLetter(team);
+    if (divLetter) {
+      const divBadge = document.createElement('div');
+      divBadge.className = 'vertical-division-code';
+      divBadge.innerText = divLetter;
+      node.appendChild(divBadge);
+    }
 
     if (oppAbbr) {
       const oppCircle = document.createElement('div');

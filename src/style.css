@@ -2714,6 +2714,21 @@ header {
   text-shadow: 0 0 6px rgba(245, 158, 11, 0.4);
 }
 
+.vertical-division-code {
+  position: absolute;
+  bottom: 2px;
+  right: 5px;
+  font-size: 8.5px;
+  font-weight: 700;
+  font-family: var(--font-title);
+  color: #64748b;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+  z-index: 5;
+}
+
 
 
 
