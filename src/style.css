@@ -1536,7 +1536,7 @@ header {
     background: #ff3366;
     box-shadow: 0 0 8px #ff3366, 0 0 14px rgba(255, 51, 102, 0.6);
   }
-  50% {
+  47.1% {
     transform: scaleX(1);
     background: #00e5ff;
     box-shadow: 0 0 6px #00e5ff, 0 0 12px rgba(0, 229, 255, 0.5);
@@ -1549,6 +1549,11 @@ header {
     transform: scaleX(0);
     background: #ff3366;
     box-shadow: 0 0 8px #ff3366, 0 0 14px rgba(255, 51, 102, 0.6);
+  }
+  97.1% {
+    transform: scaleX(1);
+    background: #00e5ff;
+    box-shadow: 0 0 6px #00e5ff, 0 0 12px rgba(0, 229, 255, 0.5);
   }
   100% {
     transform: scaleX(1);
