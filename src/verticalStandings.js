@@ -15,6 +15,7 @@ export function createVerticalStandingsView(state, onBack) {
   // Snapshot mode: 'yesterday-start' | 'yesterday-end' | 'today-live'
   let activeSnapshotMode = 'today-live';
   let isPlayingAnimation = false;
+  let cancelAnimationRequested = false;
 
   // Header Bar
   const header = document.createElement('div');
@@ -27,6 +28,7 @@ export function createVerticalStandingsView(state, onBack) {
   backBtn.style.cssText = 'background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 4px;';
   backBtn.innerHTML = '← Back';
   backBtn.addEventListener('click', () => {
+    if (isPlayingAnimation) cancelAnimationRequested = true;
     if (onBack) onBack();
   });
   leftGroup.appendChild(backBtn);
@@ -56,7 +58,8 @@ export function createVerticalStandingsView(state, onBack) {
   nlBtn.innerText = 'NL';
 
   alBtn.addEventListener('click', () => {
-    if (activeLeagueId !== 103 && !isPlayingAnimation) {
+    if (activeLeagueId !== 103) {
+      if (isPlayingAnimation) cancelAnimationRequested = true;
       activeLeagueId = 103;
       updateToggleStyle();
       renderTimeline();
@@ -64,7 +67,8 @@ export function createVerticalStandingsView(state, onBack) {
   });
 
   nlBtn.addEventListener('click', () => {
-    if (activeLeagueId !== 104 && !isPlayingAnimation) {
+    if (activeLeagueId !== 104) {
+      if (isPlayingAnimation) cancelAnimationRequested = true;
       activeLeagueId = 104;
       updateToggleStyle();
       renderTimeline();
@@ -104,27 +108,24 @@ export function createVerticalStandingsView(state, onBack) {
   };
 
   btnYestStart.addEventListener('click', () => {
-    if (!isPlayingAnimation && activeSnapshotMode !== 'yesterday-start') {
-      activeSnapshotMode = 'yesterday-start';
-      updateSnapshotBtnStyles();
-      updateNodesPosition(true);
-    }
+    if (isPlayingAnimation) cancelAnimationRequested = true;
+    activeSnapshotMode = 'yesterday-start';
+    updateSnapshotBtnStyles();
+    updateNodesPosition(true);
   });
 
   btnYestEnd.addEventListener('click', () => {
-    if (!isPlayingAnimation && activeSnapshotMode !== 'yesterday-end') {
-      activeSnapshotMode = 'yesterday-end';
-      updateSnapshotBtnStyles();
-      updateNodesPosition(true);
-    }
+    if (isPlayingAnimation) cancelAnimationRequested = true;
+    activeSnapshotMode = 'yesterday-end';
+    updateSnapshotBtnStyles();
+    updateNodesPosition(true);
   });
 
   btnTodayLive.addEventListener('click', () => {
-    if (!isPlayingAnimation && activeSnapshotMode !== 'today-live') {
-      activeSnapshotMode = 'today-live';
-      updateSnapshotBtnStyles();
-      updateNodesPosition(true);
-    }
+    if (isPlayingAnimation) cancelAnimationRequested = true;
+    activeSnapshotMode = 'today-live';
+    updateSnapshotBtnStyles();
+    updateNodesPosition(true);
   });
 
   snapshotGroup.appendChild(btnYestStart);
@@ -132,14 +133,17 @@ export function createVerticalStandingsView(state, onBack) {
   snapshotGroup.appendChild(btnTodayLive);
   motionBar.appendChild(snapshotGroup);
 
-  // Play Shift Button
+  // Play / Stop Shift Button
   const playMotionBtn = document.createElement('button');
   playMotionBtn.className = 'motion-play-btn';
   playMotionBtn.innerHTML = '▶ Play Shift';
 
   playMotionBtn.addEventListener('click', () => {
-    if (isPlayingAnimation) return;
-    runMotionReplaySequence();
+    if (isPlayingAnimation) {
+      cancelAnimationRequested = true;
+    } else {
+      runMotionReplaySequence();
+    }
   });
 
   motionBar.appendChild(playMotionBtn);
@@ -148,7 +152,7 @@ export function createVerticalStandingsView(state, onBack) {
   // Banner status for key legend & motion replay info
   const infoBanner = document.createElement('div');
   infoBanner.className = 'vertical-standings-key-box';
-  infoBanner.innerText = 'Viewing Live Standings. Tap any step or "Play Shift" to animate standings movement.';
+  infoBanner.innerText = 'Viewing Live Standings. Tap "Play Shift" to watch team-by-team movement.';
   container.appendChild(infoBanner);
 
   // Scroll Area for Timeline
@@ -330,24 +334,34 @@ export function createVerticalStandingsView(state, onBack) {
     // Initial auto-scroll down to favorite team
     scrollArea.scrollTop = 0;
     setTimeout(() => {
-      const favNode = teamNodesMap[state.activeTeamId];
-      if (favNode) {
-        const targetY = favNode.offsetTop - (scrollArea.clientHeight / 2) + 20;
-        scrollArea.scrollTo({
-          top: Math.max(0, targetY),
-          behavior: 'smooth'
-        });
-      }
+      scrollToTeamNode(state.activeTeamId);
     }, 350);
   }
 
-  // Update Team Node Positions & Status Badges based on activeSnapshotMode
-  function updateNodesPosition(animateScroll = true) {
-    const dataset = getSnapshotDataset(activeSnapshotMode);
+  // Scroll camera to center on a specific team node
+  function scrollToTeamNode(teamId) {
+    const node = teamNodesMap[teamId];
+    if (node) {
+      const targetY = node.offsetTop - (scrollArea.clientHeight / 2) + 20;
+      scrollArea.scrollTo({
+        top: Math.max(0, targetY),
+        behavior: 'smooth'
+      });
+    }
+  }
+
+  // Position a single team node for a target snapshot mode
+  function setSingleTeamPosition(teamId, mode) {
+    const dataset = getSnapshotDataset(mode);
     const snapData = computeSnapshotData(dataset.processed);
     const schedule = dataset.schedule;
 
-    // Group teams by gbRel
+    const team = snapData.teamsWithPos.find(t => parseInt(t.id, 10) === parseInt(teamId, 10));
+    if (!team) return;
+
+    const node = teamNodesMap[team.id];
+    if (!node) return;
+
     const gbGroups = {};
     snapData.teamsWithPos.forEach(t => {
       const k = t.gbRel.toFixed(1);
@@ -355,10 +369,199 @@ export function createVerticalStandingsView(state, onBack) {
       gbGroups[k].push(t);
     });
 
-    // Track active rows for label visibility
-    const activeRowKeys = new Set(Object.keys(gbGroups));
+    const gbKey = team.gbRel.toFixed(1);
+    const group = gbGroups[gbKey] || [team];
+    const colIdx = group.findIndex(t => parseInt(t.id, 10) === parseInt(team.id, 10));
+    const col = colIdx >= 0 ? colIdx : 0;
 
-    // Update Left Axis Labels Visibility
+    const yPos = globalZeroLineY - (team.gbRel * globalPxPerGB) - 19;
+    const xPos = 78 + (col * 98);
+
+    node.style.top = `${yPos}px`;
+    node.style.left = `${xPos}px`;
+
+    node.innerHTML = '';
+
+    if (team.divisionLeader) {
+      const leaderBadge = document.createElement('div');
+      leaderBadge.className = 'vertical-div-leader-badge';
+      leaderBadge.innerHTML = `${team.divisionName || 'Division Leader'} ⭐`;
+      node.appendChild(leaderBadge);
+    }
+
+    const teamIdNum = parseInt(team.id, 10);
+    const game = schedule.find(g => {
+      const awayId = parseInt(g.teams?.away?.team?.id, 10);
+      const homeId = parseInt(g.teams?.home?.team?.id, 10);
+      return awayId === teamIdNum || homeId === teamIdNum;
+    });
+
+    let statusClass = 'upcoming';
+    let metadataText = '';
+    let oppAbbr = '';
+    let isWin = false;
+
+    if (game) {
+      const awayId = parseInt(game.teams?.away?.team?.id, 10);
+      const isAway = awayId === teamIdNum;
+      const oppTeamObj = isAway ? game.teams.home.team : game.teams.away.team;
+      const oppTeamId = parseInt(oppTeamObj?.id, 10);
+
+      const oppStatic = teamsData[oppTeamId];
+      if (oppStatic) {
+        oppAbbr = oppStatic.abbreviation;
+      } else if (oppTeamObj?.name) {
+        const found = Object.values(teamsData).find(t => 
+          t.name.toLowerCase().includes(oppTeamObj.name.toLowerCase()) || 
+          oppTeamObj.name.toLowerCase().includes(t.name.toLowerCase())
+        );
+        oppAbbr = found ? found.abbreviation : (oppTeamObj.triCode || oppTeamObj.name.substring(0, 3).toUpperCase());
+      }
+
+      const detailedState = game.status?.detailedState || '';
+      const statusCode = game.status?.statusCode || '';
+      const teamScore = isAway ? game.teams.away.score : game.teams.home.score;
+      const oppScore = isAway ? game.teams.home.score : game.teams.away.score;
+
+      if (dataset.isPreGame) {
+        statusClass = 'upcoming';
+        if (game.gameDate) {
+          const d = new Date(game.gameDate);
+          const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+          metadataText = `Start: ${timeStr}`;
+        } else {
+          metadataText = 'Pre-Game';
+        }
+      } else if (detailedState.includes('Postponed') || statusCode === 'D' || statusCode === 'DI' || statusCode === 'DR' || detailedState.includes('Cancelled') || detailedState.includes('Suspended')) {
+        statusClass = 'postponed';
+        metadataText = detailedState.includes('Postponed') ? 'Postponed' : (detailedState || 'Postponed');
+      } else if (statusCode === 'F' || detailedState.includes('Final') || detailedState.includes('Completed')) {
+        if (teamScore !== null && oppScore !== null) {
+          isWin = teamScore > oppScore;
+          statusClass = isWin ? 'win' : 'loss';
+          metadataText = isWin ? `Won: ${teamScore} - ${oppScore}` : `Lost: ${teamScore} - ${oppScore}`;
+        } else {
+          statusClass = 'win';
+          metadataText = 'Final';
+        }
+      } else if (statusCode === 'I' || detailedState.includes('In Progress') || detailedState.includes('Live')) {
+        statusClass = 'live';
+        const inn = game.linescore?.currentInningOrdinal ? `${game.linescore.currentInningOrdinal} INN` : 'LIVE';
+        if (teamScore !== null && oppScore !== null) {
+          metadataText = `${teamScore} - ${oppScore} (${inn})`;
+        } else {
+          metadataText = `LIVE - ${inn}`;
+        }
+      } else {
+        statusClass = 'upcoming';
+        if (game.gameDate) {
+          const d = new Date(game.gameDate);
+          const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+          metadataText = `Start Time: ${timeStr}`;
+        } else {
+          metadataText = 'Scheduled';
+        }
+      }
+    } else {
+      statusClass = 'upcoming';
+      metadataText = 'Off Day';
+    }
+
+    node.className = 'vertical-team-node ' + statusClass;
+    if (team.id === state.activeTeamId) {
+      node.classList.add('favorite');
+    }
+
+    let streakTag = null;
+    let streakTypeClass = null;
+
+    if (team.streakType === 'wins' && team.streakNumber >= 4) {
+      streakTag = `🔥 W${team.streakNumber}`;
+      streakTypeClass = 'hot';
+    } else if (team.streakType === 'losses' && team.streakNumber >= 4) {
+      streakTag = `❄️ L${team.streakNumber}`;
+      streakTypeClass = 'cold';
+    } else if (team.streakCode && team.streakCode !== '-') {
+      if (team.streakCode.startsWith('W')) {
+        const num = parseInt(team.streakCode.substring(1), 10);
+        if (num >= 4) {
+          streakTag = `🔥 W${num}`;
+          streakTypeClass = 'hot';
+        }
+      } else if (team.streakCode.startsWith('L')) {
+        const num = parseInt(team.streakCode.substring(1), 10);
+        if (num >= 4) {
+          streakTag = `❄️ L${num}`;
+          streakTypeClass = 'cold';
+        }
+      }
+    }
+
+    if (streakTag) {
+      const streakBadge = document.createElement('div');
+      streakBadge.className = `vertical-streak-badge ${streakTypeClass}`;
+      streakBadge.innerText = streakTag;
+      node.appendChild(streakBadge);
+    }
+
+    const logoBadge = document.createElement('div');
+    logoBadge.style.cssText = 'width: 24px; height: 24px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 2px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);';
+
+    const logoImg = document.createElement('img');
+    logoImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${team.abbreviation.toLowerCase()}.png`;
+    logoImg.alt = team.abbreviation;
+    logoImg.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
+    logoImg.onerror = () => {
+      const fallback = document.createElement('div');
+      fallback.style.cssText = `width: 20px; height: 20px; border-radius: 50%; background: ${team.primaryColor}; color: ${team.textColor}; display: flex; align-items: center; justify-content: center; font-size: 8.5px; font-weight: 800;`;
+      fallback.innerText = team.abbreviation.substring(0, 2);
+      if (logoBadge.parentNode) logoBadge.replaceChild(fallback, logoImg);
+    };
+    logoBadge.appendChild(logoImg);
+    node.appendChild(logoBadge);
+
+    const abbrSpan = document.createElement('span');
+    abbrSpan.style.cssText = 'font-family: var(--font-title); font-weight: 800; font-size: 13px; color: #ffffff;';
+    abbrSpan.innerText = team.abbreviation;
+    node.appendChild(abbrSpan);
+
+    if (oppAbbr) {
+      const oppCircle = document.createElement('div');
+      oppCircle.className = `vertical-opponent-circle ${statusClass}`;
+      
+      const oppImg = document.createElement('img');
+      oppImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${oppAbbr.toLowerCase()}.png`;
+      oppImg.style.cssText = 'width: 16px; height: 16px; object-fit: contain;';
+      oppImg.onerror = () => {
+        oppCircle.innerText = oppAbbr.substring(0, 2);
+        oppCircle.style.color = '#0f172a';
+        oppCircle.style.fontWeight = '900';
+      };
+      oppCircle.appendChild(oppImg);
+      node.appendChild(oppCircle);
+    }
+
+    if (metadataText) {
+      const metaDiv = document.createElement('div');
+      metaDiv.className = `vertical-node-metadata ${statusClass}`;
+      metaDiv.innerText = metadataText;
+      node.appendChild(metaDiv);
+    }
+  }
+
+  // Update all team node positions for full snapshot mode
+  function updateNodesPosition(animateScroll = true) {
+    const dataset = getSnapshotDataset(activeSnapshotMode);
+    const snapData = computeSnapshotData(dataset.processed);
+
+    const gbGroups = {};
+    snapData.teamsWithPos.forEach(t => {
+      const k = t.gbRel.toFixed(1);
+      if (!gbGroups[k]) gbGroups[k] = [];
+      gbGroups[k].push(t);
+    });
+
+    const activeRowKeys = new Set(Object.keys(gbGroups));
     tickLabelElements.forEach(({ el, gbKey, isZero }) => {
       if (isZero || activeRowKeys.has(gbKey)) {
         el.style.display = 'block';
@@ -367,249 +570,92 @@ export function createVerticalStandingsView(state, onBack) {
       }
     });
 
-    let favoriteNodeEl = null;
-
-    // Position each team node
     snapData.teamsWithPos.forEach(team => {
-      const node = teamNodesMap[team.id];
-      if (!node) return;
-
-      const gbKey = team.gbRel.toFixed(1);
-      const group = gbGroups[gbKey] || [team];
-      const colIdx = group.findIndex(t => t.id === team.id);
-      const col = colIdx >= 0 ? colIdx : 0;
-
-      const yPos = globalZeroLineY - (team.gbRel * globalPxPerGB) - 19;
-      const xPos = 78 + (col * 98);
-
-      node.style.top = `${yPos}px`;
-      node.style.left = `${xPos}px`;
-
-      // Clear previous inner content
-      node.innerHTML = '';
-
-      // Division Leader Badge
-      if (team.divisionLeader) {
-        const leaderBadge = document.createElement('div');
-        leaderBadge.className = 'vertical-div-leader-badge';
-        leaderBadge.innerHTML = `${team.divisionName || 'Division Leader'} ⭐`;
-        node.appendChild(leaderBadge);
-      }
-
-      // Game & Matchup Status for activeSnapshotMode
-      const teamIdNum = parseInt(team.id, 10);
-      const game = schedule.find(g => {
-        const awayId = parseInt(g.teams?.away?.team?.id, 10);
-        const homeId = parseInt(g.teams?.home?.team?.id, 10);
-        return awayId === teamIdNum || homeId === teamIdNum;
-      });
-
-      let statusClass = 'upcoming';
-      let metadataText = '';
-      let oppAbbr = '';
-      let isWin = false;
-
-      if (game) {
-        const awayId = parseInt(game.teams?.away?.team?.id, 10);
-        const isAway = awayId === teamIdNum;
-        const oppTeamObj = isAway ? game.teams.home.team : game.teams.away.team;
-        const oppTeamId = parseInt(oppTeamObj?.id, 10);
-
-        const oppStatic = teamsData[oppTeamId];
-        if (oppStatic) {
-          oppAbbr = oppStatic.abbreviation;
-        } else if (oppTeamObj?.name) {
-          const found = Object.values(teamsData).find(t => 
-            t.name.toLowerCase().includes(oppTeamObj.name.toLowerCase()) || 
-            oppTeamObj.name.toLowerCase().includes(t.name.toLowerCase())
-          );
-          oppAbbr = found ? found.abbreviation : (oppTeamObj.triCode || oppTeamObj.name.substring(0, 3).toUpperCase());
-        }
-
-        const detailedState = game.status?.detailedState || '';
-        const statusCode = game.status?.statusCode || '';
-        const teamScore = isAway ? game.teams.away.score : game.teams.home.score;
-        const oppScore = isAway ? game.teams.home.score : game.teams.away.score;
-
-        if (dataset.isPreGame) {
-          // Yesterday Start snapshot (before games played)
-          statusClass = 'upcoming';
-          if (game.gameDate) {
-            const d = new Date(game.gameDate);
-            const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-            metadataText = `Start: ${timeStr}`;
-          } else {
-            metadataText = 'Pre-Game';
-          }
-        } else if (detailedState.includes('Postponed') || statusCode === 'D' || statusCode === 'DI' || statusCode === 'DR' || detailedState.includes('Cancelled') || detailedState.includes('Suspended')) {
-          statusClass = 'postponed';
-          metadataText = detailedState.includes('Postponed') ? 'Postponed' : (detailedState || 'Postponed');
-        } else if (statusCode === 'F' || detailedState.includes('Final') || detailedState.includes('Completed')) {
-          if (teamScore !== null && oppScore !== null) {
-            isWin = teamScore > oppScore;
-            statusClass = isWin ? 'win' : 'loss';
-            metadataText = isWin ? `Won: ${teamScore} - ${oppScore}` : `Lost: ${teamScore} - ${oppScore}`;
-          } else {
-            statusClass = 'win';
-            metadataText = 'Final';
-          }
-        } else if (statusCode === 'I' || detailedState.includes('In Progress') || detailedState.includes('Live')) {
-          statusClass = 'live';
-          const inn = game.linescore?.currentInningOrdinal ? `${game.linescore.currentInningOrdinal} INN` : 'LIVE';
-          if (teamScore !== null && oppScore !== null) {
-            metadataText = `${teamScore} - ${oppScore} (${inn})`;
-          } else {
-            metadataText = `LIVE - ${inn}`;
-          }
-        } else {
-          statusClass = 'upcoming';
-          if (game.gameDate) {
-            const d = new Date(game.gameDate);
-            const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-            metadataText = `Start Time: ${timeStr}`;
-          } else {
-            metadataText = 'Scheduled';
-          }
-        }
-      } else {
-        statusClass = 'upcoming';
-        metadataText = 'Off Day';
-      }
-
-      node.className = 'vertical-team-node ' + statusClass;
-      if (team.id === state.activeTeamId) {
-        node.classList.add('favorite');
-        favoriteNodeEl = node;
-      }
-
-      // Hot / Cold Streak tag if team is on 4+ streak
-      let streakTag = null;
-      let streakTypeClass = null;
-
-      if (team.streakType === 'wins' && team.streakNumber >= 4) {
-        streakTag = `🔥 W${team.streakNumber}`;
-        streakTypeClass = 'hot';
-      } else if (team.streakType === 'losses' && team.streakNumber >= 4) {
-        streakTag = `❄️ L${team.streakNumber}`;
-        streakTypeClass = 'cold';
-      } else if (team.streakCode && team.streakCode !== '-') {
-        if (team.streakCode.startsWith('W')) {
-          const num = parseInt(team.streakCode.substring(1), 10);
-          if (num >= 4) {
-            streakTag = `🔥 W${num}`;
-            streakTypeClass = 'hot';
-          }
-        } else if (team.streakCode.startsWith('L')) {
-          const num = parseInt(team.streakCode.substring(1), 10);
-          if (num >= 4) {
-            streakTag = `❄️ L${num}`;
-            streakTypeClass = 'cold';
-          }
-        }
-      }
-
-      if (streakTag) {
-        const streakBadge = document.createElement('div');
-        streakBadge.className = `vertical-streak-badge ${streakTypeClass}`;
-        streakBadge.innerText = streakTag;
-        node.appendChild(streakBadge);
-      }
-
-      // Primary Team Logo with high-contrast light backing
-      const logoBadge = document.createElement('div');
-      logoBadge.style.cssText = 'width: 24px; height: 24px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 2px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);';
-
-      const logoImg = document.createElement('img');
-      logoImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${team.abbreviation.toLowerCase()}.png`;
-      logoImg.alt = team.abbreviation;
-      logoImg.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
-      logoImg.onerror = () => {
-        const fallback = document.createElement('div');
-        fallback.style.cssText = `width: 20px; height: 20px; border-radius: 50%; background: ${team.primaryColor}; color: ${team.textColor}; display: flex; align-items: center; justify-content: center; font-size: 8.5px; font-weight: 800;`;
-        fallback.innerText = team.abbreviation.substring(0, 2);
-        if (logoBadge.parentNode) logoBadge.replaceChild(fallback, logoImg);
-      };
-      logoBadge.appendChild(logoImg);
-      node.appendChild(logoBadge);
-
-      const abbrSpan = document.createElement('span');
-      abbrSpan.style.cssText = 'font-family: var(--font-title); font-weight: 800; font-size: 13px; color: #ffffff;';
-      abbrSpan.innerText = team.abbreviation;
-      node.appendChild(abbrSpan);
-
-      // Small Corner Opponent Circle with high-contrast white backing
-      if (oppAbbr) {
-        const oppCircle = document.createElement('div');
-        oppCircle.className = `vertical-opponent-circle ${statusClass}`;
-        
-        const oppImg = document.createElement('img');
-        oppImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${oppAbbr.toLowerCase()}.png`;
-        oppImg.style.cssText = 'width: 16px; height: 16px; object-fit: contain;';
-        oppImg.onerror = () => {
-          oppCircle.innerText = oppAbbr.substring(0, 2);
-          oppCircle.style.color = '#0f172a';
-          oppCircle.style.fontWeight = '900';
-        };
-        oppCircle.appendChild(oppImg);
-        node.appendChild(oppCircle);
-      }
-
-      // Metadata Text
-      if (metadataText) {
-        const metaDiv = document.createElement('div');
-        metaDiv.className = `vertical-node-metadata ${statusClass}`;
-        metaDiv.innerText = metadataText;
-        node.appendChild(metaDiv);
-      }
+      setSingleTeamPosition(team.id, activeSnapshotMode);
     });
 
-    if (animateScroll && favoriteNodeEl) {
-      const targetY = favoriteNodeEl.offsetTop - (scrollArea.clientHeight / 2) + 20;
-      scrollArea.scrollTo({
-        top: Math.max(0, targetY),
-        behavior: 'smooth'
-      });
+    if (animateScroll) {
+      scrollToTeamNode(state.activeTeamId);
     }
   }
 
-  // Cinematic Motion Replay Sequence: Starts at top team (1st place) and pans down through all teams showing movement
+  // Detailed Team-by-Team Replay Sequence
   async function runMotionReplaySequence() {
     isPlayingAnimation = true;
-    playMotionBtn.disabled = true;
-    playMotionBtn.innerHTML = '⏳ Playing...';
+    cancelAnimationRequested = false;
 
-    // Step 1: Yesterday Start (Mount at top of standings - best team)
+    playMotionBtn.innerHTML = '⏹ Stop';
+    playMotionBtn.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
+    playMotionBtn.style.color = '#ffffff';
+
+    const snapToday = computeSnapshotData(state.processedStandings);
+    const sortedTeams = snapToday.teamsWithPos; // Teams sorted 1st place down to 15th place
+
+    // STEP 1: Set ALL teams to Yesterday Start initially
     activeSnapshotMode = 'yesterday-start';
     updateSnapshotBtnStyles();
-    infoBanner.innerText = 'Step 1/3: Yesterday Start — Mounting at top of standings (1st Place)...';
     updateNodesPosition(false);
 
-    // Scroll smoothly to top of timeline
-    scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
-    await new Promise(r => setTimeout(r, 1400));
+    // PASS 1: Yesterday Movement (Team by Team)
+    infoBanner.innerText = 'PASS 1/2: Yesterday Shift — Watching each team\'s movement yesterday...';
+    await new Promise(r => setTimeout(r, 600));
 
-    // Step 2: Yesterday End (Pan down through all teams while standings shift)
-    activeSnapshotMode = 'yesterday-end';
-    updateSnapshotBtnStyles();
-    infoBanner.innerText = 'Step 2/3: Yesterday End — Panning down through all teams to show movement...';
-    updateNodesPosition(false);
+    for (let i = 0; i < sortedTeams.length; i++) {
+      if (cancelAnimationRequested) break;
+      const team = sortedTeams[i];
+      const node = teamNodesMap[team.id];
 
-    // Smoothly pan camera down the timeline to the bottom
-    const maxScrollTop = Math.max(0, scrollArea.scrollHeight - scrollArea.clientHeight);
-    scrollArea.scrollTo({ top: maxScrollTop, behavior: 'smooth' });
-    await new Promise(r => setTimeout(r, 2400));
+      infoBanner.innerText = `PASS 1/2 (Yesterday): ${team.name} (${i + 1}/${sortedTeams.length})`;
+      scrollToTeamNode(team.id);
+      await new Promise(r => setTimeout(r, 450));
+      if (cancelAnimationRequested) break;
 
-    // Step 3: Today Live (Transition to Today Live & center focus on favorite team)
+      // Animate team from yesterday-start -> yesterday-end
+      if (node) node.classList.add('animating-focus');
+      setSingleTeamPosition(team.id, 'yesterday-end');
+      
+      await new Promise(r => setTimeout(r, 900));
+      if (node) node.classList.remove('animating-focus');
+    }
+
+    // PASS 2: Today Movement (Team by Team)
+    if (!cancelAnimationRequested) {
+      infoBanner.innerText = 'PASS 2/2: Today Shift — Watching each team\'s movement today...';
+      activeSnapshotMode = 'yesterday-end';
+      updateSnapshotBtnStyles();
+      await new Promise(r => setTimeout(r, 600));
+
+      for (let i = 0; i < sortedTeams.length; i++) {
+        if (cancelAnimationRequested) break;
+        const team = sortedTeams[i];
+        const node = teamNodesMap[team.id];
+
+        infoBanner.innerText = `PASS 2/2 (Today Live): ${team.name} (${i + 1}/${sortedTeams.length})`;
+        scrollToTeamNode(team.id);
+        await new Promise(r => setTimeout(r, 450));
+        if (cancelAnimationRequested) break;
+
+        // Animate team from yesterday-end -> today-live
+        if (node) node.classList.add('animating-focus');
+        setSingleTeamPosition(team.id, 'today-live');
+
+        await new Promise(r => setTimeout(r, 900));
+        if (node) node.classList.remove('animating-focus');
+      }
+    }
+
+    // Wrap Up Replay
+    isPlayingAnimation = false;
+    cancelAnimationRequested = false;
     activeSnapshotMode = 'today-live';
     updateSnapshotBtnStyles();
-    infoBanner.innerText = 'Step 3/3: Today Live — Current standings & live movement...';
-    updateNodesPosition(true);
+    updateNodesPosition(false);
 
-    await new Promise(r => setTimeout(r, 1800));
+    scrollToTeamNode(state.activeTeamId);
 
-    isPlayingAnimation = false;
-    playMotionBtn.disabled = false;
     playMotionBtn.innerHTML = '▶ Play Shift';
+    playMotionBtn.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+    playMotionBtn.style.color = '#000000';
     infoBanner.innerText = 'Replay complete! Tap any step or "Play Shift" to run again.';
   }
 
