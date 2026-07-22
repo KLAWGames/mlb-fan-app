@@ -437,6 +437,143 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     return '';
   }
 
+  function parseGameData(game, teamIdNum, dataset) {
+    if (!game) {
+      return {
+        statusClass: 'upcoming',
+        metadataText: 'Off Day',
+        oppAbbr: '',
+        isInterleague: false,
+        oppLeagueId: null,
+        teamScore: null,
+        oppScore: null
+      };
+    }
+
+    const awayId = parseInt(game.teams?.away?.team?.id, 10);
+    const isAway = awayId === teamIdNum;
+    const oppTeamObj = isAway ? game.teams.home.team : game.teams.away.team;
+    const oppTeamId = parseInt(oppTeamObj?.id, 10);
+
+    let oppAbbr = '';
+    let oppLeagueId = null;
+
+    const oppStatic = teamsData[oppTeamId];
+    if (oppStatic) {
+      oppAbbr = oppStatic.abbreviation;
+      oppLeagueId = oppStatic.leagueId;
+    } else if (oppTeamObj?.name) {
+      const found = Object.values(teamsData).find(t => 
+        t.name.toLowerCase().includes(oppTeamObj.name.toLowerCase()) || 
+        oppTeamObj.name.toLowerCase().includes(t.name.toLowerCase())
+      );
+      oppAbbr = found ? found.abbreviation : (oppTeamObj.triCode || oppTeamObj.name.substring(0, 3).toUpperCase());
+      oppLeagueId = found ? found.leagueId : null;
+    }
+
+    const teamLeagueId = teamsData[teamIdNum]?.leagueId || (state.processedStandings?.teamsMap?.[teamIdNum]?.leagueId);
+    const isInterleague = Boolean(teamLeagueId && oppLeagueId && teamLeagueId !== oppLeagueId);
+
+    const detailedState = game.status?.detailedState || '';
+    const statusCode = game.status?.statusCode || '';
+    const teamScore = isAway ? game.teams.away.score : game.teams.home.score;
+    const oppScore = isAway ? game.teams.home.score : game.teams.away.score;
+
+    let statusClass = 'upcoming';
+    let metadataText = '';
+
+    if (dataset && dataset.isPreGame) {
+      statusClass = 'upcoming';
+      if (game.gameDate) {
+        const d = new Date(game.gameDate);
+        const hours = d.getHours() % 12 || 12;
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        const ampm = d.getHours() >= 12 ? 'P' : 'A';
+        metadataText = `Start: ${hours}:${minutes}${ampm}`;
+      } else {
+        metadataText = 'Pre-Game';
+      }
+    } else if (detailedState.includes('Postponed') || statusCode === 'D' || statusCode === 'DI' || statusCode === 'DR' || detailedState.includes('Cancelled') || detailedState.includes('Suspended')) {
+      statusClass = 'postponed';
+      metadataText = detailedState.includes('Postponed') ? 'Postponed' : (detailedState || 'Postponed');
+    } else if (statusCode === 'F' || detailedState.includes('Final') || detailedState.includes('Completed')) {
+      if (teamScore !== null && teamScore !== undefined && oppScore !== null && oppScore !== undefined) {
+        const isWin = teamScore > oppScore;
+        statusClass = isWin ? 'win' : 'loss';
+        metadataText = isWin ? `Won: ${teamScore} - ${oppScore}` : `Lost: ${teamScore} - ${oppScore}`;
+      } else {
+        statusClass = 'win';
+        metadataText = 'Final';
+      }
+    } else if (statusCode === 'I' || detailedState.includes('In Progress') || detailedState.includes('Live')) {
+      statusClass = 'live';
+      const inn = game.linescore?.currentInningOrdinal ? `${game.linescore.currentInningOrdinal} INN` : 'LIVE';
+      if (teamScore !== null && teamScore !== undefined && oppScore !== null && oppScore !== undefined) {
+        metadataText = `${teamScore} - ${oppScore} (${inn})`;
+      } else {
+        metadataText = `LIVE - ${inn}`;
+      }
+    } else {
+      statusClass = 'upcoming';
+      if (game.gameDate) {
+        const d = new Date(game.gameDate);
+        const hours = d.getHours() % 12 || 12;
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        const ampm = d.getHours() >= 12 ? 'P' : 'A';
+        metadataText = `Start: ${hours}:${minutes}${ampm}`;
+      } else {
+        metadataText = 'Scheduled';
+      }
+    }
+
+    return { statusClass, metadataText, oppAbbr, isInterleague, oppLeagueId, teamScore, oppScore, game };
+  }
+
+  function createDhGameGroup(gData, gameNum) {
+    const group = document.createElement('div');
+    group.className = `dh-game-group dh-game-${gameNum}`;
+
+    if (gData.oppAbbr) {
+      const oppCircle = document.createElement('div');
+      oppCircle.className = `vertical-opponent-circle ${gData.statusClass}`;
+      
+      if (gData.isInterleague && gData.oppLeagueId) {
+        oppCircle.classList.add('interleague-cycle');
+        const oppLeagueCode = gData.oppLeagueId === 103 ? 'AL' : 'NL';
+        oppCircle.title = `G${gameNum} Interleague vs ${oppLeagueCode} (${gData.oppAbbr})`;
+
+        const oppTeamImg = document.createElement('img');
+        oppTeamImg.className = 'opp-team-logo';
+        oppTeamImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${gData.oppAbbr.toLowerCase()}.png`;
+
+        const oppLeagueImg = document.createElement('img');
+        oppLeagueImg.className = 'opp-league-logo';
+        const oppLeagueSvg = gData.oppLeagueId === 103 
+          ? 'https://www.mlbstatic.com/team-logos/league-on-light/103.svg' 
+          : 'https://www.mlbstatic.com/team-logos/league-on-light/104.svg';
+        oppLeagueImg.src = oppLeagueSvg;
+
+        oppCircle.appendChild(oppTeamImg);
+        oppCircle.appendChild(oppLeagueImg);
+      } else {
+        const oppImg = document.createElement('img');
+        oppImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${gData.oppAbbr.toLowerCase()}.png`;
+        oppImg.style.cssText = 'width: 16px; height: 16px; object-fit: contain;';
+        oppCircle.appendChild(oppImg);
+      }
+      group.appendChild(oppCircle);
+    }
+
+    if (gData.metadataText) {
+      const metaDiv = document.createElement('div');
+      metaDiv.className = `vertical-node-metadata ${gData.statusClass}`;
+      metaDiv.innerText = `G${gameNum}: ${gData.metadataText}`;
+      group.appendChild(metaDiv);
+    }
+
+    return group;
+  }
+
   // Position a single team node for a target snapshot mode with automatic left-alignment re-indexing
   function setSingleTeamPosition(teamId, mode) {
     const dataset = getSnapshotDataset(mode);
@@ -477,96 +614,11 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     }
 
     const teamIdNum = parseInt(team.id, 10);
-    const game = schedule.find(g => {
+    const teamGames = schedule.filter(g => {
       const awayId = parseInt(g.teams?.away?.team?.id, 10);
       const homeId = parseInt(g.teams?.home?.team?.id, 10);
       return awayId === teamIdNum || homeId === teamIdNum;
     });
-
-    let statusClass = 'upcoming';
-    let metadataText = '';
-    let oppAbbr = '';
-    let isWin = false;
-    let isInterleague = false;
-    let oppLeagueId = null;
-
-    if (game) {
-      const awayId = parseInt(game.teams?.away?.team?.id, 10);
-      const isAway = awayId === teamIdNum;
-      const oppTeamObj = isAway ? game.teams.home.team : game.teams.away.team;
-      const oppTeamId = parseInt(oppTeamObj?.id, 10);
-
-      const oppStatic = teamsData[oppTeamId];
-      if (oppStatic) {
-        oppAbbr = oppStatic.abbreviation;
-        oppLeagueId = oppStatic.leagueId;
-      } else if (oppTeamObj?.name) {
-        const found = Object.values(teamsData).find(t => 
-          t.name.toLowerCase().includes(oppTeamObj.name.toLowerCase()) || 
-          oppTeamObj.name.toLowerCase().includes(t.name.toLowerCase())
-        );
-        oppAbbr = found ? found.abbreviation : (oppTeamObj.triCode || oppTeamObj.name.substring(0, 3).toUpperCase());
-        oppLeagueId = found ? found.leagueId : null;
-      }
-
-      const teamLeagueId = team.leagueId || (teamsData[team.id] ? teamsData[team.id].leagueId : null);
-      if (teamLeagueId && oppLeagueId && teamLeagueId !== oppLeagueId) {
-        isInterleague = true;
-      }
-
-      const detailedState = game.status?.detailedState || '';
-      const statusCode = game.status?.statusCode || '';
-      const teamScore = isAway ? game.teams.away.score : game.teams.home.score;
-      const oppScore = isAway ? game.teams.home.score : game.teams.away.score;
-
-      if (dataset.isPreGame) {
-        statusClass = 'upcoming';
-        if (game.gameDate) {
-          const d = new Date(game.gameDate);
-          const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-          metadataText = `Start: ${timeStr}`;
-        } else {
-          metadataText = 'Pre-Game';
-        }
-      } else if (detailedState.includes('Postponed') || statusCode === 'D' || statusCode === 'DI' || statusCode === 'DR' || detailedState.includes('Cancelled') || detailedState.includes('Suspended')) {
-        statusClass = 'postponed';
-        metadataText = detailedState.includes('Postponed') ? 'Postponed' : (detailedState || 'Postponed');
-      } else if (statusCode === 'F' || detailedState.includes('Final') || detailedState.includes('Completed')) {
-        if (teamScore !== null && oppScore !== null) {
-          isWin = teamScore > oppScore;
-          statusClass = isWin ? 'win' : 'loss';
-          metadataText = isWin ? `Won: ${teamScore} - ${oppScore}` : `Lost: ${teamScore} - ${oppScore}`;
-        } else {
-          statusClass = 'win';
-          metadataText = 'Final';
-        }
-      } else if (statusCode === 'I' || detailedState.includes('In Progress') || detailedState.includes('Live')) {
-        statusClass = 'live';
-        const inn = game.linescore?.currentInningOrdinal ? `${game.linescore.currentInningOrdinal} INN` : 'LIVE';
-        if (teamScore !== null && oppScore !== null) {
-          metadataText = `${teamScore} - ${oppScore} (${inn})`;
-        } else {
-          metadataText = `LIVE - ${inn}`;
-        }
-      } else {
-        statusClass = 'upcoming';
-        if (game.gameDate) {
-          const d = new Date(game.gameDate);
-          const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-          metadataText = `Start Time: ${timeStr}`;
-        } else {
-          metadataText = 'Scheduled';
-        }
-      }
-    } else {
-      statusClass = 'upcoming';
-      metadataText = 'Off Day';
-    }
-
-    node.className = 'vertical-team-node ' + statusClass;
-    if (team.id === state.activeTeamId) {
-      node.classList.add('favorite');
-    }
 
     let streakTag = null;
     let streakTypeClass = null;
@@ -580,114 +632,168 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     } else if (team.streakCode && team.streakCode !== '-') {
       if (team.streakCode.startsWith('W')) {
         const num = parseInt(team.streakCode.substring(1), 10);
-        if (num >= 4) {
-          streakTag = `🔥 W${num}`;
-          streakTypeClass = 'hot';
-        }
+        if (num >= 4) streakTag = `🔥 W${num}`;
       } else if (team.streakCode.startsWith('L')) {
         const num = parseInt(team.streakCode.substring(1), 10);
-        if (num >= 4) {
-          streakTag = `❄️ L${num}`;
-          streakTypeClass = 'cold';
+        if (num >= 4) streakTag = `❄️ L${num}`;
+      }
+    }
+
+    if (teamGames.length > 1) {
+      // MULTI-GAME / DOUBLEHEADER DAY!
+      const g1Data = parseGameData(teamGames[0], teamIdNum, dataset);
+      const g2Data = parseGameData(teamGames[1], teamIdNum, dataset);
+
+      node.className = `vertical-team-node doubleheader-node dh-border-cycle-${g1Data.statusClass}-${g2Data.statusClass}`;
+      if (team.id === state.activeTeamId) node.classList.add('favorite');
+
+      // DH Badge
+      const dhBadge = document.createElement('div');
+      dhBadge.className = 'vertical-dh-badge';
+      dhBadge.innerText = 'DH';
+      node.appendChild(dhBadge);
+
+      // Streak Badge
+      if (streakTag) {
+        const streakBadge = document.createElement('div');
+        streakBadge.className = `vertical-streak-badge ${streakTypeClass || 'hot'}`;
+        streakBadge.innerText = streakTag;
+        node.appendChild(streakBadge);
+      }
+
+      // Team Logo Badge
+      const logoBadge = document.createElement('div');
+      logoBadge.style.cssText = 'width: 24px; height: 24px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 2px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);';
+      const logoImg = document.createElement('img');
+      logoImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${team.abbreviation.toLowerCase()}.png`;
+      logoImg.alt = team.abbreviation;
+      logoImg.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
+      logoBadge.appendChild(logoImg);
+      node.appendChild(logoBadge);
+
+      // Abbreviation + Fuse Timer Bar
+      const abbrContainer = document.createElement('div');
+      abbrContainer.className = 'vertical-team-abbr-container';
+      
+      const abbrSpan = document.createElement('span');
+      abbrSpan.style.cssText = 'font-family: var(--font-title); font-weight: 800; font-size: 13px; color: #ffffff; line-height: 1;';
+      abbrSpan.innerText = team.abbreviation;
+      abbrContainer.appendChild(abbrSpan);
+
+      const fuseBar = document.createElement('div');
+      fuseBar.className = 'fuse-timer-bar';
+      const fuseProgress = document.createElement('div');
+      fuseProgress.className = 'fuse-timer-progress';
+      fuseBar.appendChild(fuseProgress);
+      abbrContainer.appendChild(fuseBar);
+
+      node.appendChild(abbrContainer);
+
+      // Division Code Badge
+      const divLetter = getDivisionLetter(team);
+      if (divLetter) {
+        const divBadge = document.createElement('div');
+        divBadge.className = 'vertical-division-code';
+        divBadge.innerText = divLetter;
+        node.appendChild(divBadge);
+      }
+
+      // Content Wrapper with Game 1 & Game 2 groups
+      const dhContentWrapper = document.createElement('div');
+      dhContentWrapper.className = 'vertical-dh-content-wrapper';
+
+      const g1Group = createDhGameGroup(g1Data, 1);
+      const g2Group = createDhGameGroup(g2Data, 2);
+
+      dhContentWrapper.appendChild(g1Group);
+      dhContentWrapper.appendChild(g2Group);
+      node.appendChild(dhContentWrapper);
+
+    } else {
+      // SINGLE GAME (or 0 games)
+      const gameData = parseGameData(teamGames[0], teamIdNum, dataset);
+
+      node.className = 'vertical-team-node ' + gameData.statusClass;
+      if (team.id === state.activeTeamId) node.classList.add('favorite');
+
+      if (streakTag) {
+        const streakBadge = document.createElement('div');
+        streakBadge.className = `vertical-streak-badge ${streakTypeClass || 'hot'}`;
+        streakBadge.innerText = streakTag;
+        node.appendChild(streakBadge);
+      }
+
+      const logoBadge = document.createElement('div');
+      logoBadge.style.cssText = 'width: 24px; height: 24px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 2px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);';
+      const logoImg = document.createElement('img');
+      logoImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${team.abbreviation.toLowerCase()}.png`;
+      logoImg.alt = team.abbreviation;
+      logoImg.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
+      logoBadge.appendChild(logoImg);
+      node.appendChild(logoBadge);
+
+      const abbrSpan = document.createElement('span');
+      abbrSpan.style.cssText = 'font-family: var(--font-title); font-weight: 800; font-size: 13px; color: #ffffff;';
+      abbrSpan.innerText = team.abbreviation;
+      node.appendChild(abbrSpan);
+
+      const divLetter = getDivisionLetter(team);
+      if (divLetter) {
+        const teamDivId = team.divisionId || (teamsData[team.id] ? teamsData[team.id].divisionId : null);
+        const teamDivName = team.divisionName || (teamsData[team.id] ? teamsData[team.id].divisionName : null);
+        const hasCloseRival = snapData.teamsWithPos.some(other => {
+          if (parseInt(other.id, 10) === teamIdNum) return false;
+          const otherDivId = other.divisionId || (teamsData[other.id] ? teamsData[other.id].divisionId : null);
+          const otherDivName = other.divisionName || (teamsData[other.id] ? teamsData[other.id].divisionName : null);
+          const sameDiv = (teamDivId && otherDivId && teamDivId === otherDivId) ||
+                          (teamDivName && otherDivName && teamDivName === otherDivName);
+          if (!sameDiv) return false;
+          return Math.abs(team.gbRel - other.gbRel) <= 1.0;
+        });
+
+        const divBadge = document.createElement('div');
+        divBadge.className = `vertical-division-code ${hasCloseRival ? 'pulse-rivalry' : ''}`;
+        divBadge.innerText = divLetter;
+        node.appendChild(divBadge);
+      }
+
+      if (gameData.oppAbbr) {
+        const oppCircle = document.createElement('div');
+        oppCircle.className = `vertical-opponent-circle ${gameData.statusClass}`;
+
+        if (gameData.isInterleague && gameData.oppLeagueId) {
+          oppCircle.classList.add('interleague-cycle');
+          const oppLeagueCode = gameData.oppLeagueId === 103 ? 'AL' : 'NL';
+          oppCircle.title = `Interleague Matchup vs ${oppLeagueCode} team (${gameData.oppAbbr})`;
+
+          const oppTeamImg = document.createElement('img');
+          oppTeamImg.className = 'opp-team-logo';
+          oppTeamImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${gameData.oppAbbr.toLowerCase()}.png`;
+
+          const oppLeagueImg = document.createElement('img');
+          oppLeagueImg.className = 'opp-league-logo';
+          const oppLeagueSvg = gameData.oppLeagueId === 103 
+            ? 'https://www.mlbstatic.com/team-logos/league-on-light/103.svg' 
+            : 'https://www.mlbstatic.com/team-logos/league-on-light/104.svg';
+          oppLeagueImg.src = oppLeagueSvg;
+
+          oppCircle.appendChild(oppTeamImg);
+          oppCircle.appendChild(oppLeagueImg);
+        } else {
+          const oppImg = document.createElement('img');
+          oppImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${gameData.oppAbbr.toLowerCase()}.png`;
+          oppImg.style.cssText = 'width: 16px; height: 16px; object-fit: contain;';
+          oppCircle.appendChild(oppImg);
         }
+        node.appendChild(oppCircle);
       }
-    }
 
-    if (streakTag) {
-      const streakBadge = document.createElement('div');
-      streakBadge.className = `vertical-streak-badge ${streakTypeClass}`;
-      streakBadge.innerText = streakTag;
-      node.appendChild(streakBadge);
-    }
-
-    const logoBadge = document.createElement('div');
-    logoBadge.style.cssText = 'width: 24px; height: 24px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 2px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);';
-
-    const logoImg = document.createElement('img');
-    logoImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${team.abbreviation.toLowerCase()}.png`;
-    logoImg.alt = team.abbreviation;
-    logoImg.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
-    logoImg.onerror = () => {
-      const fallback = document.createElement('div');
-      fallback.style.cssText = `width: 20px; height: 20px; border-radius: 50%; background: ${team.primaryColor}; color: ${team.textColor}; display: flex; align-items: center; justify-content: center; font-size: 8.5px; font-weight: 800;`;
-      fallback.innerText = team.abbreviation.substring(0, 2);
-      if (logoBadge.parentNode) logoBadge.replaceChild(fallback, logoImg);
-    };
-    logoBadge.appendChild(logoImg);
-    node.appendChild(logoBadge);
-
-    const abbrSpan = document.createElement('span');
-    abbrSpan.style.cssText = 'font-family: var(--font-title); font-weight: 800; font-size: 13px; color: #ffffff;';
-    abbrSpan.innerText = team.abbreviation;
-    node.appendChild(abbrSpan);
-
-    const divLetter = getDivisionLetter(team);
-    if (divLetter) {
-      const teamDivId = team.divisionId || (teamsData[team.id] ? teamsData[team.id].divisionId : null);
-      const teamDivName = team.divisionName || (teamsData[team.id] ? teamsData[team.id].divisionName : null);
-
-      const hasCloseRival = snapData.teamsWithPos.some(other => {
-        if (parseInt(other.id, 10) === teamIdNum) return false;
-        const otherDivId = other.divisionId || (teamsData[other.id] ? teamsData[other.id].divisionId : null);
-        const otherDivName = other.divisionName || (teamsData[other.id] ? teamsData[other.id].divisionName : null);
-
-        const sameDiv = (teamDivId && otherDivId && teamDivId === otherDivId) ||
-                        (teamDivName && otherDivName && teamDivName === otherDivName);
-
-        if (!sameDiv) return false;
-
-        const gbDiff = Math.abs(team.gbRel - other.gbRel);
-        return gbDiff <= 1.0;
-      });
-
-      const divBadge = document.createElement('div');
-      divBadge.className = `vertical-division-code ${hasCloseRival ? 'pulse-rivalry' : ''}`;
-      divBadge.innerText = divLetter;
-      node.appendChild(divBadge);
-    }
-
-    if (oppAbbr) {
-      const oppCircle = document.createElement('div');
-      oppCircle.className = `vertical-opponent-circle ${statusClass}`;
-      
-      if (isInterleague && oppLeagueId) {
-        oppCircle.classList.add('interleague-cycle');
-        const oppLeagueCode = oppLeagueId === 103 ? 'AL' : 'NL';
-        oppCircle.title = `Interleague Matchup vs ${oppLeagueCode} team (${oppAbbr})`;
-
-        const oppTeamImg = document.createElement('img');
-        oppTeamImg.className = 'opp-team-logo';
-        oppTeamImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${oppAbbr.toLowerCase()}.png`;
-
-        const oppLeagueImg = document.createElement('img');
-        oppLeagueImg.className = 'opp-league-logo';
-        const oppLeagueSvg = oppLeagueId === 103 
-          ? 'https://www.mlbstatic.com/team-logos/league-on-light/103.svg' 
-          : 'https://www.mlbstatic.com/team-logos/league-on-light/104.svg';
-        oppLeagueImg.src = oppLeagueSvg;
-
-        oppCircle.appendChild(oppTeamImg);
-        oppCircle.appendChild(oppLeagueImg);
-      } else {
-        const oppImg = document.createElement('img');
-        oppImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${oppAbbr.toLowerCase()}.png`;
-        oppImg.style.cssText = 'width: 16px; height: 16px; object-fit: contain;';
-        oppImg.onerror = () => {
-          oppCircle.innerText = oppAbbr.substring(0, 2);
-          oppCircle.style.color = '#0f172a';
-          oppCircle.style.fontWeight = '900';
-        };
-        oppCircle.appendChild(oppImg);
+      if (gameData.metadataText) {
+        const metaDiv = document.createElement('div');
+        metaDiv.className = `vertical-node-metadata ${gameData.statusClass}`;
+        metaDiv.innerText = gameData.metadataText;
+        node.appendChild(metaDiv);
       }
-      
-      node.appendChild(oppCircle);
-    }
-
-    if (metadataText) {
-      const metaDiv = document.createElement('div');
-      metaDiv.className = `vertical-node-metadata ${statusClass}`;
-      metaDiv.innerText = metadataText;
-      node.appendChild(metaDiv);
     }
 
     node.style.cursor = 'pointer';

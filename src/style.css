@@ -1489,6 +1489,175 @@ header {
     opacity: 0;
   }
 }
+
+/* Doubleheader Cycling Node, Fuse Timer Bar & Border Keyframes */
+.vertical-team-node.doubleheader-node {
+  position: relative !important;
+}
+
+.vertical-dh-badge {
+  position: absolute !important;
+  top: -6px !important;
+  left: 18px !important;
+  background: #fbbf24 !important;
+  color: #071318 !important;
+  font-size: 8px !important;
+  font-weight: 900 !important;
+  padding: 1px 4px !important;
+  border-radius: 4px !important;
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.7) !important;
+  z-index: 6 !important;
+  font-family: var(--font-title) !important;
+  line-height: 1 !important;
+}
+
+.vertical-team-abbr-container {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.fuse-timer-bar {
+  width: 26px !important;
+  height: 2.5px !important;
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-radius: 2px !important;
+  overflow: hidden !important;
+  margin-top: 2px !important;
+}
+
+.fuse-timer-progress {
+  height: 100% !important;
+  background: linear-gradient(90deg, #00e5ff, #fbbf24) !important;
+  width: 100% !important;
+  border-radius: 2px !important;
+  animation: fuseTimerShrink 6s infinite linear !important;
+}
+
+@keyframes fuseTimerShrink {
+  0% {
+    width: 100%;
+  }
+  47% {
+    width: 0%;
+  }
+  50% {
+    width: 100%;
+  }
+  97% {
+    width: 0%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+.vertical-dh-content-wrapper {
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+}
+
+.dh-game-group {
+  position: absolute !important;
+  inset: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.dh-game-group.dh-game-1 {
+  animation: dhGame1Cycle 6s infinite ease-in-out !important;
+}
+
+.dh-game-group.dh-game-2 {
+  animation: dhGame2Cycle 6s infinite ease-in-out !important;
+}
+
+@keyframes dhGame1Cycle {
+  0%, 46% {
+    opacity: 1;
+    transform: scale(1);
+    visibility: visible;
+  }
+  50%, 96% {
+    opacity: 0;
+    transform: scale(0.92);
+    visibility: hidden;
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    visibility: visible;
+  }
+}
+
+@keyframes dhGame2Cycle {
+  0%, 46% {
+    opacity: 0;
+    transform: scale(0.92);
+    visibility: hidden;
+  }
+  50%, 96% {
+    opacity: 1;
+    transform: scale(1);
+    visibility: visible;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.92);
+    visibility: hidden;
+  }
+}
+
+/* Dynamic Border Color Cycling for Doubleheader Node Outcomes */
+.vertical-team-node.dh-border-cycle-win-win { border-color: #10b981 !important; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4) !important; }
+.vertical-team-node.dh-border-cycle-loss-loss { border-color: #ef4444 !important; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4) !important; }
+.vertical-team-node.dh-border-cycle-upcoming-upcoming { border-color: rgba(0, 229, 255, 0.6) !important; box-shadow: 0 0 10px rgba(0, 229, 255, 0.3) !important; }
+
+.vertical-team-node.dh-border-cycle-win-loss { animation: dhBorderWinLoss 6s infinite ease-in-out !important; }
+.vertical-team-node.dh-border-cycle-loss-win { animation: dhBorderLossWin 6s infinite ease-in-out !important; }
+.vertical-team-node.dh-border-cycle-win-upcoming { animation: dhBorderWinUpcoming 6s infinite ease-in-out !important; }
+.vertical-team-node.dh-border-cycle-loss-upcoming { animation: dhBorderLossUpcoming 6s infinite ease-in-out !important; }
+.vertical-team-node.dh-border-cycle-upcoming-win { animation: dhBorderUpcomingWin 6s infinite ease-in-out !important; }
+.vertical-team-node.dh-border-cycle-upcoming-loss { animation: dhBorderUpcomingLoss 6s infinite ease-in-out !important; }
+
+@keyframes dhBorderWinLoss {
+  0%, 46% { border-color: #10b981 !important; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4) !important; }
+  50%, 96% { border-color: #ef4444 !important; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4) !important; }
+  100% { border-color: #10b981 !important; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4) !important; }
+}
+
+@keyframes dhBorderLossWin {
+  0%, 46% { border-color: #ef4444 !important; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4) !important; }
+  50%, 96% { border-color: #10b981 !important; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4) !important; }
+  100% { border-color: #ef4444 !important; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4) !important; }
+}
+
+@keyframes dhBorderWinUpcoming {
+  0%, 46% { border-color: #10b981 !important; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4) !important; }
+  50%, 96% { border-color: rgba(0, 229, 255, 0.6) !important; box-shadow: 0 0 10px rgba(0, 229, 255, 0.4) !important; }
+  100% { border-color: #10b981 !important; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4) !important; }
+}
+
+@keyframes dhBorderLossUpcoming {
+  0%, 46% { border-color: #ef4444 !important; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4) !important; }
+  50%, 96% { border-color: rgba(0, 229, 255, 0.6) !important; box-shadow: 0 0 10px rgba(0, 229, 255, 0.4) !important; }
+  100% { border-color: #ef4444 !important; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4) !important; }
+}
+
+@keyframes dhBorderUpcomingWin {
+  0%, 46% { border-color: rgba(0, 229, 255, 0.6) !important; box-shadow: 0 0 10px rgba(0, 229, 255, 0.4) !important; }
+  50%, 96% { border-color: #10b981 !important; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4) !important; }
+  100% { border-color: rgba(0, 229, 255, 0.6) !important; box-shadow: 0 0 10px rgba(0, 229, 255, 0.4) !important; }
+}
+
+@keyframes dhBorderUpcomingLoss {
+  0%, 46% { border-color: rgba(0, 229, 255, 0.6) !important; box-shadow: 0 0 10px rgba(0, 229, 255, 0.4) !important; }
+  50%, 96% { border-color: #ef4444 !important; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4) !important; }
+  100% { border-color: rgba(0, 229, 255, 0.6) !important; box-shadow: 0 0 10px rgba(0, 229, 255, 0.4) !important; }
+}
 .recap-backdrop.calendar-backdrop-override {
   padding: 12px !important;
   width: 100vw !important;
