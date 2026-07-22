@@ -152,7 +152,7 @@ export function createVerticalStandingsView(state, onBack) {
   // Banner status for key legend & motion replay info
   const infoBanner = document.createElement('div');
   infoBanner.className = 'vertical-standings-key-box';
-  infoBanner.innerText = 'Viewing Live Standings. Tap "Play Shift" to watch simultaneous team movements.';
+  infoBanner.innerText = 'Viewing Live Standings. Tap "Play Shift" to watch guided region animations.';
   container.appendChild(infoBanner);
 
   // Scroll Area for Timeline
@@ -261,6 +261,34 @@ export function createVerticalStandingsView(state, onBack) {
         shiftClass
       };
     }).filter(t => t.moved);
+  }
+
+  // Group moving teams into visible spatial clusters so the camera focuses on each cluster in the viewport
+  function groupMoversIntoClusters(movers) {
+    if (movers.length === 0) return [];
+    
+    // Sort movers by vertical position (top to bottom)
+    const sorted = [...movers].sort((a, b) => {
+      const yA = globalZeroLineY - (a.gbRel * globalPxPerGB);
+      const yB = globalZeroLineY - (b.gbRel * globalPxPerGB);
+      return yA - yB;
+    });
+
+    const clusters = [];
+    sorted.forEach(team => {
+      const teamY = globalZeroLineY - (team.gbRel * globalPxPerGB);
+      // Group with an existing cluster if within ~220px vertical distance
+      let cluster = clusters.find(c => Math.abs(c.centerY - teamY) < 220);
+      if (!cluster) {
+        cluster = { centerY: teamY, teams: [] };
+        clusters.push(cluster);
+      }
+      cluster.teams.push(team);
+      // Update cluster average center Y position
+      cluster.centerY = cluster.teams.reduce((sum, t) => sum + (globalZeroLineY - (t.gbRel * globalPxPerGB)), 0) / cluster.teams.length;
+    });
+
+    return clusters;
   }
 
   // Main Timeline Rendering Function
@@ -410,7 +438,6 @@ export function createVerticalStandingsView(state, onBack) {
     const node = teamNodesMap[team.id];
     if (!node) return;
 
-    // Group teams by exact gbRel to compute deterministic left-aligned column positions
     const gbGroups = {};
     snapData.teamsWithPos.forEach(t => {
       const k = t.gbRel.toFixed(1);
@@ -628,7 +655,7 @@ export function createVerticalStandingsView(state, onBack) {
     }
   }
 
-  // Simultaneous Group Motion Replay: Interacting teams animate simultaneously in the exact same frame!
+  // Guided Region Motion Replay: Camera pans explicitly to each cluster before animating interacting teams
   async function runMotionReplaySequence() {
     isPlayingAnimation = true;
     cancelAnimationRequested = false;
@@ -641,28 +668,39 @@ export function createVerticalStandingsView(state, onBack) {
     const snapYestEnd = computeSnapshotData(getSnapshotDataset('yesterday-end').processed);
     const snapTodayLive = computeSnapshotData(getSnapshotDataset('today-live').processed);
 
-    // PASS 1: Yesterday Standings Shift (All Interacting Teams Animate Simultaneously)
+    // PASS 1: Yesterday Standings Shift (Grouped into Visible Viewport Clusters)
     const moversYesterday = getMovingTeams(snapYestStart, snapYestEnd);
+    const clustersYesterday = groupMoversIntoClusters(moversYesterday);
 
-    // Set all teams to Yesterday Start baseline
+    // Set snapshot mode to Yesterday Start baseline
     activeSnapshotMode = 'yesterday-start';
     updateSnapshotBtnStyles();
     updateNodesPosition(false);
 
-    if (moversYesterday.length === 0) {
+    if (clustersYesterday.length === 0) {
       infoBanner.innerText = 'PASS 1/2: Yesterday Shift — No standings shifts yesterday.';
-      await new Promise(r => setTimeout(r, 900));
+      await new Promise(r => setTimeout(r, 800));
     } else {
-      infoBanner.innerText = `PASS 1/2: Yesterday Shift — ${moversYesterday.length} teams shifting simultaneously yesterday...`;
-      
-      // Center camera on average focal region of moving teams
-      const avgY = moversYesterday.reduce((acc, t) => acc + (globalZeroLineY - (t.gbRel * globalPxPerGB)), 0) / moversYesterday.length;
-      scrollArea.scrollTo({ top: Math.max(0, avgY - scrollArea.clientHeight / 2), behavior: 'smooth' });
-      await new Promise(r => setTimeout(r, 700));
+      infoBanner.innerText = `PASS 1/2: Yesterday Shift — Highlighting ${clustersYesterday.length} movement region(s) yesterday...`;
+      await new Promise(r => setTimeout(r, 600));
 
-      if (!cancelAnimationRequested) {
-        // Attach shift pills and focus glows to ALL moving teams simultaneously
-        moversYesterday.forEach(team => {
+      for (let c = 0; c < clustersYesterday.length; c++) {
+        if (cancelAnimationRequested) break;
+        const cluster = clustersYesterday[c];
+        const teamNames = cluster.teams.map(t => t.name).join(', ');
+
+        infoBanner.innerText = `PASS 1/2 (Yesterday Region ${c + 1}/${clustersYesterday.length}): ${teamNames}`;
+
+        // 1. Scroll camera smoothly to center this cluster in the viewport frame
+        scrollArea.scrollTo({
+          top: Math.max(0, cluster.centerY - (scrollArea.clientHeight / 2) + 20),
+          behavior: 'smooth'
+        });
+        await new Promise(r => setTimeout(r, 550));
+        if (cancelAnimationRequested) break;
+
+        // 2. Attach focus glow rings and shift pills to teams in this cluster
+        cluster.teams.forEach(team => {
           const node = teamNodesMap[team.id];
           if (node) {
             node.classList.add('animating-focus');
@@ -673,15 +711,18 @@ export function createVerticalStandingsView(state, onBack) {
           }
         });
 
-        // Trigger simultaneous position update for ALL teams to Yesterday End in one frame!
+        // 3. Simultaneously animate positions for teams in this cluster (and update snapshot mode to yesterday-end)
         activeSnapshotMode = 'yesterday-end';
         updateSnapshotBtnStyles();
-        updateNodesPosition(false);
+        cluster.teams.forEach(team => {
+          setSingleTeamPosition(team.id, 'yesterday-end');
+        });
 
-        await new Promise(r => setTimeout(r, 1800));
+        // 4. Generous pause (1.4s) so the user can comfortably take in each animation and score shift!
+        await new Promise(r => setTimeout(r, 1400));
 
-        // Clean up focus glows and shift pills
-        moversYesterday.forEach(team => {
+        // 5. Clean up focus glow rings and shift pills for this cluster
+        cluster.teams.forEach(team => {
           const node = teamNodesMap[team.id];
           if (node) {
             node.classList.remove('animating-focus');
@@ -692,23 +733,38 @@ export function createVerticalStandingsView(state, onBack) {
       }
     }
 
-    // PASS 2: Today Live Standings Shift (All Interacting Teams Animate Simultaneously)
+    // PASS 2: Today Live Shift (Grouped into Visible Viewport Clusters)
     if (!cancelAnimationRequested) {
       const moversToday = getMovingTeams(snapYestEnd, snapTodayLive);
+      const clustersToday = groupMoversIntoClusters(moversToday);
 
-      if (moversToday.length === 0) {
+      activeSnapshotMode = 'yesterday-end';
+      updateSnapshotBtnStyles();
+
+      if (clustersToday.length === 0) {
         infoBanner.innerText = 'PASS 2/2: Today Live Shift — No standings shifts today yet.';
-        await new Promise(r => setTimeout(r, 900));
+        await new Promise(r => setTimeout(r, 800));
       } else {
-        infoBanner.innerText = `PASS 2/2: Today Live Shift — ${moversToday.length} teams shifting simultaneously today...`;
+        infoBanner.innerText = `PASS 2/2: Today Live Shift — Highlighting ${clustersToday.length} movement region(s) today...`;
+        await new Promise(r => setTimeout(r, 600));
 
-        const avgY = moversToday.reduce((acc, t) => acc + (globalZeroLineY - (t.gbRel * globalPxPerGB)), 0) / moversToday.length;
-        scrollArea.scrollTo({ top: Math.max(0, avgY - scrollArea.clientHeight / 2), behavior: 'smooth' });
-        await new Promise(r => setTimeout(r, 700));
+        for (let c = 0; c < clustersToday.length; c++) {
+          if (cancelAnimationRequested) break;
+          const cluster = clustersToday[c];
+          const teamNames = cluster.teams.map(t => t.name).join(', ');
 
-        if (!cancelAnimationRequested) {
-          // Attach shift pills and focus glows to ALL moving teams simultaneously
-          moversToday.forEach(team => {
+          infoBanner.innerText = `PASS 2/2 (Today Live Region ${c + 1}/${clustersToday.length}): ${teamNames}`;
+
+          // 1. Scroll camera smoothly to center this cluster in the viewport frame
+          scrollArea.scrollTo({
+            top: Math.max(0, cluster.centerY - (scrollArea.clientHeight / 2) + 20),
+            behavior: 'smooth'
+          });
+          await new Promise(r => setTimeout(r, 550));
+          if (cancelAnimationRequested) break;
+
+          // 2. Attach focus glow rings and shift pills to teams in this cluster
+          cluster.teams.forEach(team => {
             const node = teamNodesMap[team.id];
             if (node) {
               node.classList.add('animating-focus');
@@ -719,14 +775,18 @@ export function createVerticalStandingsView(state, onBack) {
             }
           });
 
-          // Trigger simultaneous position update for ALL teams to Today Live in one frame!
+          // 3. Simultaneously animate positions for teams in this cluster to today-live
           activeSnapshotMode = 'today-live';
           updateSnapshotBtnStyles();
-          updateNodesPosition(false);
+          cluster.teams.forEach(team => {
+            setSingleTeamPosition(team.id, 'today-live');
+          });
 
-          await new Promise(r => setTimeout(r, 1800));
+          // 4. Generous pause (1.4s) so the user can comfortably take in the live movement!
+          await new Promise(r => setTimeout(r, 1400));
 
-          moversToday.forEach(team => {
+          // 5. Clean up focus glow rings and shift pills for this cluster
+          cluster.teams.forEach(team => {
             const node = teamNodesMap[team.id];
             if (node) {
               node.classList.remove('animating-focus');
@@ -738,7 +798,7 @@ export function createVerticalStandingsView(state, onBack) {
       }
     }
 
-    // Wrap Up Replay
+    // Reset UI state to Today Live
     isPlayingAnimation = false;
     cancelAnimationRequested = false;
     activeSnapshotMode = 'today-live';
