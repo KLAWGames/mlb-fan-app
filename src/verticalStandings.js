@@ -793,12 +793,18 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     node.style.cursor = 'pointer';
     node.onclick = (e) => {
       e.stopPropagation();
-      showTeamActionModal(team, game, mode);
+      let activeGame = teamGames[0] || null;
+      if (teamGames.length > 1) {
+        const cycleMs = 6000;
+        const progress = (Date.now() % cycleMs);
+        activeGame = progress < 3000 ? teamGames[0] : teamGames[1];
+      }
+      showTeamActionModal(team, activeGame, mode, teamGames);
     };
   }
 
   // Interactive Team Action & Game Matchup Modal
-  function showTeamActionModal(team, game, mode) {
+  function showTeamActionModal(team, game, mode, teamGames = []) {
     const backdrop = document.createElement('div');
     backdrop.className = 'vertical-modal-backdrop';
 
@@ -860,57 +866,93 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     header.appendChild(closeBtn);
     modal.appendChild(header);
 
-    // Game Matchup & Full Line Score Box Score Section
-    let oppAbbr = '';
-    let targetGame = game;
-    const teamIdNum = parseInt(team.id, 10);
-
-    const allSchedules = [
-      ...(state.rawSchedule || []),
-      ...(state.rawScheduleYesterday || []),
-      ...(state.rawScheduleDayBeforeYesterday || [])
-    ];
-
-    if (!targetGame && allSchedules.length > 0) {
-      targetGame = allSchedules.find(g => {
+    // Game Matchup & Full Line Score Box Score Section Container
+    let selectedGame = game;
+    if (!selectedGame && teamGames && teamGames.length > 0) {
+      selectedGame = teamGames[0];
+    }
+    if (!selectedGame) {
+      const teamIdNum = parseInt(team.id, 10);
+      const allSchedules = [
+        ...(state.rawSchedule || []),
+        ...(state.rawScheduleYesterday || []),
+        ...(state.rawScheduleDayBeforeYesterday || [])
+      ];
+      selectedGame = allSchedules.find(g => {
         const awayId = parseInt(g.teams?.away?.team?.id, 10);
         const homeId = parseInt(g.teams?.home?.team?.id, 10);
         return awayId === teamIdNum || homeId === teamIdNum;
       });
     }
 
-    const matchupBox = document.createElement('div');
-    matchupBox.className = 'vertical-modal-matchup-box';
+    const matchupContainer = document.createElement('div');
+    matchupContainer.className = 'vertical-modal-matchup-container';
 
-    const awayObj = targetGame?.teams?.away;
-    const homeObj = targetGame?.teams?.home;
+    function renderMatchupCard(targetGame) {
+      matchupContainer.innerHTML = '';
+      if (!targetGame) return;
 
-    const isAway = parseInt(awayObj?.team?.id, 10) === teamIdNum;
-    const oppTeamObj = isAway ? homeObj?.team : awayObj?.team;
-    const oppTeamId = parseInt(oppTeamObj?.id, 10);
+      const dataset = getSnapshotDataset(mode);
+      const teamIdNum = parseInt(team.id, 10);
 
-    if (oppTeamId) {
-      const oppStatic = teamsData[oppTeamId];
-      if (oppStatic) {
-        oppAbbr = oppStatic.abbreviation;
-      } else if (oppTeamObj?.name) {
-        const found = Object.values(teamsData).find(t => 
-          t.name.toLowerCase().includes(oppTeamObj.name.toLowerCase()) || 
-          oppTeamObj.name.toLowerCase().includes(t.name.toLowerCase())
-        );
-        oppAbbr = found ? found.abbreviation : (oppTeamObj.triCode || oppTeamObj.name.substring(0, 3).toUpperCase());
+      // If Doubleheader, render Game Switcher Tabs
+      if (teamGames && teamGames.length > 1) {
+        const tabRow = document.createElement('div');
+        tabRow.style.cssText = 'display: flex; gap: 8px; margin-bottom: 12px; background: rgba(0, 0, 0, 0.4); padding: 4px; border-radius: 8px; border: 1px solid rgba(0, 229, 255, 0.2);';
+
+        teamGames.forEach((g, idx) => {
+          const gData = parseGameData(g, teamIdNum, dataset);
+          const btn = document.createElement('button');
+          const isActive = targetGame && (g.gamePk === targetGame.gamePk || g.id === targetGame.id);
+          btn.style.cssText = `flex: 1; padding: 6px 8px; border-radius: 6px; font-size: 11px; font-weight: 800; border: none; cursor: pointer; transition: all 0.2s ease; ${
+            isActive 
+              ? 'background: #00e5ff; color: #071318; box-shadow: 0 0 8px rgba(0, 229, 255, 0.4);' 
+              : 'background: transparent; color: #94a3b8;'
+          }`;
+          btn.innerText = `DH Game ${idx + 1} (${gData.oppAbbr || 'VS'})`;
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectedGame = g;
+            renderMatchupCard(g);
+          });
+          tabRow.appendChild(btn);
+        });
+        matchupContainer.appendChild(tabRow);
       }
-    }
 
-    const awayName = awayObj?.team?.name || 'Away';
-    const homeName = homeObj?.team?.name || 'Home';
-    const awayAbbr = teamsData[awayObj?.team?.id]?.abbreviation || (awayName !== 'Away' ? awayName.substring(0, 3).toUpperCase() : team.abbreviation);
-    const homeAbbr = teamsData[homeObj?.team?.id]?.abbreviation || (homeName !== 'Home' ? homeName.substring(0, 3).toUpperCase() : (oppAbbr || 'OPP'));
+      const matchupBox = document.createElement('div');
+      matchupBox.className = 'vertical-modal-matchup-box';
 
-    const awayScore = awayObj?.score !== null && awayObj?.score !== undefined ? awayObj.score : '-';
-    const homeScore = homeObj?.score !== null && homeObj?.score !== undefined ? homeObj.score : '-';
+      const awayObj = targetGame?.teams?.away;
+      const homeObj = targetGame?.teams?.home;
 
-    const statusText = targetGame?.status?.detailedState || 'Game Matchup';
+      const isAway = parseInt(awayObj?.team?.id, 10) === teamIdNum;
+      const oppTeamObj = isAway ? homeObj?.team : awayObj?.team;
+      const oppTeamId = parseInt(oppTeamObj?.id, 10);
+
+      let oppAbbr = '';
+      if (oppTeamId) {
+        const oppStatic = teamsData[oppTeamId];
+        if (oppStatic) {
+          oppAbbr = oppStatic.abbreviation;
+        } else if (oppTeamObj?.name) {
+          const found = Object.values(teamsData).find(t => 
+            t.name.toLowerCase().includes(oppTeamObj.name.toLowerCase()) || 
+            oppTeamObj.name.toLowerCase().includes(t.name.toLowerCase())
+          );
+          oppAbbr = found ? found.abbreviation : (oppTeamObj.triCode || oppTeamObj.name.substring(0, 3).toUpperCase());
+        }
+      }
+
+      const awayName = awayObj?.team?.name || 'Away';
+      const homeName = homeObj?.team?.name || 'Home';
+      const awayAbbr = teamsData[awayObj?.team?.id]?.abbreviation || (awayName !== 'Away' ? awayName.substring(0, 3).toUpperCase() : team.abbreviation);
+      const homeAbbr = teamsData[homeObj?.team?.id]?.abbreviation || (homeName !== 'Home' ? homeName.substring(0, 3).toUpperCase() : (oppAbbr || 'OPP'));
+
+      const awayScore = awayObj?.score !== null && awayObj?.score !== undefined ? awayObj.score : '-';
+      const homeScore = homeObj?.score !== null && homeObj?.score !== undefined ? homeObj.score : '-';
+
+      const statusText = targetGame?.status?.detailedState || 'Game Matchup';
 
       matchupBox.innerHTML = `
         <div style="font-size: 11px; font-weight: 800; color: #00e5ff; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Game Matchup Info (${statusText})</div>
@@ -933,18 +975,6 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
         </div>
       `;
 
-      /* Preserved for future use: Game Analytics Center Button
-      if (callbacks.openGameAnalytics) {
-        const analyticsBtn = document.createElement('button');
-        analyticsBtn.className = 'vertical-action-btn primary';
-        analyticsBtn.innerHTML = `<span>📊</span> <span>Open Game Analytics Center</span>`;
-        analyticsBtn.addEventListener('click', () => {
-          openSubView(callbacks.openGameAnalytics, game);
-        });
-        matchupBox.appendChild(analyticsBtn);
-      }
-      */
-
       // Full Game Line Score / Box Score Section (Innings 1-9+ & R-H-E)
       const boxScoreContainer = document.createElement('div');
       boxScoreContainer.style.cssText = 'margin-top: 10px; background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 10px; padding: 10px; font-family: var(--font-title);';
@@ -960,7 +990,6 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       const table = document.createElement('table');
       table.style.cssText = 'width: 100%; min-width: 320px; border-collapse: collapse; font-size: 11px; color: #ffffff; text-align: center; white-space: nowrap;';
 
-      // Default 9 innings header
       let ths = '<th style="padding: 6px 10px; text-align: left; background: #0a1822; position: sticky; left: 0; z-index: 2; border-right: 1px solid rgba(255,255,255,0.1);">Team</th>';
       for (let i = 1; i <= 9; i++) {
         ths += `<th style="padding: 6px 4px; width: 22px; background: rgba(0, 229, 255, 0.08); color: #94a3b8; font-size: 9.5px;">${i}</th>`;
@@ -996,6 +1025,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       tableWrapper.appendChild(table);
       boxScoreContainer.appendChild(tableWrapper);
       matchupBox.appendChild(boxScoreContainer);
+      matchupContainer.appendChild(matchupBox);
 
       // Fetch live linescore per-inning details if gamePk exists
       const gamePk = targetGame.gamePk || targetGame.id;
@@ -1006,7 +1036,6 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
             const innings = lsData.innings || [];
             const numInnings = Math.max(9, innings.length);
 
-            // Rebuild if extra innings exist (> 9)
             if (numInnings > 9) {
               let newThs = '<th style="padding: 6px 10px; text-align: left; background: #0a1822; position: sticky; left: 0; z-index: 2; border-right: 1px solid rgba(255,255,255,0.1);">Team</th>';
               for (let i = 1; i <= numInnings; i++) {
@@ -1041,7 +1070,6 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
               `;
             }
 
-            // Populate per-inning runs
             innings.forEach(ing => {
               const num = ing.num;
               const aCell = table.querySelector(`#box-away-i${num}`);
@@ -1058,7 +1086,6 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
               }
             });
 
-            // Populate Totals (H & E)
             const aH = table.querySelector('#box-away-h');
             const aE = table.querySelector('#box-away-e');
             const hH = table.querySelector('#box-home-h');
@@ -1071,8 +1098,10 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
           })
           .catch(() => {});
       }
+    }
 
-    modal.appendChild(matchupBox);
+    renderMatchupCard(selectedGame);
+    modal.appendChild(matchupContainer);
 
     // Quick Action Buttons
     const actionsHeader = document.createElement('div');
