@@ -2294,6 +2294,74 @@ header {
   backdrop-filter: blur(8px);
 }
 
+.vertical-standings-motion-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: rgba(8, 20, 28, 0.95);
+  border-bottom: 1px solid rgba(0, 229, 255, 0.2);
+  gap: 8px;
+  z-index: 10;
+}
+
+.motion-snapshots-group {
+  display: flex;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  flex: 1;
+}
+
+.motion-snapshot-btn {
+  flex: 1;
+  background: transparent;
+  color: #94a3b8;
+  font-weight: 700;
+  border: none;
+  padding: 6px 4px;
+  border-radius: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-title);
+  white-space: nowrap;
+  text-align: center;
+}
+
+.motion-snapshot-btn.active {
+  background: rgba(0, 229, 255, 0.2);
+  color: #00e5ff;
+  font-weight: 800;
+  border: 1px solid rgba(0, 229, 255, 0.5);
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.3);
+}
+
+.motion-play-btn {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #000000;
+  font-weight: 800;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: var(--font-title);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.motion-play-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .vertical-standings-key-box {
   background: rgba(0, 229, 255, 0.05);
   border: 1px dashed rgba(0, 229, 255, 0.3);
@@ -2386,7 +2454,7 @@ header {
   padding: 4px 8px;
   gap: 6px;
   z-index: 4;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: top 1.2s cubic-bezier(0.25, 1, 0.5, 1), left 1.2s cubic-bezier(0.25, 1, 0.5, 1), transform 0.2s ease, box-shadow 0.3s ease;
   user-select: none;
 }
 
