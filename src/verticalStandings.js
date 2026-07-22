@@ -658,7 +658,6 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
         const oppTeamImg = document.createElement('img');
         oppTeamImg.className = 'opp-team-logo';
         oppTeamImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${oppAbbr.toLowerCase()}.png`;
-        oppTeamImg.style.cssText = 'width: 16px; height: 16px; object-fit: contain; position: absolute; inset: 0; margin: auto;';
 
         const oppLeagueImg = document.createElement('img');
         oppLeagueImg.className = 'opp-league-logo';
@@ -666,7 +665,6 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
           ? 'https://www.mlbstatic.com/team-logos/league-on-light/103.svg' 
           : 'https://www.mlbstatic.com/team-logos/league-on-light/104.svg';
         oppLeagueImg.src = oppLeagueSvg;
-        oppLeagueImg.style.cssText = 'width: 16px; height: 16px; object-fit: contain; position: absolute; inset: 0; margin: auto;';
 
         oppCircle.appendChild(oppTeamImg);
         oppCircle.appendChild(oppLeagueImg);
