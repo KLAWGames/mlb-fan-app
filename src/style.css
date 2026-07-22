@@ -1444,6 +1444,36 @@ header {
   opacity: 1;
 }
 
+/* Calendar Modal Overrides */
+.recap-backdrop.calendar-backdrop-override {
+  padding: 12px !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(7, 19, 24, 0.85) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 100000 !important;
+}
+
+.recap-content.calendar-content-override {
+  width: 100% !important;
+  max-width: 760px !important;
+  height: 92vh !important;
+  max-height: 92vh !important;
+  background: #0b1720 !important;
+  border: 1.5px solid rgba(0, 229, 255, 0.35) !important;
+  border-radius: 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9) !important;
+  overflow: hidden !important;
+  transform: none !important;
+  color: #ffffff !important;
+}
+
 /* All Feature Modals (Recap, Games That Matter, Team Overview, Who's Hot, Calendar) - Dark Cyber Theme */
 .recap-content {
   background: #0d1a22 !important;

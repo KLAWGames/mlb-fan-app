@@ -5570,8 +5570,7 @@ function showTeamCalendarModal(teamObj) {
   const displayLosses = standingsTeam?.losses !== undefined ? standingsTeam.losses : (activeTeamObj.losses || 0);
 
   const backdrop = document.createElement('div');
-  backdrop.className = 'recap-backdrop full-page-calendar-backdrop';
-  backdrop.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #071318; z-index: 100000; display: flex; flex-direction: column; overflow: hidden; padding: 0; margin: 0; box-sizing: border-box;';
+  backdrop.className = 'recap-backdrop calendar-backdrop-override';
   
   function closeModal() {
     backdrop.classList.remove('show');
@@ -5586,12 +5585,11 @@ function showTeamCalendarModal(teamObj) {
   });
   
   const content = document.createElement('div');
-  content.className = 'recap-content full-page-calendar-content';
-  content.style.cssText = 'width: 100vw; height: 100vh; display: flex; flex-direction: column; background: #071318; padding: 0; margin: 0; box-sizing: border-box; color: #ffffff; border: none; box-shadow: none; border-radius: 0; overflow: hidden;';
+  content.className = 'recap-content calendar-content-override';
   
   const header = document.createElement('div');
   header.className = 'recap-header';
-  header.style.cssText = 'width: 100%; background: #0d1a22; border-bottom: 1.5px solid rgba(0, 229, 255, 0.3); padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; flex-shrink: 0; height: 48px;';
+  header.style.cssText = 'width: 100%; background: #07131a; border-bottom: 1.5px solid rgba(0, 229, 255, 0.3); padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; flex-shrink: 0;';
   
   const titleInfo = document.createElement('div');
   titleInfo.style.cssText = 'display: flex; align-items: center; gap: 10px;';
@@ -5622,7 +5620,7 @@ function showTeamCalendarModal(teamObj) {
   titleInfo.appendChild(titleTextGroup);
   
   const closeBtn = document.createElement('button');
-  closeBtn.style.cssText = 'background: rgba(0, 229, 255, 0.15); border: 1.5px solid #00e5ff; color: #00e5ff; padding: 5px 14px; border-radius: 18px; font-size: 12px; font-weight: 900; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s ease; font-family: var(--font-title); box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);';
+  closeBtn.style.cssText = 'background: rgba(0, 229, 255, 0.15); border: 1.5px solid #00e5ff; color: #00e5ff; padding: 6px 14px; border-radius: 18px; font-size: 12px; font-weight: 900; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s ease; font-family: var(--font-title); box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);';
   closeBtn.innerHTML = '✕ Back to Team Info';
   closeBtn.addEventListener('click', closeModal);
   
@@ -5630,9 +5628,9 @@ function showTeamCalendarModal(teamObj) {
   header.appendChild(closeBtn);
   content.appendChild(header);
 
-  // Month Quick Jump Bar - Full Width with Active Month Highlight
+  // Month Quick Jump Bar
   const monthNav = document.createElement('div');
-  monthNav.style.cssText = 'width: 100%; background: #091720; display: flex; gap: 6px; overflow-x: auto; padding: 6px 12px; border-bottom: 1px solid rgba(0, 229, 255, 0.15); -webkit-overflow-scrolling: touch; scrollbar-width: none; box-sizing: border-box; flex-shrink: 0; height: 38px; align-items: center;';
+  monthNav.style.cssText = 'width: 100%; background: #091720; display: flex; gap: 6px; overflow-x: auto; padding: 8px 12px; border-bottom: 1px solid rgba(0, 229, 255, 0.15); -webkit-overflow-scrolling: touch; scrollbar-width: none; box-sizing: border-box; flex-shrink: 0; align-items: center;';
   
   const selectedMonthNum = state.selectedDate ? parseInt(state.selectedDate.split('-')[1], 10) : (new Date().getMonth() + 1);
 
@@ -5653,8 +5651,8 @@ function showTeamCalendarModal(teamObj) {
     const isCurrent = mObj.num === selectedMonthNum;
     const pill = document.createElement('button');
     pill.style.cssText = isCurrent 
-      ? 'background: #00e5ff; border: 1px solid #00e5ff; color: #071318; padding: 4px 12px; border-radius: 12px; font-size: 10.5px; font-weight: 900; cursor: pointer; white-space: nowrap; transition: all 0.2s ease; font-family: var(--font-title);'
-      : 'background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(0, 229, 255, 0.2); color: #cbd5e1; padding: 4px 12px; border-radius: 12px; font-size: 10.5px; font-weight: 800; cursor: pointer; white-space: nowrap; transition: all 0.2s ease; font-family: var(--font-title);';
+      ? 'background: #00e5ff; border: 1px solid #00e5ff; color: #071318; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 900; cursor: pointer; white-space: nowrap; transition: all 0.2s ease; font-family: var(--font-title);'
+      : 'background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(0, 229, 255, 0.2); color: #cbd5e1; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap; transition: all 0.2s ease; font-family: var(--font-title);';
     pill.innerText = mObj.name;
     pill.addEventListener('click', () => {
       Object.values(monthPillsMap).forEach(p => {
@@ -5678,7 +5676,7 @@ function showTeamCalendarModal(teamObj) {
   
   const body = document.createElement('div');
   body.className = 'recap-body';
-  body.style.cssText = 'flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 16px; padding: 10px 10px 24px 10px; overscroll-behavior: contain; width: 100vw; box-sizing: border-box;';
+  body.style.cssText = 'flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 20px; padding: 14px 14px 28px 14px; overscroll-behavior: contain; width: 100%; box-sizing: border-box;';
   
   // Loading State
   const loader = document.createElement('div');
@@ -5770,17 +5768,17 @@ function renderCalendar(scheduleData, teamIdNum, container) {
     const monthEl = document.createElement('div');
     monthEl.className = 'calendar-month-section';
     monthEl.id = `cal-month-2026-${String(m + 1).padStart(2, '0')}`;
-    monthEl.style.cssText = 'display: flex; flex-direction: column; gap: 4px; border-bottom: 1px dashed rgba(0,229,255,0.2); padding-bottom: 12px; margin-bottom: 8px; width: 100%; box-sizing: border-box; overflow-x: hidden;';
+    monthEl.style.cssText = 'display: flex; flex-direction: column; gap: 6px; border-bottom: 1px dashed rgba(0,229,255,0.25); padding-bottom: 16px; margin-bottom: 8px; width: 100%; box-sizing: border-box; flex-shrink: 0;';
     
     // Month Name Header
     const mHeader = document.createElement('div');
-    mHeader.style.cssText = 'font-size: 14px; font-weight: 900; color: #00e5ff; text-align: left; padding: 2px 6px; font-family: var(--font-title); border-left: 3.5px solid #fbbf24; line-height: 1.1; margin-bottom: 2px;';
+    mHeader.style.cssText = 'font-size: 14.5px; font-weight: 900; color: #00e5ff; text-align: left; padding: 2px 6px; font-family: var(--font-title); border-left: 3.5px solid #fbbf24; line-height: 1.1; margin-bottom: 2px;';
     mHeader.innerText = `${monthName} ${year}`;
     monthEl.appendChild(mHeader);
     
     // Weekday Headers Grid - 7 STRICTLY EQUAL Columns
     const weekHeadersGrid = document.createElement('div');
-    weekHeadersGrid.style.cssText = 'display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; text-align: center; font-size: 10px; font-weight: 900; color: #00e5ff; text-transform: uppercase; border-bottom: 1px solid rgba(0,229,255,0.2); padding-bottom: 3px; margin-bottom: 2px; width: 100%; font-family: var(--font-title); box-sizing: border-box;';
+    weekHeadersGrid.style.cssText = 'display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; font-size: 10.5px; font-weight: 900; color: #00e5ff; text-transform: uppercase; border-bottom: 1px solid rgba(0,229,255,0.2); padding-bottom: 4px; width: 100%; font-family: var(--font-title); box-sizing: border-box; flex-shrink: 0;';
     ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach(dayName => {
       const dayNameEl = document.createElement('div');
       dayNameEl.innerText = dayName;
@@ -5788,14 +5786,14 @@ function renderCalendar(scheduleData, teamIdNum, container) {
     });
     monthEl.appendChild(weekHeadersGrid);
     
-    // Days Grid - 7 STRICTLY EQUAL Columns with explicit min-height 48px so tiles NEVER collapse
+    // Days Grid - 7 STRICTLY EQUAL Columns with guaranteed 52px height day cells
     const daysGrid = document.createElement('div');
-    daysGrid.style.cssText = 'display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; width: 100%; box-sizing: border-box; overflow-x: hidden;';
+    daysGrid.style.cssText = 'display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; width: 100%; box-sizing: border-box; flex-shrink: 0;';
     
     // Spacer empty cells
     for (let s = 0; s < firstDayOffset; s++) {
       const spacer = document.createElement('div');
-      spacer.style.cssText = 'min-height: 48px; background: rgba(0,0,0,0.2); border: 1px solid transparent; border-radius: 4px; opacity: 0.15; width: 100%;';
+      spacer.style.cssText = 'min-height: 52px; height: 52px; background: rgba(0,0,0,0.2); border: 1px solid transparent; border-radius: 6px; opacity: 0.15; width: 100%; box-sizing: border-box; flex-shrink: 0;';
       daysGrid.appendChild(spacer);
     }
     
@@ -5804,17 +5802,17 @@ function renderCalendar(scheduleData, teamIdNum, container) {
       const dateStr = `2026-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const dayCell = document.createElement('div');
       dayCell.className = 'calendar-day-cell';
-      dayCell.style.cssText = 'min-height: 48px; background: rgba(13, 26, 34, 0.9); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 4px; display: flex; flex-direction: column; justify-content: space-between; padding: 2px 1px; box-sizing: border-box; transition: all 0.2s ease; overflow: hidden; width: 100%;';
+      dayCell.style.cssText = 'min-height: 52px; height: 52px; background: rgba(15, 28, 38, 0.95); border: 1px solid rgba(0, 229, 255, 0.25); border-radius: 6px; display: flex; flex-direction: column; justify-content: space-between; padding: 4px 3px; box-sizing: border-box; transition: all 0.2s ease; overflow: hidden; width: 100%; flex-shrink: 0;';
       
       const dayNum = document.createElement('span');
-      dayNum.style.cssText = 'font-size: 8.5px; font-weight: 800; color: #94a3b8; align-self: flex-start; line-height: 1; padding-left: 1px;';
+      dayNum.style.cssText = 'font-size: 9px; font-weight: 800; color: #94a3b8; align-self: flex-start; line-height: 1; padding-left: 1px;';
       dayNum.innerText = day;
       dayCell.appendChild(dayNum);
       
       // Is selected date?
       if (dateStr === state.selectedDate) {
         dayCell.style.borderColor = '#fbbf24';
-        dayCell.style.background = 'rgba(251, 191, 36, 0.16)';
+        dayCell.style.background = 'rgba(251, 191, 36, 0.18)';
         dayNum.style.color = '#fbbf24';
       }
       
@@ -5835,12 +5833,12 @@ function renderCalendar(scheduleData, teamIdNum, container) {
           const matchupPrefix = isHome ? 'vs' : '@';
           
           const gameText = document.createElement('div');
-          gameText.style.cssText = 'font-size: 8px; font-weight: 900; color: #00e5ff; text-align: center; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1; font-family: var(--font-title); width: 100%;';
+          gameText.style.cssText = 'font-size: 8.5px; font-weight: 900; color: #00e5ff; text-align: center; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1; font-family: var(--font-title); width: 100%;';
           gameText.innerText = `${matchupPrefix} ${oppAbbr}`;
           gamesContainer.appendChild(gameText);
           
           const scoreText = document.createElement('div');
-          scoreText.style.cssText = 'font-size: 8px; font-weight: 900; text-align: center; line-height: 1; font-family: var(--font-title); white-space: nowrap; overflow: hidden; width: 100%;';
+          scoreText.style.cssText = 'font-size: 8.5px; font-weight: 900; text-align: center; line-height: 1; font-family: var(--font-title); white-space: nowrap; overflow: hidden; width: 100%;';
           
           const statusCode = game.status?.statusCode;
           const isCompleted = statusCode === 'F' || statusCode === 'O' || statusCode === 'FT' || statusCode === 'FINAL';
@@ -5854,18 +5852,18 @@ function renderCalendar(scheduleData, teamIdNum, container) {
             if (isWinner) {
               scoreText.innerText = `W ${ourScore}-${oppScore}`;
               scoreText.style.color = '#34d399';
-              dayCell.style.background = 'rgba(16, 185, 129, 0.15)';
+              dayCell.style.background = 'rgba(16, 185, 129, 0.16)';
               dayCell.style.borderColor = 'rgba(16, 185, 129, 0.35)';
             } else {
               scoreText.innerText = `L ${ourScore}-${oppScore}`;
               scoreText.style.color = '#f87171';
-              dayCell.style.background = 'rgba(239, 68, 68, 0.15)';
+              dayCell.style.background = 'rgba(239, 68, 68, 0.16)';
               dayCell.style.borderColor = 'rgba(239, 68, 68, 0.35)';
             }
           } else if (isLive && ourScore !== undefined && oppScore !== undefined) {
             scoreText.innerText = `LIVE ${ourScore}-${oppScore}`;
             scoreText.style.color = '#fbbf24';
-            dayCell.style.background = 'rgba(245, 158, 11, 0.15)';
+            dayCell.style.background = 'rgba(245, 158, 11, 0.16)';
             dayCell.style.borderColor = 'rgba(245, 158, 11, 0.35)';
           } else {
             if (game.gameDate) {
@@ -5895,7 +5893,7 @@ function renderCalendar(scheduleData, teamIdNum, container) {
     const trailingSpacers = (7 - (totalCells % 7)) % 7;
     for (let t = 0; t < trailingSpacers; t++) {
       const spacer = document.createElement('div');
-      spacer.style.cssText = 'min-height: 48px; background: rgba(0,0,0,0.03); border: 1px solid transparent; border-radius: 4px; opacity: 0.15; width: 100%;';
+      spacer.style.cssText = 'min-height: 52px; height: 52px; background: rgba(0,0,0,0.03); border: 1px solid transparent; border-radius: 6px; opacity: 0.15; width: 100%; box-sizing: border-box; flex-shrink: 0;';
       daysGrid.appendChild(spacer);
     }
     
