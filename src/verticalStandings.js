@@ -152,7 +152,7 @@ export function createVerticalStandingsView(state, onBack) {
   // Banner status for key legend & motion replay info
   const infoBanner = document.createElement('div');
   infoBanner.className = 'vertical-standings-key-box';
-  infoBanner.innerText = 'Viewing Live Standings. Tap "Play Shift" to watch guided region animations.';
+  infoBanner.innerText = 'Viewing Live Standings (2:00 AM daily schedule rollover). Tap "Play Shift" to watch guided region animations.';
   container.appendChild(infoBanner);
 
   // Scroll Area for Timeline
