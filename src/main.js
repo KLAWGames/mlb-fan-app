@@ -1833,8 +1833,9 @@ function showWhosHotModal(targetTeamId = null) {
     
     tabsList.forEach(tabData => {
       const isAct = tabData.opt === selectedOpt;
-      tabData.el.style.background = isAct ? 'var(--team-primary, var(--color-gold))' : 'transparent';
-      tabData.el.style.color = isAct ? 'var(--team-text, #ffffff)' : 'var(--text-secondary)';
+      tabData.el.style.background = isAct ? '#00e5ff' : 'rgba(255, 255, 255, 0.08)';
+      tabData.el.style.color = isAct ? '#071318' : '#cbd5e1';
+      tabData.el.style.border = isAct ? '1px solid #00e5ff' : '1px solid rgba(255, 255, 255, 0.15)';
     });
 
     performersGrid.innerHTML = '';

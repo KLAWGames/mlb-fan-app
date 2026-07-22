@@ -1566,11 +1566,21 @@ header {
 }
 
 /* Dark Cyber Child Overrides inside Feature Modals */
+.recap-content {
+  --text-primary: #ffffff !important;
+  --text-secondary: #cbd5e1 !important;
+  --text-muted: #94a3b8 !important;
+  --border-glass: rgba(0, 229, 255, 0.2) !important;
+  --border-glass-highlight: rgba(0, 229, 255, 0.35) !important;
+  --color-gold: #fbbf24 !important;
+}
+
 .recap-content p,
 .recap-content span,
 .recap-content label,
 .recap-content td,
-.recap-content th {
+.recap-content th,
+.recap-content div {
   color: #cbd5e1;
 }
 
@@ -1583,9 +1593,43 @@ header {
   color: #ffffff !important;
 }
 
+/* Who's Hot Player Card & Metric Contrast Overrides */
+.recap-content .hot-performer-card,
+.recap-content .whos-hot-card {
+  background: rgba(13, 26, 34, 0.95) !important;
+  border: 1.5px solid rgba(0, 229, 255, 0.3) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+  color: #ffffff !important;
+}
+
+.recap-content .hot-performer-card .player-name {
+  color: #fbbf24 !important;
+  font-weight: 900 !important;
+}
+
+.recap-content .hot-performer-card .player-team {
+  color: #94a3b8 !important;
+  font-weight: 700 !important;
+}
+
+.recap-content .hot-performer-card .timeframe-badge {
+  background: rgba(0, 229, 255, 0.12) !important;
+  color: #00e5ff !important;
+  border: 1px solid rgba(0, 229, 255, 0.3) !important;
+  font-weight: 700 !important;
+}
+
+.recap-content .hot-performer-card .metric-row span {
+  color: #cbd5e1 !important;
+}
+
+.recap-content .hot-performer-card .metric-row strong {
+  color: #ffffff !important;
+  font-weight: 800 !important;
+}
+
 .recap-content .glass-card,
 .recap-content .dashboard-banner,
-.recap-content .whos-hot-card,
 .recap-content .game-card,
 .recap-content .matchup-card {
   background: rgba(15, 23, 42, 0.8) !important;
