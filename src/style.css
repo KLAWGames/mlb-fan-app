@@ -1495,22 +1495,6 @@ header {
   position: relative !important;
 }
 
-.vertical-dh-badge {
-  position: absolute !important;
-  top: -6px !important;
-  left: 18px !important;
-  background: #fbbf24 !important;
-  color: #071318 !important;
-  font-size: 8px !important;
-  font-weight: 900 !important;
-  padding: 1px 4px !important;
-  border-radius: 4px !important;
-  box-shadow: 0 0 6px rgba(251, 191, 36, 0.7) !important;
-  z-index: 6 !important;
-  font-family: var(--font-title) !important;
-  line-height: 1 !important;
-}
-
 .vertical-team-abbr-container {
   display: flex !important;
   flex-direction: column !important;

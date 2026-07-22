@@ -326,7 +326,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     maxGBAheadVal = Math.ceil(Math.max(...allGBs, 2.5) * 2) / 2 + 1.0;
     minGBBehindVal = Math.floor(Math.min(...allGBs, -5.0) * 2) / 2 - 1.0;
 
-    globalPxPerGB = 130;
+    globalPxPerGB = 160;
     const topPadding = 80;
     const bottomPadding = 120;
 
@@ -344,7 +344,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       });
     });
 
-    const minContentWidth = Math.max(375, 78 + (maxTiedInRow * 98) + 20);
+    const minContentWidth = Math.max(400, 78 + (maxTiedInRow * 112) + 30);
     const contentBox = document.createElement('div');
     contentBox.style.cssText = `position: relative; min-width: ${minContentWidth}px; width: ${minContentWidth}px; min-height: ${totalHeight}px; height: ${totalHeight}px;`;
 
@@ -567,7 +567,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     if (gData.metadataText) {
       const metaDiv = document.createElement('div');
       metaDiv.className = `vertical-node-metadata ${gData.statusClass}`;
-      metaDiv.innerText = `G${gameNum}: ${gData.metadataText}`;
+      metaDiv.innerText = `DH G${gameNum}: ${gData.metadataText}`;
       group.appendChild(metaDiv);
     }
 
@@ -599,7 +599,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     const col = colIdx >= 0 ? colIdx : 0;
 
     const yPos = globalZeroLineY - (team.gbRel * globalPxPerGB) - 19;
-    const xPos = 78 + (col * 98);
+    const xPos = 78 + (col * 112);
 
     node.style.top = `${yPos}px`;
     node.style.left = `${xPos}px`;
@@ -646,12 +646,6 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
 
       node.className = `vertical-team-node doubleheader-node dh-border-cycle-${g1Data.statusClass}-${g2Data.statusClass}`;
       if (team.id === state.activeTeamId) node.classList.add('favorite');
-
-      // DH Badge
-      const dhBadge = document.createElement('div');
-      dhBadge.className = 'vertical-dh-badge';
-      dhBadge.innerText = 'DH';
-      node.appendChild(dhBadge);
 
       // Streak Badge
       if (streakTag) {
