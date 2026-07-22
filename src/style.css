@@ -2757,6 +2757,114 @@ header {
   }
 }
 
+/* Interactive Team Action Modal (Dark Cyber Theme) */
+.vertical-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(7, 19, 24, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn 0.25s ease;
+}
+
+.vertical-team-action-card {
+  background: #0d1a22;
+  border: 1.5px solid #00e5ff;
+  box-shadow: 0 0 35px rgba(0, 229, 255, 0.25), 0 10px 30px rgba(0, 0, 0, 0.8);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 480px;
+  padding: 20px;
+  color: #ffffff;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.vertical-modal-matchup-box {
+  background: rgba(0, 229, 255, 0.05);
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.vertical-action-btn.primary {
+  width: 100%;
+  margin-top: 10px;
+  background: linear-gradient(135deg, #00e5ff 0%, #0284c7 100%);
+  color: #071318;
+  font-family: var(--font-title);
+  font-weight: 800;
+  font-size: 13px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.4);
+  transition: all 0.2s ease;
+}
+
+.vertical-action-btn.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.7);
+}
+
+.vertical-action-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vertical-action-card-btn {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #ffffff;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+}
+
+.vertical-action-card-btn:hover {
+  background: rgba(0, 229, 255, 0.12);
+  border-color: #00e5ff;
+  transform: translateX(4px);
+  box-shadow: 0 0 15px rgba(0, 229, 255, 0.2);
+}
+
+.vertical-action-card-btn .icon {
+  font-size: 22px;
+}
+
+.vertical-action-card-btn .title {
+  font-family: var(--font-title);
+  font-weight: 800;
+  font-size: 14px;
+  color: #ffffff;
+}
+
+.vertical-action-card-btn .sub {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
 
 
 

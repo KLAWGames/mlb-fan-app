@@ -2,7 +2,7 @@
 
 import { teamsData } from './teamsData.js';
 
-export function createVerticalStandingsView(state, onBack) {
+export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   const container = document.createElement('div');
   container.className = 'vertical-standings-container';
 
@@ -659,6 +659,179 @@ export function createVerticalStandingsView(state, onBack) {
       metaDiv.innerText = metadataText;
       node.appendChild(metaDiv);
     }
+
+    node.style.cursor = 'pointer';
+    node.onclick = (e) => {
+      e.stopPropagation();
+      showTeamActionModal(team, game, mode);
+    };
+  }
+
+  // Interactive Team Action & Game Matchup Modal
+  function showTeamActionModal(team, game, mode) {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'vertical-modal-backdrop';
+
+    const modal = document.createElement('div');
+    modal.className = 'vertical-team-action-card';
+
+    // Modal Header
+    const header = document.createElement('div');
+    header.style.cssText = 'display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(0, 229, 255, 0.2); padding-bottom: 12px; margin-bottom: 16px;';
+
+    const teamHeaderInfo = document.createElement('div');
+    teamHeaderInfo.style.cssText = 'display: flex; align-items: center; gap: 12px;';
+
+    const logoDisc = document.createElement('div');
+    logoDisc.style.cssText = 'width: 44px; height: 44px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 4px; box-shadow: 0 0 12px rgba(0, 229, 255, 0.3); flex-shrink: 0;';
+
+    const logoImg = document.createElement('img');
+    logoImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${team.abbreviation.toLowerCase()}.png`;
+    logoImg.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
+    logoDisc.appendChild(logoImg);
+    teamHeaderInfo.appendChild(logoDisc);
+
+    const teamTitleBox = document.createElement('div');
+    teamTitleBox.innerHTML = `
+      <div style="font-family: var(--font-title); font-size: 18px; font-weight: 900; color: #ffffff;">${team.name || team.abbreviation}</div>
+      <div style="font-size: 12px; color: #94a3b8; font-weight: 600;">${team.wins}-${team.losses} | ${team.divisionName || 'MLB Division'}</div>
+    `;
+    teamHeaderInfo.appendChild(teamTitleBox);
+    header.appendChild(teamHeaderInfo);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.style.cssText = 'background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; width: 32px; height: 32px; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;';
+    closeBtn.innerText = '✕';
+    closeBtn.addEventListener('click', () => backdrop.remove());
+    header.appendChild(closeBtn);
+    modal.appendChild(header);
+
+    // Game Matchup Section
+    if (game) {
+      const matchupBox = document.createElement('div');
+      matchupBox.className = 'vertical-modal-matchup-box';
+
+      const awayObj = game.teams?.away;
+      const homeObj = game.teams?.home;
+
+      const awayName = awayObj?.team?.name || 'Away';
+      const homeName = homeObj?.team?.name || 'Home';
+      const awayAbbr = teamsData[awayObj?.team?.id]?.abbreviation || awayName.substring(0, 3).toUpperCase();
+      const homeAbbr = teamsData[homeObj?.team?.id]?.abbreviation || homeName.substring(0, 3).toUpperCase();
+
+      const awayScore = awayObj?.score !== null && awayObj?.score !== undefined ? awayObj.score : '-';
+      const homeScore = homeObj?.score !== null && homeObj?.score !== undefined ? homeObj.score : '-';
+
+      const statusText = game.status?.detailedState || 'Scheduled';
+
+      matchupBox.innerHTML = `
+        <div style="font-size: 11px; font-weight: 800; color: #00e5ff; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Game Matchup Info (${statusText})</div>
+        <div style="display: flex; align-items: center; justify-content: space-around; background: rgba(0, 0, 0, 0.4); padding: 12px; border-radius: 10px; border: 1px solid rgba(0, 229, 255, 0.2);">
+          <div style="text-align: center;">
+            <img src="https://a.espncdn.com/i/teamlogos/mlb/500/${awayAbbr.toLowerCase()}.png" style="width: 28px; height: 28px; object-fit: contain; margin-bottom: 2px;" />
+            <div style="font-weight: 800; font-size: 12px; color: #fff;">${awayAbbr}</div>
+            <div style="font-size: 16px; font-weight: 900; color: #00e5ff;">${awayScore}</div>
+          </div>
+          <div style="font-size: 13px; font-weight: 800; color: #94a3b8;">VS</div>
+          <div style="text-align: center;">
+            <img src="https://a.espncdn.com/i/teamlogos/mlb/500/${homeAbbr.toLowerCase()}.png" style="width: 28px; height: 28px; object-fit: contain; margin-bottom: 2px;" />
+            <div style="font-weight: 800; font-size: 12px; color: #fff;">${homeAbbr}</div>
+            <div style="font-size: 16px; font-weight: 900; color: #00e5ff;">${homeScore}</div>
+          </div>
+        </div>
+      `;
+
+      if (callbacks.openGameAnalytics) {
+        const analyticsBtn = document.createElement('button');
+        analyticsBtn.className = 'vertical-action-btn primary';
+        analyticsBtn.innerHTML = `<span>📊</span> <span>Open Game Analytics Center</span>`;
+        analyticsBtn.addEventListener('click', () => {
+          backdrop.remove();
+          callbacks.openGameAnalytics(game);
+        });
+        matchupBox.appendChild(analyticsBtn);
+      }
+
+      modal.appendChild(matchupBox);
+    }
+
+    // Quick Action Buttons
+    const actionsHeader = document.createElement('div');
+    actionsHeader.style.cssText = 'font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin: 16px 0 10px 0;';
+    actionsHeader.innerText = 'Team Quick Actions';
+    modal.appendChild(actionsHeader);
+
+    const actionGrid = document.createElement('div');
+    actionGrid.className = 'vertical-action-grid';
+
+    // 1. Games That Matter
+    if (callbacks.openGamesThatMatter) {
+      const btn = document.createElement('button');
+      btn.className = 'vertical-action-card-btn';
+      btn.innerHTML = `<span class="icon">🎯</span><div><div class="title">Games That Matter</div><div class="sub">Playoff race & rooting guide</div></div>`;
+      btn.addEventListener('click', () => {
+        backdrop.remove();
+        callbacks.openGamesThatMatter();
+      });
+      actionGrid.appendChild(btn);
+    }
+
+    // 2. Team Calendar
+    if (callbacks.openTeamCalendar) {
+      const btn = document.createElement('button');
+      btn.className = 'vertical-action-card-btn';
+      btn.innerHTML = `<span class="icon">📅</span><div><div class="title">${team.abbreviation} Calendar</div><div class="sub">Full schedule, wins/losses, scores & start times</div></div>`;
+      btn.addEventListener('click', () => {
+        backdrop.remove();
+        callbacks.openTeamCalendar(teamsData[team.id] || team);
+      });
+      actionGrid.appendChild(btn);
+    }
+
+    // 3. Team Overview
+    if (callbacks.openTeamOverview) {
+      const btn = document.createElement('button');
+      btn.className = 'vertical-action-card-btn';
+      btn.innerHTML = `<span class="icon">📈</span><div><div class="title">Team Overview</div><div class="sub">Main dashboard & team stats screen</div></div>`;
+      btn.addEventListener('click', () => {
+        backdrop.remove();
+        callbacks.openTeamOverview(team.id);
+      });
+      actionGrid.appendChild(btn);
+    }
+
+    // 4. Who's Hot
+    if (callbacks.openWhosHot) {
+      const btn = document.createElement('button');
+      btn.className = 'vertical-action-card-btn';
+      btn.innerHTML = `<span class="icon">🔥</span><div><div class="title">Who's Hot</div><div class="sub">Hot hitters, pitchers & streaks</div></div>`;
+      btn.addEventListener('click', () => {
+        backdrop.remove();
+        callbacks.openWhosHot();
+      });
+      actionGrid.appendChild(btn);
+    }
+
+    // 5. What Happened Yesterday
+    if (callbacks.openWhatHappenedYesterday) {
+      const btn = document.createElement('button');
+      btn.className = 'vertical-action-card-btn';
+      btn.innerHTML = `<span class="icon">⏪</span><div><div class="title">What Happened Yesterday</div><div class="sub">Yesterday's full game recaps & scores</div></div>`;
+      btn.addEventListener('click', () => {
+        backdrop.remove();
+        callbacks.openWhatHappenedYesterday();
+      });
+      actionGrid.appendChild(btn);
+    }
+
+    modal.appendChild(actionGrid);
+
+    backdrop.appendChild(modal);
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) backdrop.remove();
+    });
+
+    document.body.appendChild(backdrop);
   }
 
   let manualPopInTimer = null;

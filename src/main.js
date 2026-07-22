@@ -4049,6 +4049,17 @@ function render() {
         main.appendChild(createVerticalStandingsView(state, () => {
           state.activeView = 'settings';
           render();
+        }, {
+          openGameAnalytics: (gameObj) => openGameAnalyticsCenter(gameObj),
+          openGamesThatMatter: () => showGamesThatMatterModal(),
+          openTeamCalendar: (teamObj) => showTeamCalendarModal(teamObj),
+          openTeamOverview: (teamId) => {
+            state.activeTeamId = teamId;
+            state.activeView = 'dashboard';
+            render();
+          },
+          openWhosHot: () => showWhosHotModal(),
+          openWhatHappenedYesterday: () => showRecapModal(false)
         }));
         break;
 
