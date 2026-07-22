@@ -771,7 +771,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       btn.innerHTML = `<span class="icon">🎯</span><div><div class="title">Games That Matter</div><div class="sub">Playoff race & rooting guide</div></div>`;
       btn.addEventListener('click', () => {
         backdrop.remove();
-        callbacks.openGamesThatMatter();
+        callbacks.openGamesThatMatter(team.id);
       });
       actionGrid.appendChild(btn);
     }
@@ -807,7 +807,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       btn.innerHTML = `<span class="icon">🔥</span><div><div class="title">Who's Hot</div><div class="sub">Hot hitters, pitchers & streaks</div></div>`;
       btn.addEventListener('click', () => {
         backdrop.remove();
-        callbacks.openWhosHot();
+        callbacks.openWhosHot(team.id);
       });
       actionGrid.appendChild(btn);
     }

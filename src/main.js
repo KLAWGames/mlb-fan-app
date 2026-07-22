@@ -1736,8 +1736,8 @@ function showRecapModal(isAutoTrigger = false) {
   backdrop.classList.add('show');
 }
 
-function showWhosHotModal() {
-  const activeTeamId = state.activeTeamId;
+function showWhosHotModal(targetTeamId = null) {
+  const activeTeamId = targetTeamId || state.activeTeamId;
   const team = state.processedStandings?.teamsMap?.[activeTeamId] || teamsData[activeTeamId];
   const teamName = team ? team.name : "Toronto Blue Jays";
 
@@ -3629,8 +3629,8 @@ function showTeamSeasonModal() {
   backdrop.classList.add('show');
 }
 
-function showGamesThatMatterModal() {
-  const activeTeamId = state.activeTeamId;
+function showGamesThatMatterModal(targetTeamId = null) {
+  const activeTeamId = targetTeamId || state.activeTeamId;
   const team = state.processedStandings?.teamsMap?.[activeTeamId] || teamsData[activeTeamId];
   if (!team) return;
 
@@ -4051,14 +4051,14 @@ function render() {
           render();
         }, {
           openGameAnalytics: (gameObj) => openGameAnalyticsCenter(gameObj),
-          openGamesThatMatter: () => showGamesThatMatterModal(),
+          openGamesThatMatter: (teamId) => showGamesThatMatterModal(teamId),
           openTeamCalendar: (teamObj) => showTeamCalendarModal(teamObj),
           openTeamOverview: (teamId) => {
             state.activeTeamId = teamId;
             state.activeView = 'dashboard';
             render();
           },
-          openWhosHot: () => showWhosHotModal(),
+          openWhosHot: (teamId) => showWhosHotModal(teamId),
           openWhatHappenedYesterday: () => showRecapModal(false)
         }));
         break;
