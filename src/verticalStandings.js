@@ -735,25 +735,31 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     let targetGame = game;
     const teamIdNum = parseInt(team.id, 10);
 
-    if (!targetGame && state.rawSchedule && state.rawSchedule.length > 0) {
-      targetGame = state.rawSchedule.find(g => {
+    const allSchedules = [
+      ...(state.rawSchedule || []),
+      ...(state.rawScheduleYesterday || []),
+      ...(state.rawScheduleDayBeforeYesterday || [])
+    ];
+
+    if (!targetGame && allSchedules.length > 0) {
+      targetGame = allSchedules.find(g => {
         const awayId = parseInt(g.teams?.away?.team?.id, 10);
         const homeId = parseInt(g.teams?.home?.team?.id, 10);
         return awayId === teamIdNum || homeId === teamIdNum;
       });
     }
 
-    if (targetGame) {
-      const matchupBox = document.createElement('div');
-      matchupBox.className = 'vertical-modal-matchup-box';
+    const matchupBox = document.createElement('div');
+    matchupBox.className = 'vertical-modal-matchup-box';
 
-      const awayObj = targetGame.teams?.away;
-      const homeObj = targetGame.teams?.home;
+    const awayObj = targetGame?.teams?.away;
+    const homeObj = targetGame?.teams?.home;
 
-      const isAway = parseInt(awayObj?.team?.id, 10) === teamIdNum;
-      const oppTeamObj = isAway ? homeObj?.team : awayObj?.team;
-      const oppTeamId = parseInt(oppTeamObj?.id, 10);
+    const isAway = parseInt(awayObj?.team?.id, 10) === teamIdNum;
+    const oppTeamObj = isAway ? homeObj?.team : awayObj?.team;
+    const oppTeamId = parseInt(oppTeamObj?.id, 10);
 
+    if (oppTeamId) {
       const oppStatic = teamsData[oppTeamId];
       if (oppStatic) {
         oppAbbr = oppStatic.abbreviation;
@@ -764,16 +770,17 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
         );
         oppAbbr = found ? found.abbreviation : (oppTeamObj.triCode || oppTeamObj.name.substring(0, 3).toUpperCase());
       }
+    }
 
-      const awayName = awayObj?.team?.name || 'Away';
-      const homeName = homeObj?.team?.name || 'Home';
-      const awayAbbr = teamsData[awayObj?.team?.id]?.abbreviation || awayName.substring(0, 3).toUpperCase();
-      const homeAbbr = teamsData[homeObj?.team?.id]?.abbreviation || homeName.substring(0, 3).toUpperCase();
+    const awayName = awayObj?.team?.name || 'Away';
+    const homeName = homeObj?.team?.name || 'Home';
+    const awayAbbr = teamsData[awayObj?.team?.id]?.abbreviation || (awayName !== 'Away' ? awayName.substring(0, 3).toUpperCase() : team.abbreviation);
+    const homeAbbr = teamsData[homeObj?.team?.id]?.abbreviation || (homeName !== 'Home' ? homeName.substring(0, 3).toUpperCase() : (oppAbbr || 'OPP'));
 
-      const awayScore = awayObj?.score !== null && awayObj?.score !== undefined ? awayObj.score : '-';
-      const homeScore = homeObj?.score !== null && homeObj?.score !== undefined ? homeObj.score : '-';
+    const awayScore = awayObj?.score !== null && awayObj?.score !== undefined ? awayObj.score : '-';
+    const homeScore = homeObj?.score !== null && homeObj?.score !== undefined ? homeObj.score : '-';
 
-      const statusText = targetGame.status?.detailedState || 'Scheduled';
+    const statusText = targetGame?.status?.detailedState || 'Game Matchup';
 
       matchupBox.innerHTML = `
         <div style="font-size: 11px; font-weight: 800; color: #00e5ff; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Game Matchup Info (${statusText})</div>
@@ -934,8 +941,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
           .catch(() => {});
       }
 
-      modal.appendChild(matchupBox);
-    }
+    modal.appendChild(matchupBox);
 
     // Quick Action Buttons
     const actionsHeader = document.createElement('div');
