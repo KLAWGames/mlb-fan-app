@@ -626,11 +626,10 @@ export function createVerticalStandingsView(state, onBack) {
     }
   }
 
-  // Animate left axis tick labels fade-out and pop-in scale emphasis
-  function animateTickLabels(targetMode) {
+  // Step 1: Fade out old row labels for disappearing or changing rows
+  function fadeOutOldLabels(targetMode) {
     const dataset = getSnapshotDataset(targetMode);
     const snapData = computeSnapshotData(dataset.processed);
-
     const gbGroups = {};
     snapData.teamsWithPos.forEach(t => {
       const k = t.gbRel.toFixed(1);
@@ -640,32 +639,42 @@ export function createVerticalStandingsView(state, onBack) {
 
     const activeRowKeys = new Set(Object.keys(gbGroups));
 
-    // 1. Fade out labels that are disappearing
     tickLabelElements.forEach(({ el, gbKey, isZero }) => {
       const isNewActive = isZero || activeRowKeys.has(gbKey);
       if (!isNewActive && el.style.display !== 'none') {
         el.classList.add('fade-out');
       }
     });
+  }
 
-    // 2. Trigger pop-in scale animation on newly appeared / updated row labels
-    setTimeout(() => {
-      tickLabelElements.forEach(({ el, gbKey, isZero }) => {
-        const isNewActive = isZero || activeRowKeys.has(gbKey);
-        if (isNewActive) {
-          const wasHidden = el.style.display === 'none';
-          el.style.display = 'block';
-          el.classList.remove('fade-out');
-          if (wasHidden) {
-            el.classList.add('pop-in');
-            setTimeout(() => el.classList.remove('pop-in'), 450);
-          }
-        } else {
-          el.style.display = 'none';
-          el.classList.remove('fade-out');
+  // Step 3: Pop in new row labels AFTER team boxes arrive at their new location
+  function popInNewLabels(targetMode) {
+    const dataset = getSnapshotDataset(targetMode);
+    const snapData = computeSnapshotData(dataset.processed);
+    const gbGroups = {};
+    snapData.teamsWithPos.forEach(t => {
+      const k = t.gbRel.toFixed(1);
+      if (!gbGroups[k]) gbGroups[k] = [];
+      gbGroups[k].push(t);
+    });
+
+    const activeRowKeys = new Set(Object.keys(gbGroups));
+
+    tickLabelElements.forEach(({ el, gbKey, isZero }) => {
+      const isNewActive = isZero || activeRowKeys.has(gbKey);
+      if (isNewActive) {
+        const wasHidden = el.style.display === 'none' || el.classList.contains('fade-out');
+        el.style.display = 'block';
+        el.classList.remove('fade-out');
+        if (wasHidden) {
+          el.classList.add('pop-in');
+          setTimeout(() => el.classList.remove('pop-in'), 450);
         }
-      });
-    }, 200);
+      } else {
+        el.style.display = 'none';
+        el.classList.remove('fade-out');
+      }
+    });
   }
 
   // Update all team node positions simultaneously for full snapshot mode
@@ -673,7 +682,7 @@ export function createVerticalStandingsView(state, onBack) {
     const dataset = getSnapshotDataset(activeSnapshotMode);
     const snapData = computeSnapshotData(dataset.processed);
 
-    animateTickLabels(activeSnapshotMode);
+    popInNewLabels(activeSnapshotMode);
 
     snapData.teamsWithPos.forEach(team => {
       setSingleTeamPosition(team.id, activeSnapshotMode);
@@ -744,22 +753,27 @@ export function createVerticalStandingsView(state, onBack) {
           }
         });
 
-        // Fade old row tick labels for this section
-        animateTickLabels('yesterday-end');
-
-        // 3. PRE-MOVEMENT HOLD (1.1s): Let user settle eyes on baseline & shift badges before cards move!
-        await new Promise(r => setTimeout(r, 1100));
+        // 3. STEP 1: OLD LABEL FADES AWAY BEFORE CARD MOVEMENT
+        fadeOutOldLabels('yesterday-end');
+        await new Promise(r => setTimeout(r, 300));
         if (cancelAnimationRequested) break;
 
-        // 4. SHOW CHANGE ANIMATION: Simultaneously animate positions for teams in this section
+        // 4. STEP 2: TEAM BOX MOVES TO NEW LOCATION!
         activeSnapshotMode = 'yesterday-end';
         updateSnapshotBtnStyles();
         cluster.teams.forEach(team => {
           setSingleTeamPosition(team.id, 'yesterday-end');
         });
 
-        // 5. POST-MOVEMENT HOLD (1.6s): Hold final positions so user can absorb the shift & scores!
-        await new Promise(r => setTimeout(r, 1600));
+        // Wait 1.25s for team boxes to physically glide and arrive at their new location
+        await new Promise(r => setTimeout(r, 1250));
+        if (cancelAnimationRequested) break;
+
+        // 5. STEP 3: NEW LABEL POPS IN AFTER TEAM BOX ARRIVES AT NEW LOCATION!
+        popInNewLabels('yesterday-end');
+
+        // Hold final positions for 1.2s so user can absorb the shift & scores!
+        await new Promise(r => setTimeout(r, 1200));
 
         // 6. Clean up focus glow rings and shift pills before moving to next section
         cluster.teams.forEach(team => {
@@ -819,22 +833,27 @@ export function createVerticalStandingsView(state, onBack) {
             }
           });
 
-          // Fade old row tick labels for this section
-          animateTickLabels('today-live');
-
-          // 3. PRE-MOVEMENT HOLD (1.1s): Let user settle eyes on baseline & shift badges before cards move!
-          await new Promise(r => setTimeout(r, 1100));
+          // 3. STEP 1: OLD LABEL FADES AWAY BEFORE CARD MOVEMENT
+          fadeOutOldLabels('today-live');
+          await new Promise(r => setTimeout(r, 300));
           if (cancelAnimationRequested) break;
 
-          // 4. SHOW CHANGE ANIMATION: Simultaneously animate positions for teams in this section to today-live
+          // 4. STEP 2: TEAM BOX MOVES TO NEW LOCATION!
           activeSnapshotMode = 'today-live';
           updateSnapshotBtnStyles();
           cluster.teams.forEach(team => {
             setSingleTeamPosition(team.id, 'today-live');
           });
 
-          // 5. POST-MOVEMENT HOLD (1.6s): Hold final positions so user can absorb the shift & scores!
-          await new Promise(r => setTimeout(r, 1600));
+          // Wait 1.25s for team boxes to physically glide and arrive at their new location
+          await new Promise(r => setTimeout(r, 1250));
+          if (cancelAnimationRequested) break;
+
+          // 5. STEP 3: NEW LABEL POPS IN AFTER TEAM BOX ARRIVES AT NEW LOCATION!
+          popInNewLabels('today-live');
+
+          // Hold final positions for 1.2s so user can absorb the shift & scores!
+          await new Promise(r => setTimeout(r, 1200));
 
           // 6. Clean up focus glow rings and shift pills before moving to next section
           cluster.teams.forEach(team => {
