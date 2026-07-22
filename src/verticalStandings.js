@@ -128,10 +128,11 @@ export function createVerticalStandingsView(state, onBack) {
     maxGBAhead = Math.ceil(maxGBAhead * 2) / 2 + 1.0;
     minGBBehind = Math.floor(minGBBehind * 2) / 2 - 1.0;
 
-    // Timeline pixel scaling (50px per 1.0 GB = 25px per 0.5 GB)
-    const pxPerGB = 50;
-    const topPadding = 60;
-    const bottomPadding = 80;
+    // Timeline pixel scaling: 130px per 1.0 GB = 65px per 0.5 GB
+    // Ensures team nodes (38px height) + metadata text (20px height) never overlap vertically at 0.5 GB intervals
+    const pxPerGB = 130;
+    const topPadding = 80;
+    const bottomPadding = 120;
 
     const zeroLineY = topPadding + (maxGBAhead * pxPerGB);
     const totalHeight = zeroLineY + (Math.abs(minGBBehind) * pxPerGB) + bottomPadding;
