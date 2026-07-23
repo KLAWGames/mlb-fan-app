@@ -908,7 +908,7 @@ export function drawSankeySVG(stats, team, plays) {
     } else if (isInteractive) {
       const labelText = `⊕ ${n.label} (${n.value})`;
       const labelWidth = Math.max(58, labelText.length * 5.2 + 10);
-      nodeGroupHtml += `<rect x="${n.x + nodeWidth + 5}" y="${n.y + n.h/2 - 7.5}" width="${labelWidth}" height="15" rx="4.5" fill="rgba(226, 232, 240, 0.22)" stroke="rgba(226, 232, 240, 0.45)" stroke-width="0.75" class="sankey-btn-bg" style="transition: all 0.2s;" />`;
+      nodeGroupHtml += `<rect x="${n.x + nodeWidth + 5}" y="${n.y + n.h/2 - 7.5}" width="${labelWidth}" height="15" rx="4.5" fill="var(--bg-card)" stroke="var(--border-glass-highlight)" stroke-width="0.75" class="sankey-btn-bg" style="transition: all 0.2s;" />`;
       nodeGroupHtml += `<text x="${n.x + nodeWidth + 5 + labelWidth/2}" y="${n.y + n.h/2}" font-size="7px" font-weight="700" fill="var(--text-primary)" font-family="var(--font-title)" text-anchor="middle" alignment-baseline="middle" style="pointer-events: none;">${labelText}</text>`;
     } else {
       nodeGroupHtml += `<text x="${n.x + nodeWidth + 6}" y="${n.y + n.h/2}" font-size="7.5px" font-weight="600" fill="var(--text-secondary)" font-family="var(--font-body)" text-anchor="start" alignment-baseline="middle">${n.label} (${n.value})</text>`;
@@ -1742,7 +1742,7 @@ export function openGameAnalyticsCenter(game, state = {}, render = () => {}) {
   body.appendChild(teamToggleRow);
 
   const visToggleRow = document.createElement('div');
-  visToggleRow.style.cssText = 'display: flex; background: #f1f5f9; padding: 3px; border-radius: 8px; border: 1px solid var(--border-glass);';
+  visToggleRow.style.cssText = 'display: flex; background: var(--bg-card-hover); padding: 3px; border-radius: 8px; border: 1px solid var(--border-glass-highlight);';
   
   const renderVisToggles = () => {
     visToggleRow.innerHTML = '';
@@ -1761,9 +1761,9 @@ export function openGameAnalyticsCenter(game, state = {}, render = () => {}) {
         border-radius: 6px;
         border: none;
         cursor: pointer;
-        background: ${isActive ? '#ffffff' : 'transparent'};
+        background: ${isActive ? 'var(--bg-card)' : 'transparent'};
         color: ${isActive ? 'var(--text-primary)' : 'var(--text-secondary)'};
-        box-shadow: ${isActive ? '0 1px 3px rgba(0,0,0,0.08)' : 'none'};
+        box-shadow: ${isActive ? '0 1px 3px rgba(0,0,0,0.2)' : 'none'};
         transition: all 0.2s;
       `;
       btn.innerText = opt.label;
@@ -1796,7 +1796,7 @@ export function openGameAnalyticsCenter(game, state = {}, render = () => {}) {
       const { plays } = getDeterministicSprayPlays(normGame, selectedTeamId, state);
       
       const scrollWrapper = document.createElement('div');
-      scrollWrapper.style.cssText = 'width: 100%; max-height: 440px; overflow: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border-glass); border-radius: 12px; background: #f8fafc; padding: 12px; position: relative;';
+      scrollWrapper.style.cssText = 'width: 100%; max-height: 440px; overflow: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border-glass-highlight); border-radius: 12px; background: var(--bg-card-hover); padding: 12px; position: relative;';
       
       const sankeyNode = drawSankeySVG(stats, teamObj, plays);
       scrollWrapper.appendChild(sankeyNode);
@@ -1924,7 +1924,7 @@ export function openGameAnalyticsCenter(game, state = {}, render = () => {}) {
       
       const prevBat = document.createElement('button');
       prevBat.innerText = '◀';
-      prevBat.style.cssText = 'width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: #f1f5f9; border: 1px solid var(--border-glass); border-radius: 6px; color: var(--text-primary); cursor: pointer; font-size: 11px; transition: all 0.2s;';
+      prevBat.style.cssText = 'width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: var(--bg-card); border: 1px solid var(--border-glass-highlight); border-radius: 6px; color: var(--text-primary); cursor: pointer; font-size: 11px; transition: all 0.2s;';
       prevBat.addEventListener('click', () => {
         if (selectedBatter === 'all') {
           selectedBatter = uniqueBatters[uniqueBatters.length - 1];
@@ -1939,7 +1939,7 @@ export function openGameAnalyticsCenter(game, state = {}, render = () => {}) {
       
       const nextBat = document.createElement('button');
       nextBat.innerText = '▶';
-      nextBat.style.cssText = 'width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: #f1f5f9; border: 1px solid var(--border-glass); border-radius: 6px; color: var(--text-primary); cursor: pointer; font-size: 11px; transition: all 0.2s;';
+      nextBat.style.cssText = 'width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: var(--bg-card); border: 1px solid var(--border-glass-highlight); border-radius: 6px; color: var(--text-primary); cursor: pointer; font-size: 11px; transition: all 0.2s;';
       nextBat.addEventListener('click', () => {
         if (selectedBatter === 'all') {
           selectedBatter = uniqueBatters[0];
@@ -1953,8 +1953,8 @@ export function openGameAnalyticsCenter(game, state = {}, render = () => {}) {
       });
       
       [prevBat, nextBat].forEach(btn => {
-        btn.addEventListener('mouseenter', () => { btn.style.background = '#e2e8f0'; });
-        btn.addEventListener('mouseleave', () => { btn.style.background = '#f1f5f9'; });
+        btn.addEventListener('mouseenter', () => { btn.style.background = 'var(--bg-card-hover)'; });
+        btn.addEventListener('mouseleave', () => { btn.style.background = 'var(--bg-card)'; });
       });
       
       cycleGroup.appendChild(prevBat);
@@ -1966,7 +1966,7 @@ export function openGameAnalyticsCenter(game, state = {}, render = () => {}) {
       visContainer.appendChild(batterSelectContainer);
 
       const statsSummary = document.createElement('div');
-      statsSummary.style.cssText = 'font-size: 11px; padding: 6px 10px; border-radius: 6px; background: #f8fafc; border: 1px solid var(--border-glass); text-align: center; font-weight: 500; display: none; margin-bottom: 4px;';
+      statsSummary.style.cssText = 'font-size: 11px; padding: 6px 10px; border-radius: 6px; background: var(--bg-card); border: 1px solid var(--border-glass-highlight); text-align: center; font-weight: 500; display: none; margin-bottom: 4px;';
       if (selectedBatter !== 'all') {
         const bs = batterStats[selectedBatter] || { H: 0, AB: 0, BB: 0, HBP: 0 };
         const bbStr = bs.BB > 0 ? `, ${bs.BB} BB` : '';
@@ -1977,7 +1977,7 @@ export function openGameAnalyticsCenter(game, state = {}, render = () => {}) {
       visContainer.appendChild(statsSummary);
       
       const fieldWrapper = document.createElement('div');
-      fieldWrapper.style.cssText = 'position: relative; width: 100%; aspect-ratio: 1.55; max-height: 250px; background: #022c22; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-glass); display: flex; justify-content: center;';
+      fieldWrapper.style.cssText = 'position: relative; width: 100%; aspect-ratio: 1.55; max-height: 250px; background: #022c22; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-glass-highlight); display: flex; justify-content: center;';
       
       const filteredPlays = selectedBatter === 'all' 
         ? plays 
@@ -1998,7 +1998,7 @@ export function openGameAnalyticsCenter(game, state = {}, render = () => {}) {
       visContainer.appendChild(fieldWrapper);
 
       const detailsPanel = document.createElement('div');
-      detailsPanel.style.cssText = 'background: #f8fafc; border: 1px solid var(--border-glass); border-radius: 12px; padding: 10px 14px; min-height: 80px; display: flex; flex-direction: column; justify-content: center;';
+      detailsPanel.style.cssText = 'background: var(--bg-card); border: 1px solid var(--border-glass-highlight); border-radius: 12px; padding: 10px 14px; min-height: 80px; display: flex; flex-direction: column; justify-content: center;';
       
       const updateDetailsPanel = (play) => {
         if (!play) {
@@ -2664,7 +2664,7 @@ export function drawPitcherSankeySVG(pm, teamObj) {
     } else if (isInteractive) {
       const labelText = `⊕ ${n.label} (${Math.round(n.value)}P)`;
       const labelWidth = Math.max(58, labelText.length * 5.2 + 8);
-      nodeGroupHtml += `<rect x="${n.x + nodeWidth + 5}" y="${n.y + n.h/2 - 7.5}" width="${labelWidth}" height="15" rx="4.5" fill="rgba(226, 232, 240, 0.22)" stroke="rgba(226, 232, 240, 0.45)" stroke-width="0.75" class="sankey-btn-bg" style="transition: all 0.2s;" />`;
+      nodeGroupHtml += `<rect x="${n.x + nodeWidth + 5}" y="${n.y + n.h/2 - 7.5}" width="${labelWidth}" height="15" rx="4.5" fill="var(--bg-card)" stroke="var(--border-glass-highlight)" stroke-width="0.75" class="sankey-btn-bg" style="transition: all 0.2s;" />`;
       nodeGroupHtml += `<text x="${n.x + nodeWidth + 5 + labelWidth/2}" y="${n.y + n.h/2}" font-size="7px" font-weight="700" fill="var(--text-primary)" font-family="var(--font-title)" text-anchor="middle" alignment-baseline="middle" style="pointer-events: none;">${labelText}</text>`;
     } else {
       nodeGroupHtml += `<text x="${n.x + nodeWidth + 6}" y="${n.y + n.h/2}" font-size="7.5px" font-weight="600" fill="var(--text-secondary)" font-family="var(--font-body)" text-anchor="start" alignment-baseline="middle">${n.label} (${Math.round(n.value)}P)</text>`;
