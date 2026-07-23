@@ -228,18 +228,37 @@ function createOfficialTeamLogoBadge(team) {
     return container;
   }
 
-  const abbr = (team.abbreviation || team.teamName || team.name || 'MLB').toUpperCase();
+  const rawAbbr = (team.abbreviation || team.teamName || team.name || 'MLB').toUpperCase();
+  const espnLogoMap = {
+    'AZ': 'ari',
+    'ARI': 'ari',
+    'CWS': 'chw',
+    'CHW': 'chw',
+    'ATH': 'oak',
+    'OAK': 'oak',
+    'WSH': 'was',
+    'WAS': 'was',
+    'KC': 'kc',
+    'KCR': 'kc',
+    'SD': 'sd',
+    'SDP': 'sd',
+    'SF': 'sf',
+    'SFG': 'sf',
+    'TB': 'tb',
+    'TBR': 'tb'
+  };
+  const logoCode = espnLogoMap[rawAbbr] || rawAbbr.toLowerCase();
   const primaryColor = team.primaryColor || '#334155';
   const textColor = team.textColor || '#ffffff';
 
   const img = document.createElement('img');
-  img.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${abbr.toLowerCase()}.png`;
-  img.alt = abbr;
+  img.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${logoCode}.png`;
+  img.alt = rawAbbr;
   img.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
 
   const fallbackSpan = document.createElement('span');
   fallbackSpan.style.cssText = `display: none; width: 100%; height: 100%; border-radius: 50%; background: ${primaryColor}; color: ${textColor}; font-size: 8.5px; font-weight: 800; font-family: var(--font-title); align-items: center; justify-content: center; text-align: center; line-height: 1;`;
-  fallbackSpan.innerText = abbr;
+  fallbackSpan.innerText = rawAbbr;
 
   img.onerror = () => {
     img.style.display = 'none';
@@ -4642,18 +4661,7 @@ function createSettingsView() {
     const teamBtn = document.createElement('button');
     teamBtn.style.cssText = `width: 100%; padding: 12px 14px; font-size: 13.5px; font-weight: 700; border-radius: 10px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; gap: 10px; transition: all 0.2s ease; border: 1.5px solid ${isCurrent ? 'var(--color-gold)' : 'var(--border-glass)'}; background: ${isCurrent ? 'rgba(245, 158, 11, 0.08)' : 'var(--bg-card)'}; color: ${isCurrent ? 'var(--color-gold)' : 'var(--text-primary)'}; outline: none;`;
     
-    const badge = document.createElement('div');
-    badge.className = 'team-badge-small';
-    badge.innerText = team.abbreviation;
-    badge.style.background = team.primaryColor;
-    badge.style.color = team.textColor;
-    badge.style.fontSize = '10px';
-    badge.style.width = '24px';
-    badge.style.height = '24px';
-    badge.style.display = 'flex';
-    badge.style.alignItems = 'center';
-    badge.style.justifyContent = 'center';
-    badge.style.borderRadius = '5px';
+    const badge = createOfficialTeamLogoBadge(team);
     
     const label = document.createElement('span');
     label.innerText = team.name;
@@ -8468,11 +8476,7 @@ function filterTeamsList() {
 
     const info = document.createElement('div');
     info.className = 'standings-team-cell';
-    const badge = document.createElement('div');
-    badge.className = 'team-badge-small';
-    badge.innerText = team.abbreviation;
-    badge.style.background = team.primaryColor;
-    badge.style.color = team.textColor;
+    const badge = createOfficialTeamLogoBadge(team);
 
     const name = document.createElement('span');
     name.innerText = team.name;
