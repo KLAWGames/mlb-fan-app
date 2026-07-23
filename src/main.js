@@ -4753,15 +4753,6 @@ function createSettingsView() {
     }
   });
 
-  const recapBtn = document.createElement('button');
-  recapBtn.style.cssText = 'width: 100%; padding: 14px 16px; font-size: 14px; font-weight: 800; color: #ffffff; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border: none; border-radius: 12px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2); outline: none;';
-  recapBtn.innerHTML = '🎬 Play Yesterday\'s 3D Recap';
-  recapBtn.addEventListener('click', () => {
-    state.activeView = 'recap-scroll';
-    render();
-  });
-
-  actionsGroup.appendChild(recapBtn);
   actionsGroup.appendChild(configureBtn);
   actionsGroup.appendChild(creditsBtn);
   actionsGroup.appendChild(devNotesBtn);
