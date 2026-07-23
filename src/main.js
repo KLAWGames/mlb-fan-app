@@ -4115,6 +4115,9 @@ function render() {
       case 'standings':
         main.appendChild(createStandingsView());
         break;
+      case 'mlb-hub':
+        main.appendChild(createMlbHubView());
+        break;
       case 'scores':
         main.appendChild(createScoresView());
         break;
@@ -4333,6 +4336,7 @@ function updateFooterContent(footer) {
     { view: 'dashboard', label: teamsLabel, emoji: '🧢' },
     { view: 'scores', label: 'Scores', emoji: '⚾' },
     { view: 'standings', label: 'Standings', emoji: '🏆' },
+    { view: 'mlb-hub', label: 'MLB', emoji: '🌐' },
     { view: 'settings', label: 'Settings', emoji: '⚙️' }
   ];
   
@@ -4778,7 +4782,7 @@ function updateHeaderContent(header) {
   topRow.className = 'header-top';
   topRow.style.minHeight = '0px';
 
-  if (state.activeView === 'settings' || state.activeView === 'all-teams') {
+  if (state.activeView === 'settings' || state.activeView === 'all-teams' || state.activeView === 'mlb-hub') {
     topRow.style.minHeight = '44px';
     const logo = document.createElement('div');
     logo.className = 'app-logo';
@@ -6895,64 +6899,74 @@ function createDashboardView() {
   });
   bentoGrid.appendChild(overviewBtn);
 
-  const streaksBtn = document.createElement('button');
-  streaksBtn.className = 'recap-trigger-btn';
-  streaksBtn.style.marginTop = '0px';
-  streaksBtn.style.marginBottom = '4px';
-  streaksBtn.innerHTML = `
-    <span class="icon">📈</span>
-    <span>Streaks & Records</span>
-  `;
-  streaksBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    showLeagueStreaksModal();
-  });
-  bentoGrid.appendChild(streaksBtn);
-
-  const hrChaseBtn = document.createElement('button');
-  hrChaseBtn.className = 'recap-trigger-btn';
-  hrChaseBtn.style.marginTop = '0px';
-  hrChaseBtn.style.marginBottom = '4px';
-  hrChaseBtn.innerHTML = `
-    <span class="icon">💥</span>
-    <span>HR Chase</span>
-  `;
-  hrChaseBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    showHrChaseModal();
-  });
-  bentoGrid.appendChild(hrChaseBtn);
-
-  const whatToWatchBtn = document.createElement('button');
-  whatToWatchBtn.className = 'recap-trigger-btn';
-  whatToWatchBtn.style.marginTop = '0px';
-  whatToWatchBtn.style.marginBottom = '4px';
-  whatToWatchBtn.innerHTML = `
-    <span class="icon">👀</span>
-    <span>What to Watch Now</span>
-  `;
-  whatToWatchBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    showWhatToWatchModal();
-  });
-  bentoGrid.appendChild(whatToWatchBtn);
-
-  const leagueNewsBtn = document.createElement('button');
-  leagueNewsBtn.className = 'recap-trigger-btn';
-  leagueNewsBtn.style.marginTop = '0px';
-  leagueNewsBtn.style.marginBottom = '4px';
-  leagueNewsBtn.innerHTML = `
-    <span class="icon">📰</span>
-    <span>League News</span>
-  `;
-  leagueNewsBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    showLeagueNewsModal();
-  });
-  bentoGrid.appendChild(leagueNewsBtn);
-
   container.appendChild(bentoGrid);
 
+  return container;
+}
+
+function createMlbHubView() {
+  const container = document.createElement('div');
+  container.className = 'setup-container mlb-hub-container';
+  container.style.cssText = 'display: flex; flex-direction: column; gap: 16px; padding-bottom: 24px; text-align: left;';
+
+  const header = document.createElement('div');
+  header.style.cssText = 'display: flex; flex-direction: column; gap: 4px;';
+
+  const title = document.createElement('h2');
+  title.className = 'setup-title';
+  title.innerText = 'MLB League Hub';
+  title.style.cssText = 'margin: 0; font-size: 22px; font-weight: 900; color: var(--color-gold); font-family: var(--font-title);';
+
+  const desc = document.createElement('p');
+  desc.style.cssText = 'font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin: 0;';
+  desc.innerText = 'Explore league-wide streaks, home run chases, news, and live watch recommendations across Major League Baseball.';
+
+  header.appendChild(title);
+  header.appendChild(desc);
+  container.appendChild(header);
+
+  const hubGrid = document.createElement('div');
+  hubGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;';
+
+  const hubCards = [
+    { title: 'Streaks & Records', icon: '📈', desc: 'Active hitting & pitching streaks', color: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', action: showLeagueStreaksModal },
+    { title: 'HR Chase', icon: '💥', desc: 'Live home run leaderboards & race', color: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', action: showHrChaseModal },
+    { title: 'What to Watch Now', icon: '👀', desc: 'High-leverage games & key matchups', color: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)', action: showWhatToWatchModal },
+    { title: 'League News', icon: '📰', desc: 'Real-time MLB headlines & updates', color: 'linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)', action: showLeagueNewsModal }
+  ];
+
+  hubCards.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'glass-card mlb-hub-card';
+    card.style.cssText = 'padding: 16px; display: flex; flex-direction: column; gap: 10px; cursor: pointer; transition: all 0.25s ease; border: 1px solid var(--border-glass-highlight); border-radius: 14px; background: var(--bg-card-hover);';
+
+    const iconBadge = document.createElement('div');
+    iconBadge.style.cssText = `width: 38px; height: 38px; border-radius: 10px; background: ${item.color}; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);`;
+    iconBadge.innerText = item.icon;
+
+    const cardTitle = document.createElement('h3');
+    cardTitle.style.cssText = 'font-size: 15px; font-weight: 800; color: var(--text-primary); margin: 0; font-family: var(--font-title); line-height: 1.25;';
+    cardTitle.innerText = item.title;
+
+    const cardDesc = document.createElement('p');
+    cardDesc.style.cssText = 'font-size: 11.5px; color: var(--text-secondary); margin: 0; line-height: 1.4;';
+    cardDesc.innerText = item.desc;
+
+    card.appendChild(iconBadge);
+    card.appendChild(cardTitle);
+    card.appendChild(cardDesc);
+
+    card.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (typeof item.action === 'function') {
+        item.action();
+      }
+    });
+
+    hubGrid.appendChild(card);
+  });
+
+  container.appendChild(hubGrid);
   return container;
 }
 
