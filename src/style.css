@@ -271,12 +271,22 @@ header {
   pointer-events: none;
 }
 
-.banner-zoom-btn {
+.banner-controls-container {
   position: absolute;
   top: 12px;
   right: 12px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 10;
+}
+
+.banner-zoom-btn {
+  position: relative;
+  top: auto;
+  right: auto;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   color: #ffffff;
   border-radius: 20px;
   padding: 4px 10px;
@@ -292,16 +302,17 @@ header {
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   outline: none;
+  flex-shrink: 0;
 }
 
 .banner-help-btn {
-  position: absolute;
-  top: 12px;
-  right: 76px; /* positioned left of the zoom button */
-  width: 22px;
-  height: 22px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+  top: auto;
+  right: auto;
+  width: 24px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   color: #ffffff;
   border-radius: 50%;
   display: inline-flex;
@@ -314,34 +325,20 @@ header {
   -webkit-backdrop-filter: blur(4px);
   outline: none;
   padding: 0;
+  flex-shrink: 0;
 }
 
-.banner-help-btn:hover {
-  background: rgba(255, 255, 255, 0.22);
-  border-color: rgba(255, 255, 255, 0.35);
+.banner-help-btn:hover, .banner-zoom-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
-.banner-help-btn:active {
-  transform: scale(0.95);
-}
-
-.banner-zoom-btn:hover {
-  background: rgba(255, 255, 255, 0.22);
-  border-color: rgba(255, 255, 255, 0.35);
-}
-
-.banner-zoom-btn:active {
+.banner-help-btn:active, .banner-zoom-btn:active {
   transform: scale(0.95);
 }
 
 .banner-stats-ticker {
-  margin-right: 75px; /* Leave space for the absolute-positioned Zoom button */
-}
-
-@media (max-width: 480px) {
-  .banner-stats-ticker {
-    margin-right: 75px;
-  }
+  margin-right: 0;
 }
 
 .banner-content {

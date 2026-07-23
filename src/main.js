@@ -3433,6 +3433,18 @@ function showTeamSeasonModal(targetTeamId = null) {
     banner.className = 'glass-card dashboard-banner';
     banner.style.cssText = `display: flex; flex-direction: column; gap: 14px; padding: 18px; position: relative; border-radius: 14px; background: linear-gradient(135deg, ${teamPrimary} 0%, ${teamSecondary} 100%); color: ${teamTextColor}; border: 1.5px solid rgba(255, 255, 255, 0.25); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);`;
 
+    const controlsContainer = document.createElement('div');
+    controlsContainer.className = 'banner-controls-container';
+
+    const helpBtn = document.createElement('button');
+    helpBtn.className = 'banner-help-btn';
+    helpBtn.setAttribute('title', 'What is Run Differential?');
+    helpBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
+    helpBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showRunDiffHelpModal();
+    });
+
     const zoomBtn = document.createElement('button');
     zoomBtn.className = 'banner-zoom-btn';
     zoomBtn.setAttribute('title', state.bannerZoomedIn ? 'Show All Games' : 'Zoom to Last 10 Games');
@@ -3453,18 +3465,10 @@ function showTeamSeasonModal(targetTeamId = null) {
       }
       renderModalBody();
     });
-    
-    const helpBtn = document.createElement('button');
-    helpBtn.className = 'banner-help-btn';
-    helpBtn.setAttribute('title', 'What is Run Differential?');
-    helpBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
-    helpBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      showRunDiffHelpModal();
-    });
-    
-    banner.appendChild(zoomBtn);
-    banner.appendChild(helpBtn);
+
+    controlsContainer.appendChild(helpBtn);
+    controlsContainer.appendChild(zoomBtn);
+    banner.appendChild(controlsContainer);
 
     const headerRow = document.createElement('div');
     headerRow.style.display = 'flex';
