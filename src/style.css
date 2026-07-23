@@ -416,9 +416,9 @@ header {
 
 .magic-card {
   flex: 1;
-  background: #f8fafc; /* Slate 50 */
-  border: 1px solid var(--border-glass);
-  border-radius: 6px; /* Halved from 12px */
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass-highlight);
+  border-radius: 6px;
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -426,10 +426,11 @@ header {
   justify-content: center;
   text-align: center;
   transition: var(--transition-smooth);
+  color: var(--text-primary);
 }
 
 .magic-card:hover {
-  background: #f1f5f9;
+  background: var(--bg-card-hover);
   border-color: var(--border-glass-highlight);
 }
 
@@ -478,9 +479,9 @@ header {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  background: var(--bg-card);
   border: 1px solid var(--border-glass);
-  border-radius: 8px; /* Halved from 16px */
+  border-radius: 8px;
   padding: 16px 18px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.04);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), 
@@ -491,30 +492,31 @@ header {
   user-select: none;
   position: relative;
   overflow: hidden;
+  color: var(--text-primary);
 }
 
 /* Subtle background accent tint for games containing the user's favorite team */
 .game-card.favorite-matchup {
   border-left: 4px solid var(--team-primary);
-  background: linear-gradient(145deg, rgba(var(--team-primary-rgb, 19, 74, 142), 0.03) 0%, #ffffff 100%);
-  box-shadow: 0 2px 8px rgba(var(--team-primary-rgb, 19, 74, 142), 0.04);
+  background: var(--bg-card-hover);
+  box-shadow: 0 2px 8px rgba(var(--team-primary-rgb, 19, 74, 142), 0.08);
 }
 
 .game-card:hover {
   border-color: var(--border-glass-highlight);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .game-card:active {
   transform: scale(0.985);
-  background: #f1f5f9;
+  background: var(--bg-card-hover);
 }
 
 .game-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border-glass);
   padding-bottom: 8px;
   font-size: 11px;
   font-weight: 600;
@@ -526,9 +528,9 @@ header {
 .game-status {
   font-weight: 700;
   padding: 3px 8px;
-  border-radius: 4px; /* Halved from 100px capsule for sleeker boxy theme */
+  border-radius: 4px;
   font-size: 10px;
-  background: #f1f5f9;
+  background: var(--bg-card-hover);
   color: var(--text-secondary);
   border: 1px solid var(--border-glass);
   letter-spacing: 0.02em;
@@ -675,9 +677,9 @@ header {
 
 /* Rooting Advice UI (Savant Styled details) */
 .rooting-banner {
-  background: #f8fafc;
-  border: 1px solid var(--border-glass);
-  border-radius: 6px; /* Halved from 12px */
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border-glass-highlight);
+  border-radius: 6px;
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
@@ -699,7 +701,7 @@ header {
   font-size: 10px;
   text-transform: uppercase;
   padding: 3px 8px;
-  border-radius: 4px; /* Halved from 100px capsule for sleeker boxy theme */
+  border-radius: 4px;
   display: inline-flex;
   white-space: nowrap;
   width: fit-content;
@@ -707,15 +709,15 @@ header {
 }
 
 .rooting-target-badge.root {
-  background: rgba(5, 150, 105, 0.08); /* Emerald 600 soft tint */
+  background: rgba(5, 150, 105, 0.08);
   color: var(--color-win);
   border: 1px solid rgba(5, 150, 105, 0.15);
 }
 
 .rooting-target-badge.neutral {
-  background: #f1f5f9;
+  background: var(--bg-card);
   color: var(--text-secondary);
-  border: 1px solid var(--border-glass);
+  border: 1px solid var(--border-glass-highlight);
 }
 
 .rooting-explanation {
@@ -789,19 +791,20 @@ header {
 
 .team-select-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  background: #ffffff;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-card);
   border: 1px solid var(--border-glass);
-  border-radius: 6px; /* Halved from 12px */
+  border-radius: 6px;
   cursor: pointer;
   transition: var(--transition-smooth);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.01);
+  color: var(--text-primary);
 }
 
 .team-select-item:hover {
-  background: #f8fafc;
+  background: var(--bg-card-hover);
   border-color: var(--border-glass-highlight);
 }
 
@@ -1098,9 +1101,10 @@ header {
   max-height: 0;
   overflow: hidden;
   transition: max-height 0.3s ease-out, padding 0.3s ease;
-  background: #f8fafc;
+  background: var(--bg-card-hover);
   padding: 0 18px;
   border-top: 1px solid transparent;
+  color: var(--text-primary);
 }
 
 .magic-accordion.expanded .magic-accordion-content {
@@ -1213,7 +1217,7 @@ header {
 
 /* Tiebreaker Accordion Visuals */
 .tiebreaker-detail {
-  background: #f8fafc;
+  background: var(--bg-card-hover);
   border: 1px dashed var(--color-gold);
   border-radius: 6px; /* Halved from 12px */
   padding: 10px 12px;
@@ -1241,8 +1245,8 @@ header {
 
 /* Header Hamburger Menu Button */
 .menu-hamburger-btn {
-  background: #ffffff;
-  border: 1px solid var(--border-glass);
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass-highlight);
   border-radius: 5px; /* Halved from 10px */
   width: 36px;
   height: 36px;
@@ -1257,7 +1261,7 @@ header {
 }
 
 .menu-hamburger-btn:hover {
-  background: #f8fafc;
+  background: var(--bg-card-hover);
   border-color: var(--border-glass-highlight);
   transform: scale(1.05);
 }
