@@ -3374,24 +3374,23 @@ function showTeamSeasonModal(targetTeamId = null) {
   });
 
   const targetTeamObj = teamsData[activeTeamId] || team;
-  const teamPrimary = targetTeamObj.primaryColor || 'var(--team-primary)';
-  const teamSecondary = targetTeamObj.secondaryColor || 'var(--team-secondary)';
+  const teamPrimary = targetTeamObj.primaryColor || '#00e5ff';
+  const teamSecondary = targetTeamObj.secondaryColor || '#0284c7';
   const teamTextColor = targetTeamObj.textColor || '#ffffff';
 
   const content = document.createElement('div');
   content.className = 'recap-content';
-  content.style.borderTop = `5px solid ${teamPrimary}`;
-  content.style.boxShadow = `0 10px 30px rgba(0, 0, 0, 0.5), 0 0 25px ${teamPrimary}40`;
+  content.style.cssText = `border-top: 6px solid ${teamPrimary}; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 25px ${teamPrimary}40; border-radius: 16px; overflow: hidden; padding: 0; max-width: 720px; width: 100%;`;
 
   const header = document.createElement('div');
   header.className = 'recap-header';
-  header.style.cssText = `display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-radius: 12px; background: linear-gradient(135deg, ${teamPrimary} 0%, ${teamSecondary} 100%); color: ${teamTextColor}; border: 1.5px solid rgba(255, 255, 255, 0.25); margin-bottom: 12px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);`;
+  header.style.cssText = `display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: linear-gradient(135deg, ${teamPrimary} 0%, ${teamSecondary} 100%); color: ${teamTextColor}; border-bottom: 1.5px solid rgba(255, 255, 255, 0.25); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3); margin: 0;`;
 
   const headerTitleBox = document.createElement('div');
-  headerTitleBox.style.cssText = 'display: flex; align-items: center; gap: 10px;';
+  headerTitleBox.style.cssText = 'display: flex; align-items: center; gap: 12px;';
 
   const titleLogo = document.createElement('div');
-  titleLogo.style.cssText = 'width: 32px; height: 32px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.35); flex-shrink: 0;';
+  titleLogo.style.cssText = 'width: 36px; height: 36px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 3px; box-shadow: 0 2px 8px rgba(0,0,0,0.35); flex-shrink: 0;';
   const titleImg = document.createElement('img');
   titleImg.src = getTeamLogoUrl(targetTeamObj.abbreviation);
   titleImg.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
@@ -3399,10 +3398,7 @@ function showTeamSeasonModal(targetTeamId = null) {
 
   const title = document.createElement('h2');
   title.innerText = `${targetTeamObj.name} Overview`;
-  title.style.margin = '0';
-  title.style.color = '#ffffff';
-  title.style.fontFamily = 'var(--font-title)';
-  title.style.fontSize = '18px';
+  title.style.cssText = 'margin: 0; color: #ffffff; font-family: var(--font-title); font-size: 19px; font-weight: 900;';
 
   headerTitleBox.appendChild(titleLogo);
   headerTitleBox.appendChild(title);
@@ -3410,7 +3406,7 @@ function showTeamSeasonModal(targetTeamId = null) {
 
   const closeBtn = document.createElement('button');
   closeBtn.className = 'recap-close-btn';
-  closeBtn.style.color = '#ffffff';
+  closeBtn.style.cssText = 'color: #ffffff; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.25); width: 30px; height: 30px; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;';
   closeBtn.innerHTML = '×';
   closeBtn.addEventListener('click', closeModal);
 
@@ -3419,7 +3415,7 @@ function showTeamSeasonModal(targetTeamId = null) {
 
   const body = document.createElement('div');
   body.className = 'recap-body';
-  body.style.cssText = 'display: flex; flex-direction: column; gap: 14px; margin-top: 10px;';
+  body.style.cssText = 'display: flex; flex-direction: column; gap: 16px; padding: 18px; max-height: 75vh; overflow-y: auto;';
 
   function renderModalBody() {
     body.innerHTML = '';
@@ -3428,101 +3424,46 @@ function showTeamSeasonModal(targetTeamId = null) {
     const losses = team.losses !== undefined ? team.losses : 0;
     const gamesRemaining = 162 - wins - losses;
     const seasonGames = generateSeasonGames(team.id, wins, losses);
-
-    const banner = document.createElement('div');
-    banner.className = 'glass-card dashboard-banner';
-    banner.style.cssText = `display: flex; flex-direction: column; gap: 14px; padding: 18px; position: relative; border-radius: 14px; background: linear-gradient(135deg, ${teamPrimary} 0%, ${teamSecondary} 100%); color: ${teamTextColor}; border: 1.5px solid rgba(255, 255, 255, 0.25); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);`;
-
-    const controlsContainer = document.createElement('div');
-    controlsContainer.className = 'banner-controls-container';
-
-    const helpBtn = document.createElement('button');
-    helpBtn.className = 'banner-help-btn';
-    helpBtn.setAttribute('title', 'What is Run Differential?');
-    helpBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
-    helpBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      showRunDiffHelpModal();
-    });
-
-    const zoomBtn = document.createElement('button');
-    zoomBtn.className = 'banner-zoom-btn';
-    zoomBtn.setAttribute('title', state.bannerZoomedIn ? 'Show All Games' : 'Zoom to Last 10 Games');
-    
-    const zoomIconSvg = state.bannerZoomedIn 
-      ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>`
-      : `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>`;
-
-    zoomBtn.innerHTML = `${zoomIconSvg} <span style="vertical-align:middle;">${state.bannerZoomedIn ? 'ALL' : '10G'}</span>`;
-    zoomBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      state.bannerZoomedIn = !state.bannerZoomedIn;
-      if (state.bannerZoomedIn && seasonGames.length > 10) {
-        const minVisibleIdx = seasonGames.length - 10;
-        if (state.selectedGameIdx === null || state.selectedGameIdx < minVisibleIdx) {
-          state.selectedGameIdx = seasonGames.length - 1;
-        }
-      }
-      renderModalBody();
-    });
-
-    controlsContainer.appendChild(helpBtn);
-    controlsContainer.appendChild(zoomBtn);
-    banner.appendChild(controlsContainer);
-
-    const headerRow = document.createElement('div');
-    headerRow.style.display = 'flex';
-    headerRow.style.justifyContent = 'space-between';
-    headerRow.style.alignItems = 'center';
-    headerRow.style.flexWrap = 'wrap';
-    headerRow.style.gap = '12px';
-
-    const left = document.createElement('div');
-    left.className = 'banner-team-info';
-
-    const badge = createOfficialTeamLogoBadge(targetTeamObj);
-    badge.style.width = '42px';
-    badge.style.height = '42px';
-    badge.style.borderRadius = '50%';
-    badge.style.padding = '3px';
-    badge.style.background = '#ffffff';
-    badge.style.flexShrink = '0';
-    badge.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.35)';
-
-    const textNode = document.createElement('div');
-    textNode.className = 'banner-team-text';
-
-    const nameWrapper = document.createElement('div');
-    nameWrapper.style.display = 'flex';
-    nameWrapper.style.alignItems = 'center';
-    nameWrapper.style.gap = '8px';
-
-    const nameNode = document.createElement('h2');
-    nameNode.innerText = team.name;
-    nameNode.style.margin = '0';
-    nameNode.style.color = '#ffffff';
-    nameWrapper.appendChild(nameNode);
-
     const activeTeamStreak = getTeamStreak(team.id, wins, losses);
+
+    // 1. Prominent Team Hero Banner (Large 60px Logo & High-Contrast Stat Tickers)
+    const heroCard = document.createElement('div');
+    heroCard.style.cssText = `display: flex; flex-direction: column; gap: 16px; padding: 18px; border-radius: 14px; background: linear-gradient(135deg, ${teamPrimary} 0%, ${teamSecondary} 100%); color: ${teamTextColor}; border: 1.5px solid rgba(255, 255, 255, 0.25); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); width: 100%; box-sizing: border-box;`;
+
+    // Hero Top Row: Large 60px Logo + Team Title
+    const heroTop = document.createElement('div');
+    heroTop.style.cssText = 'display: flex; align-items: center; gap: 14px; width: 100%;';
+
+    const largeBadge = createOfficialTeamLogoBadge(targetTeamObj);
+    largeBadge.style.cssText = 'width: 60px; height: 60px; border-radius: 50%; padding: 4px; background: #ffffff; flex-shrink: 0; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);';
+
+    const heroTextCol = document.createElement('div');
+    heroTextCol.style.cssText = 'display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0;';
+
+    const titleRow = document.createElement('div');
+    titleRow.style.cssText = 'display: flex; align-items: center; gap: 8px; flex-wrap: wrap;';
+
+    const teamTitle = document.createElement('h2');
+    teamTitle.innerText = targetTeamObj.name;
+    teamTitle.style.cssText = 'margin: 0; font-size: 22px; font-weight: 900; color: #ffffff; font-family: var(--font-title); line-height: 1.1;';
+    titleRow.appendChild(teamTitle);
+
     if (activeTeamStreak && activeTeamStreak.count >= 3) {
-      nameWrapper.appendChild(createStreakBadge(activeTeamStreak));
+      titleRow.appendChild(createStreakBadge(activeTeamStreak));
     }
 
-    const descNode = document.createElement('p');
-    const leagueName = team.leagueId === 103 ? 'American League' : 'National League';
-    descNode.innerText = `${leagueName} • ${team.divisionName}`;
+    const leagueName = targetTeamObj.leagueId === 103 ? 'American League' : 'National League';
+    const subText = document.createElement('div');
+    subText.style.cssText = 'font-size: 12px; color: rgba(255, 255, 255, 0.9); font-weight: 700;';
+    subText.innerText = `${leagueName} • ${targetTeamObj.divisionName || team.divisionName || 'MLB Division'}`;
 
-    textNode.appendChild(nameWrapper);
-    textNode.appendChild(descNode);
-    left.appendChild(badge);
-    left.appendChild(textNode);
+    heroTextCol.appendChild(titleRow);
+    heroTextCol.appendChild(subText);
+    heroTop.appendChild(largeBadge);
+    heroTop.appendChild(heroTextCol);
+    heroCard.appendChild(heroTop);
 
-    const rightSide = document.createElement('div');
-    rightSide.className = 'banner-stats-ticker';
-    rightSide.style.display = 'flex';
-    rightSide.style.gap = '8px';
-    rightSide.style.flexWrap = 'wrap';
-
+    // Hero Bottom Row: Stat Ticker Grid
     const last10 = seasonGames.slice(-10);
     let last10Wins = 0;
     let last10Losses = 0;
@@ -3551,9 +3492,12 @@ function showTeamSeasonModal(targetTeamId = null) {
       { label: 'Wild Card', value: wcStandingText }
     ];
 
+    const statsTickerGrid = document.createElement('div');
+    statsTickerGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(85px, 1fr)); gap: 8px; width: 100%; margin-top: 4px;';
+
     statBoxes.forEach(box => {
       const boxEl = document.createElement('div');
-      boxEl.style.cssText = 'background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.25); padding: 5px 10px; border-radius: 6px; display: flex; flex-direction: column; align-items: center; min-width: 65px; backdrop-filter: blur(4px);';
+      boxEl.style.cssText = 'background: rgba(0, 0, 0, 0.32); border: 1px solid rgba(255, 255, 255, 0.22); padding: 6px 8px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; backdrop-filter: blur(4px);';
 
       const labelEl = document.createElement('span');
       labelEl.innerText = box.label;
@@ -3565,12 +3509,57 @@ function showTeamSeasonModal(targetTeamId = null) {
 
       boxEl.appendChild(labelEl);
       boxEl.appendChild(valueEl);
-      rightSide.appendChild(boxEl);
+      statsTickerGrid.appendChild(boxEl);
     });
 
-    headerRow.appendChild(left);
-    headerRow.appendChild(rightSide);
-    banner.appendChild(headerRow);
+    heroCard.appendChild(statsTickerGrid);
+    body.appendChild(heroCard);
+
+    // 2. Run Differential Card (Inline Controls - Zero Absolute Overlap)
+    const runDiffCard = document.createElement('div');
+    runDiffCard.style.cssText = 'display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--border-glass-highlight); width: 100%; box-sizing: border-box;';
+
+    // Section Header Row: Title + Help Button on Left, Zoom Button on Right (Inline Flex Flow)
+    const sparkHeaderRow = document.createElement('div');
+    sparkHeaderRow.style.cssText = 'display: flex; justify-content: space-between; align-items: center; width: 100%; border-bottom: 1px solid var(--border-glass); padding-bottom: 8px; flex-wrap: wrap; gap: 8px;';
+
+    const sparkTitleBox = document.createElement('div');
+    sparkTitleBox.style.cssText = 'display: flex; align-items: center; gap: 6px;';
+
+    const sparkTitle = document.createElement('span');
+    sparkTitle.style.cssText = 'font-size: 12px; font-weight: 800; color: var(--color-gold); font-family: var(--font-title); text-transform: uppercase; letter-spacing: 0.5px;';
+    sparkTitle.innerText = '📈 Run Differential Sparkline';
+
+    const helpBtn = document.createElement('button');
+    helpBtn.setAttribute('title', 'What is Run Differential?');
+    helpBtn.style.cssText = 'width: 20px; height: 20px; border-radius: 50%; background: rgba(255, 255, 255, 0.08); border: 1px solid var(--border-glass-highlight); color: var(--text-secondary); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; padding: 0; outline: none; transition: all 0.2s;';
+    helpBtn.innerHTML = '<span>?</span>';
+    helpBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showRunDiffHelpModal();
+    });
+
+    sparkTitleBox.appendChild(sparkTitle);
+    sparkTitleBox.appendChild(helpBtn);
+    sparkHeaderRow.appendChild(sparkTitleBox);
+
+    const zoomBtn = document.createElement('button');
+    zoomBtn.style.cssText = 'background: rgba(255, 255, 255, 0.08); border: 1px solid var(--border-glass-highlight); color: var(--text-primary); border-radius: 14px; padding: 3px 10px; font-size: 10.5px; font-weight: 800; font-family: var(--font-title); cursor: pointer; transition: all 0.2s; outline: none; display: inline-flex; align-items: center; gap: 4px;';
+    zoomBtn.innerHTML = `<span>${state.bannerZoomedIn ? '🔎 All Games' : '⚡ Last 10G'}</span>`;
+    zoomBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      state.bannerZoomedIn = !state.bannerZoomedIn;
+      if (state.bannerZoomedIn && seasonGames.length > 10) {
+        const minVisibleIdx = seasonGames.length - 10;
+        if (state.selectedGameIdx === null || state.selectedGameIdx < minVisibleIdx) {
+          state.selectedGameIdx = seasonGames.length - 1;
+        }
+      }
+      renderModalBody();
+    });
+
+    sparkHeaderRow.appendChild(zoomBtn);
+    runDiffCard.appendChild(sparkHeaderRow);
 
     const chartContainer = document.createElement('div');
     chartContainer.className = 'spark-chart-container';
@@ -3675,11 +3664,11 @@ function showTeamSeasonModal(targetTeamId = null) {
       }
     });
 
-    banner.appendChild(chartContainer);
+    runDiffCard.appendChild(chartContainer);
 
     const detailStrip = document.createElement('div');
     detailStrip.className = 'banner-detail-strip';
-    detailStrip.style.cssText = 'display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; background: rgba(0, 0, 0, 0.18); border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08); width: 100%;';
+    detailStrip.style.cssText = 'display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; background: rgba(0, 0, 0, 0.18); border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08); width: 100%; box-sizing: border-box;';
 
     const topRow = document.createElement('div');
     topRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%;';
@@ -3780,10 +3769,8 @@ function showTeamSeasonModal(targetTeamId = null) {
       updateDetailStrip(seasonGames[state.selectedGameIdx]);
     }
 
-    banner.appendChild(detailStrip);
-    body.appendChild(banner);
-
-
+    runDiffCard.appendChild(detailStrip);
+    body.appendChild(runDiffCard);
   }
 
   renderModalBody();
