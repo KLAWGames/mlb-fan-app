@@ -182,6 +182,75 @@ function generateSeasonHistory(teamId, wins, losses) {
   return history;
 }
 
+// Helper: Calculate high-contrast team color for dark mode charts
+function getContrastedChartColor(team) {
+  if (!team) return '#00e5ff';
+  const primary = team.primaryColor || '#00e5ff';
+  const secondary = team.secondaryColor;
+
+  let hex = primary.replace('#', '');
+  if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+  const r = parseInt(hex.substring(0, 2), 16) || 0;
+  const g = parseInt(hex.substring(2, 4), 16) || 0;
+  const b = parseInt(hex.substring(4, 6), 16) || 0;
+
+  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+
+  if (lum < 0.32) {
+    if (secondary) {
+      let secHex = secondary.replace('#', '');
+      if (secHex.length === 3) secHex = secHex.split('').map(c => c + c).join('');
+      const sr = parseInt(secHex.substring(0, 2), 16) || 0;
+      const sg = parseInt(secHex.substring(2, 4), 16) || 0;
+      const sb = parseInt(secHex.substring(4, 6), 16) || 0;
+      const secLum = (0.2126 * sr + 0.7152 * sg + 0.0722 * sb) / 255;
+      if (secLum > 0.4 && secondary.toLowerCase() !== '#ffffff' && secondary.toLowerCase() !== '#fff') {
+        return secondary;
+      }
+    }
+    const factor = 2.2;
+    const nr = Math.min(255, Math.max(90, Math.round(r * factor + 60)));
+    const ng = Math.min(255, Math.max(140, Math.round(g * factor + 80)));
+    const nb = Math.min(255, Math.max(180, Math.round(b * factor + 100)));
+    return `rgb(${nr}, ${ng}, ${nb})`;
+  }
+
+  return primary;
+}
+
+// Reusable official MLB team logo badge component
+function createOfficialTeamLogoBadge(team) {
+  const container = document.createElement('div');
+  container.className = 'team-badge-small';
+
+  if (!team) {
+    container.innerText = 'MLB';
+    return container;
+  }
+
+  const abbr = (team.abbreviation || team.teamName || team.name || 'MLB').toUpperCase();
+  const primaryColor = team.primaryColor || '#334155';
+  const textColor = team.textColor || '#ffffff';
+
+  const img = document.createElement('img');
+  img.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${abbr.toLowerCase()}.png`;
+  img.alt = abbr;
+  img.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
+
+  const fallbackSpan = document.createElement('span');
+  fallbackSpan.style.cssText = `display: none; width: 100%; height: 100%; border-radius: 50%; background: ${primaryColor}; color: ${textColor}; font-size: 8.5px; font-weight: 800; font-family: var(--font-title); align-items: center; justify-content: center; text-align: center; line-height: 1;`;
+  fallbackSpan.innerText = abbr;
+
+  img.onerror = () => {
+    img.style.display = 'none';
+    fallbackSpan.style.display = 'flex';
+  };
+
+  container.appendChild(img);
+  container.appendChild(fallbackSpan);
+  return container;
+}
+
 // Generate interactive SVG chart comparing two division teams
 function createDivisionRaceChart(teamA, teamB) {
   const historyA = generateSeasonHistory(teamA.id, teamA.wins, teamA.losses);
@@ -223,8 +292,8 @@ function createDivisionRaceChart(teamA, teamB) {
   if (minY <= 0 && maxY >= 0) {
     const { y } = getCoords(0, 0);
     gridLinesHtml += `
-      <line x1="${padLeft}" y1="${y}" x2="${svgWidth - padRight}" y2="${y}" stroke="var(--border-glass-highlight)" stroke-width="1.5" />
-      <text x="${padLeft - 8}" y="${y}" font-size="9px" font-family="var(--font-body)" font-weight="600" fill="var(--text-muted)" text-anchor="end" alignment-baseline="middle">.500</text>
+      <line x1="${padLeft}" y1="${y}" x2="${svgWidth - padRight}" y2="${y}" stroke="rgba(255, 255, 255, 0.3)" stroke-width="1.5" />
+      <text x="${padLeft - 8}" y="${y}" font-size="9.5px" font-family="var(--font-title)" font-weight="700" fill="#f8fafc" text-anchor="end" alignment-baseline="middle">.500</text>
     `;
     drawnValues.add(0);
   }
@@ -236,8 +305,8 @@ function createDivisionRaceChart(teamA, teamB) {
     
     const { y } = getCoords(0, val);
     gridLinesHtml += `
-      <line x1="${padLeft}" y1="${y}" x2="${svgWidth - padRight}" y2="${y}" stroke="var(--border-glass)" stroke-width="1" stroke-dasharray="3,3" />
-      <text x="${padLeft - 8}" y="${y}" font-size="9px" font-family="var(--font-body)" fill="var(--text-muted)" text-anchor="end" alignment-baseline="middle">${val > 0 ? `+${val}` : val}</text>
+      <line x1="${padLeft}" y1="${y}" x2="${svgWidth - padRight}" y2="${y}" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1" stroke-dasharray="3,3" />
+      <text x="${padLeft - 8}" y="${y}" font-size="9px" font-family="var(--font-body)" font-weight="600" fill="#cbd5e1" text-anchor="end" alignment-baseline="middle">${val > 0 ? `+${val}` : val}</text>
     `;
   }
 
@@ -246,8 +315,8 @@ function createDivisionRaceChart(teamA, teamB) {
   let xAxisHtml = '';
   xSteps.forEach(g => {
     const { x } = getCoords(g, 0);
-    xAxisHtml += `<line x1="${x}" y1="${padTop}" x2="${x}" y2="${svgHeight - padBottom}" stroke="var(--border-glass)" stroke-width="1" stroke-dasharray="3,3" />`;
-    xAxisHtml += `<text x="${x}" y="${svgHeight - padBottom + 12}" font-size="9px" font-family="var(--font-body)" fill="var(--text-muted)" text-anchor="middle">Gm ${g}</text>`;
+    xAxisHtml += `<line x1="${x}" y1="${padTop}" x2="${x}" y2="${svgHeight - padBottom}" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1" stroke-dasharray="3,3" />`;
+    xAxisHtml += `<text x="${x}" y="${svgHeight - padBottom + 12}" font-size="9px" font-family="var(--font-body)" font-weight="600" fill="#cbd5e1" text-anchor="middle">Gm ${g}</text>`;
   });
 
   // Generate path string for Team A
@@ -276,9 +345,9 @@ function createDivisionRaceChart(teamA, teamB) {
   const startCoordsB = getCoords(0, minY);
   areaB += ` L ${endCoordsB.x.toFixed(1)} ${endCoordsB.y.toFixed(1)} L ${startCoordsB.x.toFixed(1)} ${startCoordsB.y.toFixed(1)} Z`;
 
-  // Colors
-  const colorA = teamA.primaryColor || '#134a8e';
-  const colorB = teamB.primaryColor || '#f5d130';
+  // High contrast colors for dark theme
+  const colorA = getContrastedChartColor(teamA);
+  const colorB = getContrastedChartColor(teamB);
 
   // Last points coordinates
   const lastGA = historyA.length - 1;
@@ -310,12 +379,15 @@ function createDivisionRaceChart(teamA, teamB) {
   // Gradient definitions
   const defsHtml = `
     <defs>
+      <filter id="chart-glow-div" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="0" stdDeviation="1.8" flood-color="#ffffff" flood-opacity="0.35" />
+      </filter>
       <linearGradient id="gradA-${teamA.id}" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stop-color="${colorA}" stop-opacity="0.10" />
+        <stop offset="0%" stop-color="${colorA}" stop-opacity="0.18" />
         <stop offset="100%" stop-color="${colorA}" stop-opacity="0.00" />
       </linearGradient>
       <linearGradient id="gradB-${teamB.id}" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stop-color="${colorB}" stop-opacity="0.10" />
+        <stop offset="0%" stop-color="${colorB}" stop-opacity="0.18" />
         <stop offset="100%" stop-color="${colorB}" stop-opacity="0.00" />
       </linearGradient>
     </defs>
@@ -334,18 +406,18 @@ function createDivisionRaceChart(teamA, teamB) {
       <path d="${areaA}" fill="url(#gradA-${teamA.id})" />
       
       <!-- Team B Line -->
-      <path d="${pathB}" fill="none" stroke="${colorB}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="${pathB}" fill="none" stroke="${colorB}" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
       
       <!-- Team A Line -->
-      <path d="${pathA}" fill="none" stroke="${colorA}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="${pathA}" fill="none" stroke="${colorA}" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" filter="url(#chart-glow-div)" />
       
       <!-- Today Dots -->
-      <circle cx="${ptB.x}" cy="${ptB.y}" r="4" fill="#ffffff" stroke="${colorB}" stroke-width="2" />
-      <circle cx="${ptA.x}" cy="${ptA.y}" r="5" fill="#ffffff" stroke="${colorA}" stroke-width="2.5" />
+      <circle cx="${ptB.x}" cy="${ptB.y}" r="4.5" fill="#ffffff" stroke="${colorB}" stroke-width="2.5" />
+      <circle cx="${ptA.x}" cy="${ptA.y}" r="5.5" fill="#ffffff" stroke="${colorA}" stroke-width="3" />
       
       <!-- Labels at end of lines -->
-      <text x="${ptB.x + 8}" y="${labelYB}" font-size="9px" font-weight="700" font-family="var(--font-title)" fill="${colorB}" alignment-baseline="middle">${teamB.abbreviation}</text>
-      <text x="${ptA.x + 8}" y="${labelYA}" font-size="9px" font-weight="700" font-family="var(--font-title)" fill="${colorA}" alignment-baseline="middle">${teamA.abbreviation}</text>
+      <text x="${ptB.x + 8}" y="${labelYB}" font-size="10px" font-weight="800" font-family="var(--font-title)" fill="${colorB}" alignment-baseline="middle" style="text-shadow: 0 1px 3px rgba(0,0,0,0.9);">${teamB.abbreviation}</text>
+      <text x="${ptA.x + 8}" y="${labelYA}" font-size="10px" font-weight="800" font-family="var(--font-title)" fill="${colorA}" alignment-baseline="middle" style="text-shadow: 0 1px 3px rgba(0,0,0,0.9);">${teamA.abbreviation}</text>
     </svg>
   `;
 
@@ -406,8 +478,8 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
   if (minY <= 0 && maxY >= 0) {
     const { y } = getCoords(0, 0);
     gridLinesHtml += `
-      <line x1="${padLeft}" y1="${y}" x2="${svgWidth - padRight}" y2="${y}" stroke="var(--border-glass-highlight)" stroke-width="1.5" />
-      <text x="${padLeft - 8}" y="${y}" font-size="9px" font-family="var(--font-body)" font-weight="600" fill="var(--text-muted)" text-anchor="end" alignment-baseline="middle">.500</text>
+      <line x1="${padLeft}" y1="${y}" x2="${svgWidth - padRight}" y2="${y}" stroke="rgba(255, 255, 255, 0.3)" stroke-width="1.5" />
+      <text x="${padLeft - 8}" y="${y}" font-size="9.5px" font-family="var(--font-title)" font-weight="700" fill="#f8fafc" text-anchor="end" alignment-baseline="middle">.500</text>
     `;
     drawnValues.add(0);
   }
@@ -418,8 +490,8 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
     drawnValues.add(val);
     const { y } = getCoords(0, val);
     gridLinesHtml += `
-      <line x1="${padLeft}" y1="${y}" x2="${svgWidth - padRight}" y2="${y}" stroke="var(--border-glass)" stroke-width="1" stroke-dasharray="3,3" />
-      <text x="${padLeft - 8}" y="${y}" font-size="9px" font-family="var(--font-body)" fill="var(--text-muted)" text-anchor="end" alignment-baseline="middle">${val > 0 ? `+${val}` : val}</text>
+      <line x1="${padLeft}" y1="${y}" x2="${svgWidth - padRight}" y2="${y}" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1" stroke-dasharray="3,3" />
+      <text x="${padLeft - 8}" y="${y}" font-size="9px" font-family="var(--font-body)" font-weight="600" fill="#cbd5e1" text-anchor="end" alignment-baseline="middle">${val > 0 ? `+${val}` : val}</text>
     `;
   }
 
@@ -427,12 +499,12 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
   let xAxisHtml = '';
   xSteps.forEach(g => {
     const { x } = getCoords(g, 0);
-    xAxisHtml += `<line x1="${x}" y1="${padTop}" x2="${x}" y2="${svgHeight - padBottom}" stroke="var(--border-glass)" stroke-width="1" stroke-dasharray="3,3" />`;
+    xAxisHtml += `<line x1="${x}" y1="${padTop}" x2="${x}" y2="${svgHeight - padBottom}" stroke="rgba(255, 255, 255, 0.12)" stroke-width="1" stroke-dasharray="3,3" />`;
     
     // Calculate the actual game number for this step based on the active team
     const firstTeam = teamHistories.find(th => th.team.id === activeTeam.id) || teamHistories[0];
     const actualGameNum = (firstTeam ? firstTeam.startIdx : 0) + g;
-    xAxisHtml += `<text x="${x}" y="${svgHeight - padBottom + 12}" font-size="9px" font-family="var(--font-body)" fill="var(--text-muted)" text-anchor="middle">Gm ${actualGameNum}</text>`;
+    xAxisHtml += `<text x="${x}" y="${svgHeight - padBottom + 12}" font-size="9px" font-family="var(--font-body)" font-weight="600" fill="#cbd5e1" text-anchor="middle">Gm ${actualGameNum}</text>`;
   });
 
   let linesHtml = '';
@@ -450,7 +522,7 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
   teamHistories.forEach(th => {
     const t = th.team;
     const history = th.history;
-    const color = t.primaryColor || '#134a8e';
+    const color = getContrastedChartColor(t);
     const isActive = t.id === activeTeam.id;
 
     let path = '';
@@ -459,7 +531,7 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
       path += (g === 0 ? 'M' : 'L') + ` ${x.toFixed(1)} ${y.toFixed(1)}`;
     });
 
-    const opacity = isActive ? 0.08 : 0.02;
+    const opacity = isActive ? 0.14 : 0.04;
     let area = path;
     const endCoords = getCoords(history.length - 1, minY);
     const startCoords = getCoords(0, minY);
@@ -474,15 +546,16 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
 
     areaGradientsHtml += `<path d="${area}" fill="url(#grad-${t.id})" />`;
 
-    const strokeWidth = isActive ? 3.5 : 1.8;
-    linesHtml += `<path d="${path}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" />`;
+    const strokeWidth = isActive ? 3.8 : 2.2;
+    const lineGlowAttr = isActive ? 'filter="url(#chart-glow-div)"' : '';
+    linesHtml += `<path d="${path}" fill="none" stroke="${color}" stroke-width="${strokeWidth}" ${lineGlowAttr} stroke-linecap="round" stroke-linejoin="round" />`;
 
     const lastG = history.length - 1;
     const lastVal = history[lastG];
     const pt = getCoords(lastG, lastVal);
 
-    const r = isActive ? 5 : 3;
-    const strokeW = isActive ? 2.5 : 1.5;
+    const r = isActive ? 5.5 : 3.5;
+    const strokeW = isActive ? 2.5 : 1.8;
     dotsHtml += `<circle cx="${pt.x}" cy="${pt.y}" r="${r}" fill="#ffffff" stroke="${color}" stroke-width="${strokeW}" />`;
   });
 
@@ -513,8 +586,8 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
     const primaryTeam = groupItems[0].team;
     const hasActiveTeam = groupItems.some(item => item.team.id === activeTeam.id);
     const color = hasActiveTeam 
-      ? (activeTeam.primaryColor || '#134a8e') 
-      : (primaryTeam.primaryColor || '#888');
+      ? getContrastedChartColor(activeTeam) 
+      : getContrastedChartColor(primaryTeam);
 
     let labelText = primaryTeam.abbreviation;
     const isTie = groupItems.length > 1;
@@ -543,31 +616,32 @@ function createMultiTeamRaceChart(activeTeam, teamsList) {
 
     if (isTie) {
       // SVG pill dimensions for "TIE"
-      const pillW = 20;
-      const pillH = 11;
+      const pillW = 22;
+      const pillH = 12;
       const pillX = pt.x + 8;
-      const pillY = targetY - 5.5; // Centered vertically on alignment line
+      const pillY = targetY - 6; // Centered vertically on alignment line
 
-      const pillBgColor = hasActiveTeam ? color : 'rgba(100, 116, 139, 0.18)';
-      const pillTextColor = hasActiveTeam ? '#ffffff' : 'var(--text-secondary)';
-      const pillWeight = hasActiveTeam ? '800' : '600';
+      const pillBgColor = hasActiveTeam ? color : 'rgba(100, 116, 139, 0.4)';
+      const pillTextColor = '#ffffff';
+      const pillWeight = '800';
 
       labelsHtml += `
         <g>
           <rect x="${pillX}" y="${pillY}" width="${pillW}" height="${pillH}" rx="3" fill="${pillBgColor}" />
-          <text x="${pillX + pillW/2}" y="${targetY}" font-size="7px" font-weight="${pillWeight}" font-family="var(--font-title)" fill="${pillTextColor}" text-anchor="middle" alignment-baseline="middle">TIE</text>
+          <text x="${pillX + pillW/2}" y="${targetY}" font-size="7.5px" font-weight="${pillWeight}" font-family="var(--font-title)" fill="${pillTextColor}" text-anchor="middle" alignment-baseline="middle">TIE</text>
         </g>
       `;
     } else {
-      const labelWeight = hasActiveTeam ? '700' : '500';
-      const labelOpacity = hasActiveTeam ? '1' : '0.75';
-      labelsHtml += `<text x="${pt.x + 8}" y="${targetY}" font-size="8.5px" font-weight="${labelWeight}" opacity="${labelOpacity}" font-family="var(--font-title)" fill="${color}" alignment-baseline="middle">${labelText}</text>`;
+      const labelWeight = hasActiveTeam ? '800' : '700';
+      const labelOpacity = hasActiveTeam ? '1' : '0.9';
+      labelsHtml += `<text x="${pt.x + 8}" y="${targetY}" font-size="9.5px" font-weight="${labelWeight}" opacity="${labelOpacity}" font-family="var(--font-title)" fill="${color}" alignment-baseline="middle" style="text-shadow: 0 1px 3px rgba(0,0,0,0.9);">${labelText}</text>`;
     }
   });
 
   const div = document.createElement('div');
   div.className = 'division-chart-container';
   div.style.width = '100%';
+
 
   let footnoteHtml = '';
   if (footnotes.length > 0) {
@@ -5199,11 +5273,7 @@ function createGameCard(item, isNeutral, onToggleDetails) {
   awayRow.className = 'game-team-row';
   const awayInfo = document.createElement('div');
   awayInfo.className = 'team-info';
-  const awayBadge = document.createElement('div');
-  awayBadge.className = 'team-badge-small';
-  awayBadge.innerText = item.awayTeam.abbreviation;
-  awayBadge.style.background = item.awayTeam.primaryColor;
-  awayBadge.style.color = item.awayTeam.textColor;
+  const awayBadge = createOfficialTeamLogoBadge(item.awayTeam);
   
   const awayInfoWrapper = document.createElement('div');
   awayInfoWrapper.className = 'team-name-wrapper';
@@ -5250,11 +5320,7 @@ function createGameCard(item, isNeutral, onToggleDetails) {
   homeRow.className = 'game-team-row';
   const homeInfo = document.createElement('div');
   homeInfo.className = 'team-info';
-  const homeBadge = document.createElement('div');
-  homeBadge.className = 'team-badge-small';
-  homeBadge.innerText = item.homeTeam.abbreviation;
-  homeBadge.style.background = item.homeTeam.primaryColor;
-  homeBadge.style.color = item.homeTeam.textColor;
+  const homeBadge = createOfficialTeamLogoBadge(item.homeTeam);
   
   const homeInfoWrapper = document.createElement('div');
   homeInfoWrapper.className = 'team-name-wrapper';
@@ -7907,7 +7973,7 @@ function createStandingsView() {
       tr.innerHTML = `
         <td>
           <div class="standings-team-cell" style="display: flex; align-items: center; gap: 8px;">
-            <div class="team-badge-small" style="background:${team.primaryColor}; color:${team.textColor}; font-size:9px; flex-shrink: 0;">${team.abbreviation}</div>
+            ${createOfficialTeamLogoBadge(team).outerHTML}
             <div style="display: flex; flex-direction: column; gap: 0px; text-align: left; align-items: flex-start;">
               <span style="font-weight: 600; line-height: 1.25;">${team.name}</span>
               ${statusBadge}
