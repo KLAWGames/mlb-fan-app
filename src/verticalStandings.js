@@ -719,10 +719,11 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     let tickIdx = 0;
     for (let gb = maxGBAheadVal; gb >= minGBBehindVal; gb -= 0.5) {
       const y = globalZeroLineY - (gb * globalPxPerGB);
-      if (ticks[tickIdx]) {
-        if (animate) { ticks[tickIdx].style.transition = tr; setTimeout(() => { ticks[tickIdx].style.transition = ''; }, 1300); }
-        ticks[tickIdx].style.top = `${y}px`;
-        ticks[tickIdx].style.display = '';
+      const tick = ticks[tickIdx];
+      if (tick) {
+        if (animate) { tick.style.transition = tr; setTimeout(() => { tick.style.transition = ''; }, 1300); }
+        tick.style.top = `${y}px`;
+        tick.style.display = '';
       }
       tickIdx++;
     }
