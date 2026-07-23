@@ -3373,21 +3373,40 @@ function showTeamSeasonModal(targetTeamId = null) {
     }
   });
 
+  const targetTeamObj = teamsData[activeTeamId] || team;
+  const teamPrimary = targetTeamObj.primaryColor || 'var(--team-primary)';
+  const teamSecondary = targetTeamObj.secondaryColor || 'var(--team-secondary)';
+  const teamTextColor = targetTeamObj.textColor || '#ffffff';
+
   const content = document.createElement('div');
   content.className = 'recap-content';
 
   const header = document.createElement('div');
   header.className = 'recap-header';
 
+  const headerTitleBox = document.createElement('div');
+  headerTitleBox.style.cssText = 'display: flex; align-items: center; gap: 10px;';
+
+  const titleLogo = document.createElement('div');
+  titleLogo.style.cssText = 'width: 30px; height: 30px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 2px; box-shadow: 0 1px 4px rgba(0,0,0,0.3); flex-shrink: 0;';
+  const titleImg = document.createElement('img');
+  titleImg.src = getTeamLogoUrl(targetTeamObj.abbreviation);
+  titleImg.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
+  titleLogo.appendChild(titleImg);
+
   const title = document.createElement('h2');
-  title.innerText = 'Team Overview';
+  title.innerText = `${targetTeamObj.name} Overview`;
+  title.style.margin = '0';
+
+  headerTitleBox.appendChild(titleLogo);
+  headerTitleBox.appendChild(title);
+  header.appendChild(headerTitleBox);
 
   const closeBtn = document.createElement('button');
   closeBtn.className = 'recap-close-btn';
   closeBtn.innerHTML = '×';
   closeBtn.addEventListener('click', closeModal);
 
-  header.appendChild(title);
   header.appendChild(closeBtn);
   content.appendChild(header);
 
@@ -3405,11 +3424,7 @@ function showTeamSeasonModal(targetTeamId = null) {
 
     const banner = document.createElement('div');
     banner.className = 'glass-card dashboard-banner';
-    banner.style.display = 'flex';
-    banner.style.flexDirection = 'column';
-    banner.style.gap = '14px';
-    banner.style.padding = '16px';
-    banner.style.position = 'relative';
+    banner.style.cssText = `display: flex; flex-direction: column; gap: 14px; padding: 18px; position: relative; border-radius: 14px; background: linear-gradient(135deg, ${teamPrimary} 0%, ${teamSecondary} 100%); color: ${teamTextColor}; border: 1.5px solid rgba(255, 255, 255, 0.25); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);`;
 
     const zoomBtn = document.createElement('button');
     zoomBtn.className = 'banner-zoom-btn';
@@ -3454,11 +3469,14 @@ function showTeamSeasonModal(targetTeamId = null) {
     const left = document.createElement('div');
     left.className = 'banner-team-info';
 
-    const badge = document.createElement('div');
-    badge.className = 'team-badge-large';
-    badge.innerText = team.abbreviation;
-    badge.style.background = 'rgba(255, 255, 255, 0.12)';
-    badge.style.color = '#ffffff';
+    const badge = createOfficialTeamLogoBadge(targetTeamObj);
+    badge.style.width = '42px';
+    badge.style.height = '42px';
+    badge.style.borderRadius = '50%';
+    badge.style.padding = '3px';
+    badge.style.background = '#ffffff';
+    badge.style.flexShrink = '0';
+    badge.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.35)';
 
     const textNode = document.createElement('div');
     textNode.className = 'banner-team-text';
@@ -3471,6 +3489,7 @@ function showTeamSeasonModal(targetTeamId = null) {
     const nameNode = document.createElement('h2');
     nameNode.innerText = team.name;
     nameNode.style.margin = '0';
+    nameNode.style.color = '#ffffff';
     nameWrapper.appendChild(nameNode);
 
     const activeTeamStreak = getTeamStreak(team.id, wins, losses);
@@ -3523,30 +3542,15 @@ function showTeamSeasonModal(targetTeamId = null) {
 
     statBoxes.forEach(box => {
       const boxEl = document.createElement('div');
-      boxEl.style.background = 'rgba(255, 255, 255, 0.10)';
-      boxEl.style.border = '1px solid rgba(255, 255, 255, 0.18)';
-      boxEl.style.padding = '4px 8px';
-      boxEl.style.borderRadius = '4px';
-      boxEl.style.display = 'flex';
-      boxEl.style.flexDirection = 'column';
-      boxEl.style.alignItems = 'center';
-      boxEl.style.minWidth = '62px';
+      boxEl.style.cssText = 'background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.25); padding: 5px 10px; border-radius: 6px; display: flex; flex-direction: column; align-items: center; min-width: 65px; backdrop-filter: blur(4px);';
 
       const labelEl = document.createElement('span');
       labelEl.innerText = box.label;
-      labelEl.style.fontSize = '8px';
-      labelEl.style.textTransform = 'uppercase';
-      labelEl.style.color = 'rgba(255, 255, 255, 0.7)';
-      labelEl.style.fontWeight = '700';
-      labelEl.style.letterSpacing = '0.05em';
-      labelEl.style.marginBottom = '2px';
+      labelEl.style.cssText = 'font-size: 8.5px; text-transform: uppercase; color: rgba(255, 255, 255, 0.85); font-weight: 800; letter-spacing: 0.05em; margin-bottom: 2px; font-family: var(--font-title);';
 
       const valueEl = document.createElement('span');
       valueEl.innerText = box.value;
-      valueEl.style.fontSize = '12px';
-      valueEl.style.fontWeight = '800';
-      valueEl.style.fontFamily = 'var(--font-title)';
-      valueEl.style.color = '#ffffff';
+      valueEl.style.cssText = 'font-size: 13px; font-weight: 900; font-family: var(--font-title); color: #ffffff;';
 
       boxEl.appendChild(labelEl);
       boxEl.appendChild(valueEl);
