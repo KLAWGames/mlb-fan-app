@@ -1016,28 +1016,126 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       const statusText = targetGame?.status?.detailedState || 'Game Matchup';
 
       matchupBox.innerHTML = `
-        <div style="font-size: 11px; font-weight: 800; color: #00e5ff; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Game Matchup Info (${statusText})</div>
-        <div style="display: flex; align-items: center; justify-content: space-around; background: rgba(0, 0, 0, 0.4); padding: 12px; border-radius: 10px; border: 1px solid rgba(0, 229, 255, 0.2);">
+        <div style="font-size: 11px; font-weight: 800; color: var(--color-gold); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Game Matchup & Box Score (${statusText})</div>
+        <div style="display: flex; align-items: center; justify-content: space-around; background: var(--bg-card); padding: 12px; border-radius: 10px; border: 1px solid var(--border-glass-highlight);">
           <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
-            <div style="width: 32px; height: 32px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 2px; box-shadow: 0 1px 4px rgba(0,0,0,0.4); margin-bottom: 4px;">
+            <div style="width: 34px; height: 34px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 2px; box-shadow: 0 1px 4px rgba(0,0,0,0.4); margin-bottom: 4px;">
               <img src="${getTeamLogoUrl(awayAbbr)}" style="width: 100%; height: 100%; object-fit: contain;" />
             </div>
-            <div style="font-weight: 800; font-size: 12px; color: #fff;">${awayAbbr}</div>
-            <div style="font-size: 16px; font-weight: 900; color: #00e5ff;">${awayScore}</div>
+            <div style="font-weight: 800; font-size: 12px; color: var(--text-primary);">${awayAbbr}</div>
+            <div style="font-size: 18px; font-weight: 900; color: var(--color-gold);">${awayScore}</div>
           </div>
-          <div style="font-size: 13px; font-weight: 800; color: #94a3b8;">VS</div>
+          <div style="font-size: 13px; font-weight: 800; color: var(--text-muted);">VS</div>
           <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
-            <div style="width: 32px; height: 32px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 2px; box-shadow: 0 1px 4px rgba(0,0,0,0.4); margin-bottom: 4px;">
+            <div style="width: 34px; height: 34px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 2px; box-shadow: 0 1px 4px rgba(0,0,0,0.4); margin-bottom: 4px;">
               <img src="${getTeamLogoUrl(homeAbbr)}" style="width: 100%; height: 100%; object-fit: contain;" />
             </div>
-            <div style="font-weight: 800; font-size: 12px; color: #fff;">${homeAbbr}</div>
-            <div style="font-size: 16px; font-weight: 900; color: #00e5ff;">${homeScore}</div>
+            <div style="font-weight: 800; font-size: 12px; color: var(--text-primary);">${homeAbbr}</div>
+            <div style="font-size: 18px; font-weight: 900; color: var(--color-gold);">${homeScore}</div>
           </div>
         </div>
       `;
 
-      // Full Game Line Score / Box Score Section ...
-      // (Rest of logic omitted for brevity as per instructions)
+      // Retrieve linescore if available
+      let linescore = targetGame?.linescore;
+      if (!linescore && targetGame?.gamePk) {
+        const allRaw = [
+          ...(state.rawSchedule || []),
+          ...(state.rawScheduleYesterday || []),
+          ...(state.rawScheduleDayBeforeYesterday || [])
+        ];
+        const foundRaw = allRaw.find(sg => sg.gamePk === targetGame.gamePk);
+        if (foundRaw && foundRaw.linescore) {
+          linescore = foundRaw.linescore;
+        }
+      }
+
+      // 1. Inning-by-Inning Line Score Table
+      if (linescore && linescore.innings && linescore.innings.length > 0) {
+        const inningsList = linescore.innings;
+        const totalInnings = Math.max(9, inningsList.length);
+
+        let headerColsHtml = '';
+        let awayColsHtml = '';
+        let homeColsHtml = '';
+
+        for (let i = 1; i <= totalInnings; i++) {
+          headerColsHtml += `<th style="padding: 4px 6px; font-weight: 700; color: var(--text-muted);">${i}</th>`;
+          const innData = inningsList.find(inn => inn.num === i);
+          const awayRuns = innData?.away?.runs !== undefined ? innData.away.runs : '-';
+          const homeRuns = innData?.home?.runs !== undefined ? innData.home.runs : '-';
+          awayColsHtml += `<td style="padding: 4px 6px; font-weight: 600;">${awayRuns}</td>`;
+          homeColsHtml += `<td style="padding: 4px 6px; font-weight: 600;">${homeRuns}</td>`;
+        }
+
+        const awayTotals = linescore.teams?.away || {};
+        const homeTotals = linescore.teams?.home || {};
+
+        const lineScoreTableHtml = `
+          <div style="margin-top: 12px; overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; border: 1px solid var(--border-glass-highlight); background: var(--bg-card); padding: 8px 10px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 11.5px; text-align: center; color: var(--text-primary); font-family: var(--font-body);">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border-glass); color: var(--text-muted); font-size: 10px; text-transform: uppercase; font-family: var(--font-title);">
+                  <th style="text-align: left; padding: 4px 8px; font-weight: 800; min-width: 45px;">Team</th>
+                  ${headerColsHtml}
+                  <th style="padding: 4px 6px; font-weight: 900; color: var(--color-gold); border-left: 1px solid var(--border-glass);">R</th>
+                  <th style="padding: 4px 6px; font-weight: 800; color: var(--text-secondary);">H</th>
+                  <th style="padding: 4px 6px; font-weight: 800; color: var(--text-secondary);">E</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                  <td style="text-align: left; padding: 6px 8px; font-weight: 800; color: var(--text-primary);">${awayAbbr}</td>
+                  ${awayColsHtml}
+                  <td style="padding: 6px; font-weight: 900; color: var(--color-gold); border-left: 1px solid var(--border-glass);">${awayTotals.runs ?? awayScore}</td>
+                  <td style="padding: 6px; font-weight: 700; color: var(--text-secondary);">${awayTotals.hits ?? '-'}</td>
+                  <td style="padding: 6px; font-weight: 700; color: var(--text-secondary);">${awayTotals.errors ?? '-'}</td>
+                </tr>
+                <tr>
+                  <td style="text-align: left; padding: 6px 8px; font-weight: 800; color: var(--text-primary);">${homeAbbr}</td>
+                  ${homeColsHtml}
+                  <td style="padding: 6px; font-weight: 900; color: var(--color-gold); border-left: 1px solid var(--border-glass);">${homeTotals.runs ?? homeScore}</td>
+                  <td style="padding: 6px; font-weight: 700; color: var(--text-secondary);">${homeTotals.hits ?? '-'}</td>
+                  <td style="padding: 6px; font-weight: 700; color: var(--text-secondary);">${homeTotals.errors ?? '-'}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        `;
+
+        matchupBox.insertAdjacentHTML('beforeend', lineScoreTableHtml);
+      }
+
+      // 2. Probable Pitchers (if pre-game)
+      const awayPitcher = targetGame?.teams?.away?.probablePitcher?.fullName;
+      const homePitcher = targetGame?.teams?.home?.probablePitcher?.fullName;
+      if (awayPitcher || homePitcher) {
+        const pitcherInfoHtml = `
+          <div style="margin-top: 10px; padding: 8px 10px; background: var(--bg-card); border-radius: 8px; border: 1px solid var(--border-glass); font-size: 11px; display: flex; flex-direction: column; gap: 4px; color: var(--text-secondary);">
+            <div style="font-weight: 800; font-size: 10px; text-transform: uppercase; color: var(--color-gold); font-family: var(--font-title);">Probable Pitchers</div>
+            <div style="display: flex; justify-content: space-between;">
+              <span><strong>${awayAbbr}:</strong> ${awayPitcher || 'TBD'}</span>
+              <span><strong>${homeAbbr}:</strong> ${homePitcher || 'TBD'}</span>
+            </div>
+          </div>
+        `;
+        matchupBox.insertAdjacentHTML('beforeend', pitcherInfoHtml);
+      }
+
+      // 3. View Full Box Score & Pitcher Analytics Action Button
+      if (callbacks && callbacks.openGameAnalytics) {
+        const boxScoreBtn = document.createElement('button');
+        boxScoreBtn.className = 'vertical-action-card-btn';
+        boxScoreBtn.style.cssText = 'width: 100%; margin-top: 12px; padding: 10px 14px; background: linear-gradient(135deg, #00e5ff 0%, #0284c7 100%); color: #071318; border: none; border-radius: 10px; font-size: 12.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(0, 229, 255, 0.25); transition: all 0.2s ease; outline: none;';
+        boxScoreBtn.innerHTML = `<span>📊</span> <span>Full Box Score & Pitcher Analytics</span>`;
+        boxScoreBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openSubView(callbacks.openGameAnalytics, targetGame);
+        });
+        matchupBox.appendChild(boxScoreBtn);
+      }
+
+      matchupContainer.appendChild(matchupBox);
     }
 
     renderMatchupCard(selectedGame);
