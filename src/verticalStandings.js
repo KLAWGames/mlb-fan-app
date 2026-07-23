@@ -134,6 +134,11 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   let isPlayingAnimation = false;
   let cancelAnimationRequested = false;
 
+  // Compact / Expanded zoom mode
+  const COMPACT_ROW_HEIGHT = 72;
+  const EXPANDED_PX_PER_GB = 160;
+  let isCompactMode = false;  // Rendered expanded; compact applied as post-render transform
+
   // Header Bar
   const header = document.createElement('div');
   header.className = 'vertical-standings-header';
@@ -222,7 +227,27 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   updateToggleStyle();
   leagueToggle.appendChild(alBtn);
   leagueToggle.appendChild(nlBtn);
-  header.appendChild(leagueToggle);
+
+  // Right controls group (league toggle + zoom button)
+  const rightGroup = document.createElement('div');
+  rightGroup.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+  rightGroup.appendChild(leagueToggle);
+
+  // Zoom Toggle Button
+  const zoomBtn = document.createElement('button');
+  zoomBtn.id = 'zoom-toggle-btn';
+  zoomBtn.style.cssText = 'background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(0, 229, 255, 0.4); color: #00e5ff; padding: 5px 10px; border-radius: 8px; font-weight: 800; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.25s ease; white-space: nowrap;';
+  const updateZoomBtnLabel = () => {
+    zoomBtn.innerHTML = isCompactMode ? '🔍 Expand' : '📋 Compact';
+  };
+  updateZoomBtnLabel();
+
+  zoomBtn.addEventListener('click', () => {
+    if (isPlayingAnimation) cancelAnimationRequested = true;
+    toggleZoom();
+  });
+  rightGroup.appendChild(zoomBtn);
+  header.appendChild(rightGroup);
 
   container.appendChild(header);
 
@@ -549,6 +574,9 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
 
     scrollArea.appendChild(contentBox);
 
+    // Store contentBox ref for zoom relayout
+    scrollArea._contentBox = contentBox;
+
     // Initial position update based on activeSnapshotMode
     updateNodesPosition(false);
 
@@ -568,6 +596,164 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
         top: Math.max(0, targetY),
         behavior: 'smooth'
       });
+    }
+  }
+
+  // ── Compact stacked positions ─────────────────────────────────────
+  // Returns same shape as computeContinuousTeamColumns but with
+  // rank-based equal-row stacking (no proportional GB gaps).
+  function computeCompactColumns(teamsWithPos) {
+    if (!teamsWithPos || teamsWithPos.length === 0) return {};
+    const sorted = [...teamsWithPos].sort((a, b) => b.gbRel - a.gbRel);
+    const topPadding = 80;
+    const assignments = {};
+    sorted.forEach((team, idx) => {
+      const item = { col: 0, exactY: topPadding + (idx * COMPACT_ROW_HEIGHT), gbRel: team.gbRel };
+      assignments[team.id] = item;
+      assignments[String(team.id)] = item;
+      assignments[parseInt(team.id, 10)] = item;
+    });
+    return assignments;
+  }
+
+  // ── Apply compact mode as a post-render visual transform ──────────
+  // Called AFTER renderTimeline has completed normally at expanded positions.
+  function applyCompactMode(animate) {
+    const contentBox = scrollArea._contentBox;
+    if (!contentBox) return;
+    const dataset = getSnapshotDataset(activeSnapshotMode);
+    const snapData = computeSnapshotData(dataset.processed);
+    const teamCount = snapData.teamsWithPos.length;
+    if (teamCount === 0) return;
+    const topPadding = 80;
+    const bottomPadding = 120;
+    const totalHeight = topPadding + (teamCount * COMPACT_ROW_HEIGHT) + bottomPadding;
+    const tr = 'top 1.2s cubic-bezier(0.25, 1, 0.5, 1)';
+    const trSize = 'min-height 1.2s cubic-bezier(0.25, 1, 0.5, 1), height 1.2s cubic-bezier(0.25, 1, 0.5, 1)';
+
+    if (animate) {
+      contentBox.style.transition = trSize;
+      setTimeout(() => { contentBox.style.transition = ''; }, 1300);
+    }
+    contentBox.style.minHeight = `${totalHeight}px`;
+    contentBox.style.height = `${totalHeight}px`;
+
+    // Map gbKey → compact Y for occupied rows
+    const compactAssign = computeCompactColumns(snapData.teamsWithPos);
+    const gbToCompactY = {};
+    snapData.teamsWithPos.forEach(t => {
+      const a = compactAssign[t.id];
+      if (a) gbToCompactY[t.gbRel.toFixed(1)] = a.exactY;
+    });
+
+    // Slide occupied tick labels to team rows, hide others
+    tickLabelElements.forEach(({ el, gbKey, isZero }) => {
+      if (animate) { el.style.transition = tr; setTimeout(() => { el.style.transition = ''; }, 1300); }
+      if (gbToCompactY[gbKey] !== undefined) {
+        el.style.top = `${gbToCompactY[gbKey]}px`;
+        el.style.display = 'block';
+      } else if (isZero && snapData.teamsWithPos.length > 0) {
+        const closest = snapData.teamsWithPos.reduce((best, t) => Math.abs(t.gbRel) < Math.abs(best.gbRel) ? t : best);
+        const a = compactAssign[closest.id];
+        el.style.top = `${a ? a.exactY + COMPACT_ROW_HEIGHT / 2 : topPadding}px`;
+        el.style.display = 'block';
+      } else {
+        el.style.display = 'none';
+      }
+    });
+
+    // Hide tick marks in compact
+    contentBox.querySelectorAll('.vertical-timeline-tick').forEach(tick => { tick.style.display = 'none'; });
+
+    // Hide cutoff line
+    const cutoffLine = contentBox.querySelector('.vertical-cutoff-line');
+    if (cutoffLine) cutoffLine.style.opacity = '0';
+
+    // Move team nodes to compact positions
+    snapData.teamsWithPos.forEach(team => {
+      const node = teamNodesMap[team.id];
+      if (!node) return;
+      const info = compactAssign[team.id] || compactAssign[String(team.id)] || { col: 0, exactY: 80 };
+      node.style.top = `${info.exactY}px`;
+      node.style.left = '78px';
+    });
+
+    if (animate) {
+      setTimeout(() => scrollToTeamNode(state.activeTeamId), 1350);
+    }
+  }
+
+  // ── Relayout to expanded (GB-proportional) mode ───────────────────
+  function relayoutToExpanded(animate) {
+    const contentBox = scrollArea._contentBox;
+    if (!contentBox) return;
+    const topPadding = 80;
+    const bottomPadding = 120;
+    globalPxPerGB = EXPANDED_PX_PER_GB;
+    globalZeroLineY = topPadding + (maxGBAheadVal * globalPxPerGB);
+    const totalHeight = globalZeroLineY + (Math.abs(minGBBehindVal) * globalPxPerGB) + bottomPadding;
+    const tr = 'top 1.2s cubic-bezier(0.25, 1, 0.5, 1)';
+    const trSize = 'min-height 1.2s cubic-bezier(0.25, 1, 0.5, 1), height 1.2s cubic-bezier(0.25, 1, 0.5, 1)';
+
+    if (animate) {
+      contentBox.style.transition = trSize;
+      setTimeout(() => { contentBox.style.transition = ''; }, 1300);
+    }
+    contentBox.style.minHeight = `${totalHeight}px`;
+    contentBox.style.height = `${totalHeight}px`;
+
+    // Restore tick labels to GB-proportional positions
+    const dataset = getSnapshotDataset(activeSnapshotMode);
+    const snapData = computeSnapshotData(dataset.processed);
+    const activeGBKeys = new Set(snapData.teamsWithPos.map(t => t.gbRel.toFixed(1)));
+    tickLabelElements.forEach(({ el, gbKey, isZero }) => {
+      const gb = parseFloat(gbKey);
+      const y = globalZeroLineY - (gb * globalPxPerGB);
+      if (animate) { el.style.transition = tr; setTimeout(() => { el.style.transition = ''; }, 1300); }
+      el.style.top = `${y}px`;
+      el.style.display = (isZero || activeGBKeys.has(gbKey)) ? 'block' : 'none';
+    });
+
+    // Show and reposition tick marks
+    const ticks = contentBox.querySelectorAll('.vertical-timeline-tick');
+    let tickIdx = 0;
+    for (let gb = maxGBAheadVal; gb >= minGBBehindVal; gb -= 0.5) {
+      const y = globalZeroLineY - (gb * globalPxPerGB);
+      if (ticks[tickIdx]) {
+        if (animate) { ticks[tickIdx].style.transition = tr; setTimeout(() => { ticks[tickIdx].style.transition = ''; }, 1300); }
+        ticks[tickIdx].style.top = `${y}px`;
+        ticks[tickIdx].style.display = '';
+      }
+      tickIdx++;
+    }
+
+    // Show cutoff line
+    const cutoffLine = contentBox.querySelector('.vertical-cutoff-line');
+    if (cutoffLine) {
+      if (animate) {
+        cutoffLine.style.transition = 'top 1.2s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.4s ease';
+        setTimeout(() => { cutoffLine.style.transition = ''; }, 1300);
+      }
+      cutoffLine.style.top = `${globalZeroLineY}px`;
+      cutoffLine.style.opacity = '1';
+    }
+
+    // Re-position team nodes via standard expanded logic
+    updateNodesPosition(false);
+
+    if (animate) {
+      setTimeout(() => scrollToTeamNode(state.activeTeamId), 1350);
+    }
+  }
+
+  // ── Toggle zoom ───────────────────────────────────────────────────
+  function toggleZoom() {
+    isCompactMode = !isCompactMode;
+    updateZoomBtnLabel();
+    if (isCompactMode) {
+      applyCompactMode(true);
+    } else {
+      relayoutToExpanded(true);
     }
   }
 
@@ -1663,11 +1849,25 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
 
   renderTimeline();
 
-  // 2-second grace period after render so smooth-scroll and entry
-  // animations finish before the hint countdown begins.
+  // ── Initial compact → expanded animation ──
+  // Immediately snap to compact after render, then animate to expanded after 1.5s.
+  requestAnimationFrame(() => {
+    isCompactMode = true;
+    updateZoomBtnLabel();
+    applyCompactMode(false); // snap, no animation
+    scrollToTeamNode(state.activeTeamId);
+
+    setTimeout(() => {
+      isCompactMode = false;
+      updateZoomBtnLabel();
+      relayoutToExpanded(true);
+    }, 1500);
+  });
+
+  // Grace period for hints pushed out to account for compact→expanded animation
   setTimeout(() => {
     activateHintSystem();
-  }, 2000);
+  }, 4000);
 
   return container;
 }
