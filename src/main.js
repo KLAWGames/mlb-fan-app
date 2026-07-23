@@ -7450,6 +7450,11 @@ function HotPerformerCard(p, timeframe, teamName, isRookieHighlight = false, liv
     disciplineIntel += "Shows a high-risk, high-power approach.";
   }
 
+  const isInjured = state.injuredPlayers && state.injuredPlayers[p.name];
+  const nameHTML = isInjured 
+    ? `${p.name} <span class="status-badge" style="background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25); margin-left: 5px; padding: 1.5px 5px; border-radius: 4px; font-size: 9px; font-weight: 800; font-family: var(--font-title); display: inline-block; vertical-align: middle; line-height: 1;">IL</span>`
+    : p.name;
+
   const headshotUrl = getPlayerHeadshotUrl(p.id);
 
   card.innerHTML = `
