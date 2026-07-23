@@ -4109,7 +4109,18 @@ function render() {
   } else {
     switch (state.activeView) {
       case 'dashboard':
-        main.appendChild(createDashboardView());
+      case 'vertical-standings':
+        main.appendChild(createVerticalStandingsView(state, state.activeView === 'vertical-standings' ? () => {
+          state.activeView = state.previousMainView || 'settings';
+          render();
+        } : null, {
+          openGameAnalytics: (gameObj) => openGameAnalyticsCenter(gameObj),
+          openGamesThatMatter: (teamId) => showGamesThatMatterModal(teamId),
+          openTeamCalendar: (teamObj) => showTeamCalendarModal(teamObj),
+          openTeamOverview: (teamId) => showTeamSeasonModal(teamId),
+          openWhosHot: (teamId) => showWhosHotModal(teamId),
+          openWhatHappenedYesterday: () => showRecapModal(false)
+        }));
         break;
 
       case 'standings':
@@ -4142,11 +4153,11 @@ function render() {
       case 'recap-scroll':
         main.appendChild(createRecapScrollView());
         break;
-      case 'vertical-standings':
-        main.appendChild(createVerticalStandingsView(state, () => {
-          state.activeView = 'settings';
-          render();
-        }, {
+      case 'team-leaders':
+        main.appendChild(createTeamLeadersView());
+        break;
+      default:
+        main.appendChild(createVerticalStandingsView(state, null, {
           openGameAnalytics: (gameObj) => openGameAnalyticsCenter(gameObj),
           openGamesThatMatter: (teamId) => showGamesThatMatterModal(teamId),
           openTeamCalendar: (teamObj) => showTeamCalendarModal(teamObj),
@@ -4154,15 +4165,6 @@ function render() {
           openWhosHot: (teamId) => showWhosHotModal(teamId),
           openWhatHappenedYesterday: () => showRecapModal(false)
         }));
-        break;
-
-
-      case 'team-leaders':
-        main.appendChild(createTeamLeadersView());
-        break;
-      case 'dashboard':
-      default:
-        main.appendChild(createDashboardView());
     }
   }
 }
@@ -4716,16 +4718,6 @@ function createSettingsView() {
   // Bottom action buttons stacked vertically for easy thumb reach
   const actionsGroup = document.createElement('div');
   actionsGroup.style.cssText = 'display: flex; flex-direction: column; gap: 10px; margin-top: auto; margin-bottom: 12px;';
-
-  const verticalStandingsBtn = document.createElement('button');
-  verticalStandingsBtn.style.cssText = 'width: 100%; padding: 14px 16px; font-size: 14px; font-weight: 700; color: #00e5ff; background: rgba(0, 229, 255, 0.08); border: 1.5px solid rgba(0, 229, 255, 0.4); border-radius: 12px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; box-shadow: 0 0 10px rgba(0, 229, 255, 0.15); outline: none;';
-  verticalStandingsBtn.innerHTML = '📊 Vertical Standings';
-  verticalStandingsBtn.addEventListener('click', () => {
-    state.previousMainView = 'settings';
-    state.activeView = 'vertical-standings';
-    render();
-  });
-  actionsGroup.appendChild(verticalStandingsBtn);
 
   const configureBtn = document.createElement('button');
   configureBtn.style.cssText = 'width: 100%; padding: 14px 16px; font-size: 14px; font-weight: 700; color: var(--text-primary); background: var(--bg-card-hover); border: 1px solid var(--border-glass-highlight); border-radius: 12px; cursor: pointer; font-family: var(--font-title); display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; box-shadow: var(--shadow-sm); outline: none;';

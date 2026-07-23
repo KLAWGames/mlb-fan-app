@@ -52,10 +52,14 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   const backBtn = document.createElement('button');
   backBtn.style.cssText = 'background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #fff; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 4px;';
   backBtn.innerHTML = '← Back';
-  backBtn.addEventListener('click', () => {
-    if (isPlayingAnimation) cancelAnimationRequested = true;
-    if (onBack) onBack();
-  });
+  if (!onBack) {
+    backBtn.style.display = 'none';
+  } else {
+    backBtn.addEventListener('click', () => {
+      if (isPlayingAnimation) cancelAnimationRequested = true;
+      if (onBack) onBack();
+    });
+  }
   leftGroup.appendChild(backBtn);
 
   const title = document.createElement('span');
