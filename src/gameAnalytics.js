@@ -1,6 +1,7 @@
 import { teamsData } from './teamsData.js';
 
 export function normalizeGame(game) {
+  if (!game) return { awayTeam: {}, homeTeam: {} };
   if (game.awayTeam && game.homeTeam) return game;
   
   const awayTeamRaw = game.teams?.away?.team || {};
@@ -1517,9 +1518,11 @@ export function drawSprayFieldSVG(plays, activePlayId, clickCallback) {
   return svg;
 }
 
-export function openGameAnalyticsCenter(game, state, render) {
+export function openGameAnalyticsCenter(game, state = {}, render = () => {}) {
   let updateVisContent;
   try {
+    if (!game) return;
+    if (!state) state = {};
     const normGame = normalizeGame(game);
     const existing = document.querySelector('.analytics-center-backdrop');
     if (existing) existing.remove();

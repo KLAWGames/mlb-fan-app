@@ -4183,7 +4183,7 @@ function render() {
           state.activeView = state.previousMainView || 'settings';
           render();
         } : null, {
-          openGameAnalytics: (gameObj) => openGameAnalyticsCenter(gameObj),
+          openGameAnalytics: (gameObj) => openGameAnalyticsCenter(gameObj, state, render),
           openGamesThatMatter: (teamId) => showGamesThatMatterModal(teamId),
           openTeamCalendar: (teamObj) => showTeamCalendarModal(teamObj),
           openTeamOverview: (teamId) => showTeamSeasonModal(teamId),
@@ -4227,7 +4227,7 @@ function render() {
         break;
       default:
         main.appendChild(createVerticalStandingsView(state, null, {
-          openGameAnalytics: (gameObj) => openGameAnalyticsCenter(gameObj),
+          openGameAnalytics: (gameObj) => openGameAnalyticsCenter(gameObj, state, render),
           openGamesThatMatter: (teamId) => showGamesThatMatterModal(teamId),
           openTeamCalendar: (teamObj) => showTeamCalendarModal(teamObj),
           openTeamOverview: (teamId) => showTeamSeasonModal(teamId),
