@@ -69,12 +69,10 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
         scrollHintEl = document.createElement('div');
         scrollHintEl.className = 'idle-gesture-hint scroll-hint';
         scrollHintEl.innerHTML = `
-          <div class="gesture-icon-wrapper swipe-hand-animated">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path>
-              <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6"></path>
-              <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path>
-              <path d="M18 8a2 2 0 0 1 2 2v4a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
+          <div class="gesture-icon-wrapper">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v18M8 6l4-4 4 4M8 18l4 4 4-4" stroke="var(--color-cyan, #00e5ff)" opacity="0.85" />
+              <circle class="swipe-touch-disc" cx="12" cy="12" r="3" fill="var(--color-cyan, #00e5ff)" stroke="none" />
             </svg>
           </div>
           <span>Swipe up/down to explore the standings</span>
@@ -92,10 +90,11 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
         tapHintEl = document.createElement('div');
         tapHintEl.className = 'idle-gesture-hint tap-hint';
         tapHintEl.innerHTML = `
-          <div class="gesture-icon-wrapper tap-hand-animated">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 11V4a2 2 0 0 1 4 0v7"></path>
-              <path d="M18 8a2 2 0 0 1 2 2v4a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
+          <div class="gesture-icon-wrapper">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="5" width="18" height="14" rx="4" stroke="var(--color-cyan, #00e5ff)" stroke-width="1.8" opacity="0.75" />
+              <circle class="tap-ring-pulse" cx="12" cy="12" r="5" stroke="var(--color-cyan, #00e5ff)" stroke-width="1.5" />
+              <circle class="tap-dot-pulse" cx="12" cy="12" r="2.5" fill="#ffffff" stroke="none" />
             </svg>
           </div>
           <span>Tap any team box for live scores & stats</span>
