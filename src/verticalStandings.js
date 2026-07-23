@@ -1267,15 +1267,11 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
         await new Promise(r => setTimeout(r, 600));
         if (cancelAnimationRequested) break;
 
-        // 2. Attach focus glow rings and shift pills to teams in this section BEFORE movement
+        // 2. Attach focus glow rings to teams in this section BEFORE movement
         cluster.teams.forEach(team => {
           const node = teamNodesMap[team.id];
           if (node) {
             node.classList.add('animating-focus');
-            const badge = document.createElement('div');
-            badge.className = `vertical-shift-pill ${team.shiftClass}`;
-            badge.innerText = team.shiftLabel;
-            node.appendChild(badge);
           }
         });
 
@@ -1301,13 +1297,11 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
         // Hold final positions for 1.2s so user can absorb the shift & scores!
         await new Promise(r => setTimeout(r, 1200));
 
-        // 6. Clean up focus glow rings and shift pills before moving to next section
+        // 6. Clean up focus glow rings before moving to next section
         cluster.teams.forEach(team => {
           const node = teamNodesMap[team.id];
           if (node) {
             node.classList.remove('animating-focus');
-            const badge = node.querySelector('.vertical-shift-pill');
-            if (badge) badge.remove();
           }
         });
       }
@@ -1348,15 +1342,11 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
           await new Promise(r => setTimeout(r, 600));
           if (cancelAnimationRequested) break;
 
-          // 2. Attach focus glow rings and shift pills to teams in this section BEFORE movement
+          // 2. Attach focus glow rings to teams in this section BEFORE movement
           cluster.teams.forEach(team => {
             const node = teamNodesMap[team.id];
             if (node) {
               node.classList.add('animating-focus');
-              const badge = document.createElement('div');
-              badge.className = `vertical-shift-pill ${team.shiftClass}`;
-              badge.innerText = team.shiftLabel;
-              node.appendChild(badge);
             }
           });
 
@@ -1382,13 +1372,11 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
           // Hold final positions for 1.2s so user can absorb the shift & scores!
           await new Promise(r => setTimeout(r, 1200));
 
-          // 6. Clean up focus glow rings and shift pills before moving to next section
+          // 6. Clean up focus glow rings before moving to next section
           cluster.teams.forEach(team => {
             const node = teamNodesMap[team.id];
             if (node) {
               node.classList.remove('animating-focus');
-              const badge = node.querySelector('.vertical-shift-pill');
-              if (badge) badge.remove();
             }
           });
         }
