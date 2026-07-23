@@ -889,7 +889,14 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   function showTeamActionModal(team, game, mode, teamGames = []) {
     let currentOppAbbr = ''; // Scoped at modal level to prevent ReferenceErrors
 
-    const targetTeamObj = teamsData[team.id] || team;
+    const teamIdNum = parseInt(team?.id || team?.teamId, 10);
+    const targetTeamObj = teamsData[teamIdNum] || teamsData[team?.id] || team || {};
+    const teamAbbr = targetTeamObj.abbreviation || team?.abbreviation || 'MLB';
+    const teamNameStr = targetTeamObj.name || team?.name || teamAbbr;
+    const teamWins = targetTeamObj.wins !== undefined ? targetTeamObj.wins : (team?.wins !== undefined ? team.wins : 0);
+    const teamLosses = targetTeamObj.losses !== undefined ? targetTeamObj.losses : (team?.losses !== undefined ? team.losses : 0);
+    const divisionStr = targetTeamObj.divisionName || team?.divisionName || 'MLB Division';
+
     const teamPrimary = targetTeamObj.primaryColor || '#00e5ff';
     const teamSecondary = targetTeamObj.secondaryColor || '#0284c7';
     const teamTextColor = targetTeamObj.textColor || '#ffffff';
@@ -937,15 +944,15 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     logoDisc.style.cssText = 'width: 44px; height: 44px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 4px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); flex-shrink: 0;';
 
     const logoImg = document.createElement('img');
-    logoImg.src = getTeamLogoUrl(team.abbreviation);
+    logoImg.src = getTeamLogoUrl(teamAbbr);
     logoImg.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
     logoDisc.appendChild(logoImg);
     teamHeaderInfo.appendChild(logoDisc);
 
     const teamTitleBox = document.createElement('div');
     teamTitleBox.innerHTML = `
-      <div style="font-family: var(--font-title); font-size: 18px; font-weight: 900; color: #ffffff;">${team.name || team.abbreviation}</div>
-      <div style="font-size: 11.5px; color: rgba(255, 255, 255, 0.85); font-weight: 700;">${team.wins}-${team.losses} | ${team.divisionName || 'MLB Division'}</div>
+      <div style="font-family: var(--font-title); font-size: 18px; font-weight: 900; color: #ffffff;">${teamNameStr}</div>
+      <div style="font-size: 11.5px; color: rgba(255, 255, 255, 0.85); font-weight: 700;">${teamWins}-${teamLosses} | ${divisionStr}</div>
     `;
     teamHeaderInfo.appendChild(teamTitleBox);
     header.appendChild(teamHeaderInfo);
@@ -963,7 +970,6 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       selectedGame = teamGames[0];
     }
     if (!selectedGame) {
-      const teamIdNum = parseInt(team.id, 10);
       const allSchedules = [
         ...(state.rawSchedule || []),
         ...(state.rawScheduleYesterday || []),
@@ -981,7 +987,13 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
 
     function renderMatchupCard(targetGame) {
       matchupContainer.innerHTML = '';
-      if (!targetGame) return;
+      if (!targetGame) {
+        const noGameMsg = document.createElement('div');
+        noGameMsg.style.cssText = 'font-size: 12px; color: var(--text-muted); text-align: center; padding: 16px 12px; font-style: italic; background: var(--bg-card); border-radius: 10px; border: 1px solid var(--border-glass-highlight);';
+        noGameMsg.innerText = 'No game scheduled for this date.';
+        matchupContainer.appendChild(noGameMsg);
+        return;
+      }
 
       const dataset = getSnapshotDataset(mode);
       const teamIdNum = parseInt(team.id, 10);
