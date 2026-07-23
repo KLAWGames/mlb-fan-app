@@ -607,11 +607,21 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     const sorted = [...teamsWithPos].sort((a, b) => b.gbRel - a.gbRel);
     const topPadding = 80;
     const assignments = {};
-    sorted.forEach((team, idx) => {
-      const item = { col: 0, exactY: topPadding + (idx * COMPACT_ROW_HEIGHT), gbRel: team.gbRel };
+    let rowIdx = 0;
+    let prevGB = null;
+    let colInRow = 0;
+    sorted.forEach(team => {
+      const gbKey = team.gbRel.toFixed(1);
+      if (prevGB !== null && gbKey !== prevGB) {
+        rowIdx++;
+        colInRow = 0;
+      }
+      const item = { col: colInRow, exactY: topPadding + (rowIdx * COMPACT_ROW_HEIGHT), gbRel: team.gbRel };
       assignments[team.id] = item;
       assignments[String(team.id)] = item;
       assignments[parseInt(team.id, 10)] = item;
+      prevGB = gbKey;
+      colInRow++;
     });
     return assignments;
   }
@@ -627,7 +637,11 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     if (teamCount === 0) return;
     const topPadding = 80;
     const bottomPadding = 120;
-    const totalHeight = topPadding + (teamCount * COMPACT_ROW_HEIGHT) + bottomPadding;
+
+    // Compute compact layout first so we know how many unique rows there are
+    const compactAssign = computeCompactColumns(snapData.teamsWithPos);
+    const maxRow = Math.max(...Object.values(compactAssign).map(a => a.exactY));
+    const totalHeight = maxRow + COMPACT_ROW_HEIGHT + bottomPadding;
     const tr = 'top 1.2s cubic-bezier(0.25, 1, 0.5, 1)';
     const trSize = 'min-height 1.2s cubic-bezier(0.25, 1, 0.5, 1), height 1.2s cubic-bezier(0.25, 1, 0.5, 1)';
 
@@ -638,12 +652,12 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     contentBox.style.minHeight = `${totalHeight}px`;
     contentBox.style.height = `${totalHeight}px`;
 
-    // Map gbKey → compact Y for occupied rows
-    const compactAssign = computeCompactColumns(snapData.teamsWithPos);
+    // Map gbKey → compact Y for occupied rows (only first occurrence per gbKey)
     const gbToCompactY = {};
     snapData.teamsWithPos.forEach(t => {
       const a = compactAssign[t.id];
-      if (a) gbToCompactY[t.gbRel.toFixed(1)] = a.exactY;
+      const key = t.gbRel.toFixed(1);
+      if (a && gbToCompactY[key] === undefined) gbToCompactY[key] = a.exactY;
     });
 
     // Slide occupied tick labels to team rows, hide others
@@ -669,13 +683,13 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     const cutoffLine = contentBox.querySelector('.vertical-cutoff-line');
     if (cutoffLine) cutoffLine.style.opacity = '0';
 
-    // Move team nodes to compact positions
+    // Move team nodes to compact positions (with column offset for ties)
     snapData.teamsWithPos.forEach(team => {
       const node = teamNodesMap[team.id];
       if (!node) return;
       const info = compactAssign[team.id] || compactAssign[String(team.id)] || { col: 0, exactY: 80 };
       node.style.top = `${info.exactY}px`;
-      node.style.left = '78px';
+      node.style.left = `${78 + (info.col * 116)}px`;
     });
 
     if (animate) {
