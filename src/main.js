@@ -4334,9 +4334,9 @@ function updateFooterContent(footer) {
   // Footer menu items configuration
   const menuItems = [
     { view: 'dashboard', label: teamsLabel, emoji: '🧢' },
+    { view: 'mlb-hub', label: 'MLB', isMlbLogo: true },
     { view: 'scores', label: 'Scores', emoji: '⚾' },
     { view: 'standings', label: 'Standings', emoji: '🏆' },
-    { view: 'mlb-hub', label: 'MLB', emoji: '🌐' },
     { view: 'settings', label: 'Settings', emoji: '⚙️' }
   ];
   
@@ -4368,6 +4368,17 @@ function updateFooterContent(footer) {
       } else {
         iconContainer.innerText = item.emoji;
       }
+    } else if (item.isMlbLogo) {
+      iconContainer.style.cssText = 'width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;';
+      const mlbImg = document.createElement('img');
+      mlbImg.src = 'https://a.espncdn.com/i/teamlogos/leagues/500/mlb.png';
+      mlbImg.alt = 'MLB';
+      mlbImg.style.cssText = 'width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));';
+      mlbImg.onerror = () => {
+        iconContainer.innerText = '⚾';
+        iconContainer.style.fontSize = '18px';
+      };
+      iconContainer.appendChild(mlbImg);
     } else {
       iconContainer.innerText = item.emoji;
       iconContainer.style.fontSize = '18px';
