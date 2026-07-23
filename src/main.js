@@ -182,40 +182,73 @@ function generateSeasonHistory(teamId, wins, losses) {
   return history;
 }
 
-// Helper: Calculate high-contrast team color for dark mode charts
+// Helper: Calculate high-contrast team color for chart lines (adapts to light/dark themes)
 function getContrastedChartColor(team) {
-  if (!team) return '#00e5ff';
-  const primary = team.primaryColor || '#00e5ff';
+  if (!team) return state.themeMode === 'light' ? '#0f172a' : '#00e5ff';
+  const primary = team.primaryColor || '#3b82f6';
   const secondary = team.secondaryColor;
+
+  const isLight = state.themeMode === 'light';
 
   let hex = primary.replace('#', '');
   if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
   const r = parseInt(hex.substring(0, 2), 16) || 0;
   const g = parseInt(hex.substring(2, 4), 16) || 0;
   const b = parseInt(hex.substring(4, 6), 16) || 0;
-
   const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 
-  if (lum < 0.32) {
-    if (secondary) {
-      let secHex = secondary.replace('#', '');
-      if (secHex.length === 3) secHex = secHex.split('').map(c => c + c).join('');
-      const sr = parseInt(secHex.substring(0, 2), 16) || 0;
-      const sg = parseInt(secHex.substring(2, 4), 16) || 0;
-      const sb = parseInt(secHex.substring(4, 6), 16) || 0;
-      const secLum = (0.2126 * sr + 0.7152 * sg + 0.0722 * sb) / 255;
-      if (secLum > 0.4 && secondary.toLowerCase() !== '#ffffff' && secondary.toLowerCase() !== '#fff') {
-        return secondary;
-      }
+  if (isLight) {
+    if (lum > 0.8 && secondary) {
+      return secondary;
     }
-    const factor = 2.2;
-    const nr = Math.min(255, Math.max(90, Math.round(r * factor + 60)));
-    const ng = Math.min(255, Math.max(140, Math.round(g * factor + 80)));
-    const nb = Math.min(255, Math.max(180, Math.round(b * factor + 100)));
-    return `rgb(${nr}, ${ng}, ${nb})`;
+    return primary;
+  } else {
+    if (lum < 0.32) {
+      if (secondary) {
+        let secHex = secondary.replace('#', '');
+        if (secHex.length === 3) secHex = secHex.split('').map(c => c + c).join('');
+        const sr = parseInt(secHex.substring(0, 2), 16) || 0;
+        const sg = parseInt(secHex.substring(2, 4), 16) || 0;
+        const sb = parseInt(secHex.substring(4, 6), 16) || 0;
+        const secLum = (0.2126 * sr + 0.7152 * sg + 0.0722 * sb) / 255;
+        if (secLum > 0.4 && secondary.toLowerCase() !== '#ffffff' && secondary.toLowerCase() !== '#fff') {
+          return secondary;
+        }
+      }
+      const factor = 2.2;
+      const nr = Math.min(255, Math.max(90, Math.round(r * factor + 60)));
+      const ng = Math.min(255, Math.max(140, Math.round(g * factor + 80)));
+      const nb = Math.min(255, Math.max(180, Math.round(b * factor + 100)));
+      return `rgb(${nr}, ${ng}, ${nb})`;
+    }
+    return primary;
   }
+}
 
-  return primary;
+// Global team logo URL generator with ESPN CDN mapping for all MLB teams
+function getTeamLogoUrl(abbr) {
+  if (!abbr) return 'https://a.espncdn.com/i/teamlogos/mlb/500/mlb.png';
+  const raw = abbr.toUpperCase();
+  const espnLogoMap = {
+    'AZ': 'ari',
+    'ARI': 'ari',
+    'CWS': 'chw',
+    'CHW': 'chw',
+    'ATH': 'oak',
+    'OAK': 'oak',
+    'WSH': 'was',
+    'WAS': 'was',
+    'KC': 'kc',
+    'KCR': 'kc',
+    'SD': 'sd',
+    'SDP': 'sd',
+    'SF': 'sf',
+    'SFG': 'sf',
+    'TB': 'tb',
+    'TBR': 'tb'
+  };
+  const logoCode = espnLogoMap[raw] || raw.toLowerCase();
+  return `https://a.espncdn.com/i/teamlogos/mlb/500/${logoCode}.png`;
 }
 
 // Reusable official MLB team logo badge component
@@ -937,6 +970,15 @@ function getWildCardStats(team, standings) {
   }
 }
 
+// Apply active theme mode (light / dark)
+function applyThemeMode(mode) {
+  state.themeMode = mode;
+  localStorage.setItem('app_theme_mode', mode);
+  document.documentElement.setAttribute('data-theme', mode);
+  document.body.classList.toggle('theme-light', mode === 'light');
+  document.body.classList.toggle('theme-dark', mode === 'dark');
+}
+
 // Dynamically inject custom CSS variables for the active team's branding
 function updateTeamTheme(teamId) {
   const team = teamsData[teamId];
@@ -1105,6 +1147,10 @@ async function init() {
     state.selectedTeamIds = [141];
     localStorage.setItem('tracked_teams', JSON.stringify(state.selectedTeamIds));
   }
+
+  // Initialize Theme Mode
+  state.themeMode = localStorage.getItem('app_theme_mode') || 'dark';
+  applyThemeMode(state.themeMode);
 
   state.activeTeamId = state.selectedTeamIds[0];
   updateTeamTheme(state.activeTeamId);
@@ -4191,18 +4237,7 @@ function showTeamsDropupMenu(anchorBtn) {
     const itemBtn = document.createElement('button');
     itemBtn.className = `teams-dropup-item ${teamId === state.activeTeamId ? 'active' : ''}`;
     
-    const badge = document.createElement('div');
-    badge.className = 'team-badge-small';
-    badge.innerText = team.abbreviation;
-    badge.style.background = team.primaryColor;
-    badge.style.color = team.textColor;
-    badge.style.fontSize = '9px';
-    badge.style.fontWeight = '800';
-    badge.style.width = '24px';
-    badge.style.height = '24px';
-    badge.style.display = 'flex';
-    badge.style.alignItems = 'center';
-    badge.style.justifyContent = 'center';
+    const badge = createOfficialTeamLogoBadge(team);
     badge.style.borderRadius = '6px';
     badge.style.flexShrink = '0';
     
@@ -4455,18 +4490,7 @@ function showTeamReplacementModal(newTeamId) {
     const info = document.createElement('div');
     info.style.cssText = 'display: flex; align-items: center; gap: 10px;';
 
-    const badge = document.createElement('div');
-    badge.className = 'team-badge-small';
-    badge.innerText = t.abbreviation;
-    badge.style.background = t.primaryColor;
-    badge.style.color = t.textColor;
-    badge.style.fontSize = '9px';
-    badge.style.width = '24px';
-    badge.style.height = '24px';
-    badge.style.display = 'flex';
-    badge.style.alignItems = 'center';
-    badge.style.justifyContent = 'center';
-    badge.style.borderRadius = '5px';
+    const badge = createOfficialTeamLogoBadge(t);
 
     const name = document.createElement('span');
     name.innerText = t.shortName;
@@ -4566,18 +4590,7 @@ function createAllTeamsView() {
       teamCard.className = 'glass-card';
       teamCard.style.cssText = 'padding: 6px 8px; display: flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s ease; border: 1px solid var(--border-glass); position: relative; margin-bottom: 0;';
       
-      const badge = document.createElement('div');
-      badge.className = 'team-badge-small';
-      badge.innerText = team.abbreviation;
-      badge.style.background = team.primaryColor;
-      badge.style.color = team.textColor;
-      badge.style.fontSize = '8px';
-      badge.style.width = '20px';
-      badge.style.height = '20px';
-      badge.style.display = 'flex';
-      badge.style.alignItems = 'center';
-      badge.style.justifyContent = 'center';
-      badge.style.borderRadius = '4px';
+      const badge = createOfficialTeamLogoBadge(team);
       badge.style.flexShrink = '0';
 
       const details = document.createElement('div');
@@ -4661,6 +4674,47 @@ function createSettingsView() {
   hr.style.borderBottom = '1px solid var(--border-glass)';
   hr.style.margin = '4px 0';
   container.appendChild(hr);
+
+  // Appearance Theme Switcher
+  const themeHeader = document.createElement('h3');
+  themeHeader.style.cssText = 'font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;';
+  themeHeader.innerText = 'Appearance Theme';
+  container.appendChild(themeHeader);
+
+  const themeGroup = document.createElement('div');
+  themeGroup.style.cssText = 'display: flex; gap: 8px; background: var(--bg-card); padding: 4px; border-radius: 12px; border: 1.5px solid var(--border-glass-highlight); margin-bottom: 12px;';
+
+  const isDark = state.themeMode === 'dark';
+
+  const lightBtn = document.createElement('button');
+  lightBtn.style.cssText = `flex: 1; padding: 10px 14px; font-size: 13px; font-weight: 800; border-radius: 9px; border: none; cursor: pointer; transition: all 0.2s ease; font-family: var(--font-title); outline: none; ${
+    !isDark
+      ? 'background: var(--color-gold); color: #ffffff; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);'
+      : 'background: transparent; color: var(--text-secondary);'
+  }`;
+  lightBtn.innerText = '☀️ Light Mode';
+
+  const darkBtn = document.createElement('button');
+  darkBtn.style.cssText = `flex: 1; padding: 10px 14px; font-size: 13px; font-weight: 800; border-radius: 9px; border: none; cursor: pointer; transition: all 0.2s ease; font-family: var(--font-title); outline: none; ${
+    isDark
+      ? 'background: var(--color-gold); color: #ffffff; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3);'
+      : 'background: transparent; color: var(--text-secondary);'
+  }`;
+  darkBtn.innerText = '🌙 Dark Mode';
+
+  lightBtn.addEventListener('click', () => {
+    applyThemeMode('light');
+    render();
+  });
+
+  darkBtn.addEventListener('click', () => {
+    applyThemeMode('dark');
+    render();
+  });
+
+  themeGroup.appendChild(lightBtn);
+  themeGroup.appendChild(darkBtn);
+  container.appendChild(themeGroup);
 
   // Tracked Teams Switcher
   const teamsHeader = document.createElement('h3');
@@ -5671,7 +5725,7 @@ function showTeamCalendarModal(teamObj) {
 
   const teamAbbr = activeTeamObj.abbreviation || 'MLB';
   const logoImg = document.createElement('img');
-  logoImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${teamAbbr.toLowerCase()}.png`;
+  logoImg.src = getTeamLogoUrl(teamAbbr);
   logoImg.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
   logoDisc.appendChild(logoImg);
   titleInfo.appendChild(logoDisc);
@@ -8069,7 +8123,7 @@ function createStandingsView() {
     tr.innerHTML = `
       <td>
         <div class="standings-team-cell" style="display: flex; align-items: center; gap: 8px;">
-          <div class="team-badge-small" style="background:${team.primaryColor}; color:${team.textColor}; font-size:9px; flex-shrink: 0;">${team.abbreviation}</div>
+          ${createOfficialTeamLogoBadge(team).outerHTML}
           <div style="display: flex; flex-direction: column; gap: 0px; text-align: left; align-items: flex-start;">
             <span style="font-weight: 600; line-height: 1.25;">${team.name}</span>
             ${statusBadge}
