@@ -1,31 +1,76 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
 
-:root {
-  /* Default Theme (Dynamic variables, set via Javascript based on favorite team) */
+:root, [data-theme="dark"] {
+  /* Default Team Theme variables */
   --team-primary: #134A8E;
   --team-secondary: #1D2D5C;
   --team-text: #FFFFFF;
 
-  /* App Core Colors (Sleek Light Mode) */
-  --bg-dark: #f8fafc; /* Slate 50 background */
-  --bg-card: #ffffff; /* Pure white cards */
-  --bg-card-hover: #f1f5f9; /* Slate 100 hover */
-  --border-glass: #e2e8f0; /* Slate 200 borders */
-  --border-glass-highlight: #cbd5e1; /* Slate 300 borders */
-  
-  --text-primary: #0f172a; /* Slate 900 primary text */
-  --text-secondary: #475569; /* Slate 600 secondary text */
-  --text-muted: #94a3b8; /* Slate 400 muted caption text */
-
-  --color-win: #065f46; /* Emerald 800 win */
-  --color-loss: #be123c; /* Rose 700 loss */
-  --color-neutral: #64748b; /* Slate 500 neutral */
-  --color-gold: #b45309; /* Amber 700 magic number gold */
-  
-  --glow-intensity: 0 4px 12px rgba(15, 23, 42, 0.05); /* Subtle shadow instead of glow */
   --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --font-title: 'Outfit', sans-serif;
   --font-body: 'Inter', sans-serif;
+
+  /* App Core Colors - 100% Sleek Dark Mode (Default) */
+  --bg-dark: #071318;
+  --bg-card: #0b1a24;
+  --bg-card-hover: #122533;
+  --border-glass: rgba(255, 255, 255, 0.12);
+  --border-glass-highlight: rgba(0, 229, 255, 0.3);
+  
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+
+  --color-win: #10b981;
+  --color-loss: #f43f5e;
+  --color-neutral: #94a3b8;
+  --color-gold: #f59e0b;
+
+  --modal-bg: #0b1a24;
+  --modal-overlay: rgba(0, 0, 0, 0.85);
+
+  --footer-bg: rgba(7, 19, 24, 0.95);
+  --footer-border: rgba(0, 229, 255, 0.2);
+
+  --vs-bg: #071318;
+  --vs-header-bg: rgba(10, 24, 34, 0.95);
+  --vs-card-bg: #091822;
+  --vs-text: #f8fafc;
+  --vs-border: rgba(0, 229, 255, 0.25);
+
+  --glow-intensity: 0 4px 20px rgba(0, 229, 255, 0.15);
+}
+
+[data-theme="light"] {
+  /* App Core Colors - 100% Crisp Light Mode */
+  --bg-dark: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --border-glass: #e2e8f0;
+  --border-glass-highlight: #cbd5e1;
+  
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+
+  --color-win: #047857;
+  --color-loss: #be123c;
+  --color-neutral: #475569;
+  --color-gold: #d97706;
+
+  --modal-bg: #ffffff;
+  --modal-overlay: rgba(15, 23, 42, 0.6);
+
+  --footer-bg: rgba(255, 255, 255, 0.95);
+  --footer-border: #cbd5e1;
+
+  --vs-bg: #f8fafc;
+  --vs-header-bg: #ffffff;
+  --vs-card-bg: #ffffff;
+  --vs-text: #0f172a;
+  --vs-border: #cbd5e1;
+
+  --glow-intensity: 0 4px 12px rgba(15, 23, 42, 0.08);
 }
 
 * {
@@ -2422,13 +2467,26 @@ header {
   left: 0;
   right: 0;
   bottom: 0;
-  background: radial-gradient(circle at center, #ffffff 0%, #f1f5f9 100%);
+  background: var(--bg-dark);
+  color: var(--text-primary);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 999999;
   opacity: 1;
   transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+
+[data-theme="dark"] .splash-screen,
+body.theme-dark .splash-screen {
+  background: radial-gradient(circle at center, #0b1a24 0%, #071318 100%);
+  color: #f8fafc;
+}
+
+[data-theme="light"] .splash-screen,
+body.theme-light .splash-screen {
+  background: radial-gradient(circle at center, #ffffff 0%, #f1f5f9 100%);
+  color: #0f172a;
 }
 
 .splash-screen.fade-out {
@@ -2463,18 +2521,17 @@ header {
 .splash-season {
   font-size: 14px;
   font-weight: 700;
-  color: #b45309; /* Rich golden amber for light mode */
+  color: var(--color-gold);
   text-transform: uppercase;
   letter-spacing: 0.25em;
   margin-top: -4px;
   opacity: 0.95;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .splash-loader-bar {
   width: 100%;
   height: 4px;
-  background: rgba(15, 23, 42, 0.08); /* Dark track indicator for light mode */
+  background: var(--border-glass-highlight);
   border-radius: 2px;
   overflow: hidden;
   margin-top: 12px;
@@ -2491,7 +2548,7 @@ header {
 
 .splash-status {
   font-size: 11px;
-  color: #64748b; /* Slate-500 for status */
+  color: var(--text-muted);
   font-weight: 500;
   letter-spacing: 0.02em;
   margin-top: 4px;
@@ -2501,7 +2558,7 @@ header {
 .splash-tagline {
   font-size: 13px;
   font-weight: 500;
-  color: #475569; /* Slate-600 for tagline text */
+  color: var(--text-secondary);
   letter-spacing: 0.05em;
   margin-top: -8px;
   opacity: 0.85;
@@ -2510,7 +2567,7 @@ header {
 .splash-version {
   font-size: 10px;
   font-weight: 600;
-  color: #94a3b8; /* Slate-400 for version text */
+  color: var(--text-muted);
   letter-spacing: 0.1em;
   margin-top: 24px;
   opacity: 0.7;
@@ -2567,16 +2624,16 @@ header {
   width: 100%;
   max-width: 500px;
   height: 64px;
-  background: rgba(255, 255, 255, 0.85); /* Light translucent mode background */
+  background: var(--footer-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(0, 0, 0, 0.08); /* Darker border for light mode contrast */
+  border-top: 1px solid var(--footer-border);
   display: flex;
   justify-content: space-around;
   align-items: center;
   z-index: 999;
   padding-bottom: env(safe-area-inset-bottom);
-  box-shadow: 0 -4px 20px -2px rgba(0, 0, 0, 0.08); /* Lighter shadow for clean aesthetic */
+  box-shadow: 0 -4px 20px -2px rgba(0, 0, 0, 0.2);
   transition: background 0.3s ease, border-color 0.3s ease;
 }
 
@@ -2589,13 +2646,13 @@ header {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  color: #475569; /* Slate 600 for contrast in light mode */
+  color: var(--text-secondary);
   border: none;
   background: none;
   cursor: pointer;
   font-family: var(--font-main);
   font-size: 10.5px;
-  font-weight: 600; /* slightly heavier for clear readability */
+  font-weight: 600;
   outline: none;
   transition: color 0.2s ease, transform 0.1s ease;
   padding: 4px 0;
@@ -2610,13 +2667,13 @@ header {
 }
 
 .footer-nav-item.active {
-  color: var(--team-primary, #3b82f6); /* Active team primary color is highly premium! */
+  color: var(--color-gold);
   font-weight: 800;
 }
 
 .footer-nav-item.active .footer-nav-icon {
   transform: scale(1.1);
-  filter: drop-shadow(0 2px 6px rgba(var(--team-primary-rgb, 59, 130, 246), 0.25));
+  filter: drop-shadow(0 2px 6px rgba(245, 158, 11, 0.35));
 }
 
 .footer-nav-icon.team-badge {
@@ -2629,10 +2686,10 @@ header {
   bottom: 74px;
   left: 16px;
   width: 220px;
-  background: rgba(15, 23, 42, 0.96);
+  background: var(--bg-card);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--border-glass-highlight);
   border-radius: 14px;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
   z-index: 10001;
