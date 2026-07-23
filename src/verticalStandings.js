@@ -31,6 +31,78 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   const container = document.createElement('div');
   container.className = 'vertical-standings-container';
 
+  // Idle Gesture Hint Handlers (4s Scroll Hint & 8s Team Box Tap Hint)
+  let scrollHintEl = null;
+  let tapHintEl = null;
+  let hasScrolled = false;
+  let hasTappedTeam = false;
+
+  const dismissScrollHint = () => {
+    hasScrolled = true;
+    if (scrollHintEl) {
+      scrollHintEl.style.opacity = '0';
+      scrollHintEl.style.transform = 'translate(-50%, 10px)';
+      setTimeout(() => { if (scrollHintEl && scrollHintEl.parentNode) scrollHintEl.remove(); scrollHintEl = null; }, 400);
+    }
+  };
+
+  const dismissTapHint = () => {
+    hasTappedTeam = true;
+    if (tapHintEl) {
+      tapHintEl.style.opacity = '0';
+      tapHintEl.style.transform = 'translate(-50%, -10px)';
+      setTimeout(() => { if (tapHintEl && tapHintEl.parentNode) tapHintEl.remove(); tapHintEl = null; }, 400);
+    }
+  };
+
+  // 4-Second Scroll Idle Timer
+  const scrollTimer = setTimeout(() => {
+    if (!hasScrolled && container && document.body.contains(container)) {
+      scrollHintEl = document.createElement('div');
+      scrollHintEl.className = 'idle-gesture-hint scroll-hint';
+      scrollHintEl.innerHTML = `
+        <div class="gesture-icon-wrapper swipe-hand-animated">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"></path>
+            <path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6"></path>
+            <path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"></path>
+            <path d="M18 8a2 2 0 0 1 2 2v4a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
+          </svg>
+        </div>
+        <span>Swipe down to explore all divisions</span>
+      `;
+      document.body.appendChild(scrollHintEl);
+      setTimeout(dismissScrollHint, 5000);
+    }
+  }, 4000);
+
+  // 8-Second Team Box Tap Idle Timer
+  const tapTimer = setTimeout(() => {
+    if (!hasTappedTeam && container && document.body.contains(container)) {
+      tapHintEl = document.createElement('div');
+      tapHintEl.className = 'idle-gesture-hint tap-hint';
+      tapHintEl.innerHTML = `
+        <div class="gesture-icon-wrapper tap-hand-animated">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 11V4a2 2 0 0 1 4 0v7"></path>
+            <path d="M18 8a2 2 0 0 1 2 2v4a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path>
+          </svg>
+        </div>
+        <span>Tap any team box for live scores & stats</span>
+      `;
+      document.body.appendChild(tapHintEl);
+      setTimeout(dismissTapHint, 5000);
+    }
+  }, 8000);
+
+  const onUserScrollActivity = () => {
+    dismissScrollHint();
+  };
+
+  window.addEventListener('scroll', onUserScrollActivity, { passive: true, once: true });
+  window.addEventListener('touchmove', onUserScrollActivity, { passive: true, once: true });
+  window.addEventListener('wheel', onUserScrollActivity, { passive: true, once: true });
+
   // Determine initial league (AL = 103, NL = 104) based on active team if present
   let activeLeagueId = 103;
   if (state.activeTeamId && teamsData[state.activeTeamId]) {
@@ -875,6 +947,8 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     node.style.cursor = 'pointer';
     node.onclick = (e) => {
       e.stopPropagation();
+      dismissTapHint();
+      dismissScrollHint();
       let activeGame = teamGames[0] || null;
       if (teamGames.length > 1) {
         const cycleMs = 6000;
