@@ -1754,23 +1754,23 @@ header {
   color: #ffffff !important;
 }
 
-/* All Feature Modals (Recap, Games That Matter, Team Overview, Who's Hot, Calendar) - Dark Cyber Theme */
+/* All Feature Modals (Recap, Games That Matter, Team Overview, Who's Hot, Calendar) */
 .recap-content {
-  background: #0d1a22 !important;
-  border: 1.5px solid #00e5ff !important;
+  background: var(--bg-card) !important;
+  border: 1.5px solid var(--border-glass-highlight) !important;
   border-radius: 16px !important;
   width: 100% !important;
   max-width: 540px !important;
   max-height: 88vh !important;
   overflow-y: auto !important;
   overscroll-behavior: contain !important;
-  box-shadow: 0 0 35px rgba(0, 229, 255, 0.25), 0 10px 30px rgba(0, 0, 0, 0.8) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25) !important;
   display: flex !important;
   flex-direction: column !important;
   transform: translateY(30px);
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative !important;
-  color: #ffffff !important;
+  color: var(--text-primary) !important;
 }
 
 .recap-backdrop.show .recap-content {
@@ -1779,13 +1779,13 @@ header {
 
 .recap-header {
   padding: 16px 20px !important;
-  border-bottom: 1px solid rgba(0, 229, 255, 0.2) !important;
+  border-bottom: 1px solid var(--border-glass) !important;
   display: flex !important;
   justify-content: space-between !important;
   align-items: center !important;
   position: sticky !important;
   top: 0 !important;
-  background: #0d1a22 !important;
+  background: var(--bg-card) !important;
   z-index: 10 !important;
 }
 
@@ -1793,15 +1793,15 @@ header {
   font-family: var(--font-title) !important;
   font-size: 17px !important;
   font-weight: 900 !important;
-  color: #ffffff !important;
+  color: var(--text-primary) !important;
   margin: 0 !important;
 }
 
 .recap-close-btn {
-  background: rgba(255, 255, 255, 0.1) !important;
-  border: 1px solid rgba(0, 229, 255, 0.3) !important;
+  background: var(--bg-card-hover) !important;
+  border: 1px solid var(--border-glass-highlight) !important;
   font-size: 18px !important;
-  color: #ffffff !important;
+  color: var(--text-primary) !important;
   cursor: pointer !important;
   width: 32px !important;
   height: 32px !important;
@@ -1813,11 +1813,10 @@ header {
 }
 
 .recap-close-btn:hover {
-  background: rgba(0, 229, 255, 0.25) !important;
-  border-color: #00e5ff !important;
+  background: var(--color-gold) !important;
+  border-color: var(--color-gold) !important;
   color: #ffffff !important;
   transform: scale(1.1) !important;
-  box-shadow: 0 0 12px rgba(0, 229, 255, 0.5) !important;
 }
 
 .recap-body {
@@ -1825,23 +1824,23 @@ header {
   display: flex !important;
   flex-direction: column !important;
   gap: 16px !important;
-  color: #ffffff !important;
+  color: var(--text-primary) !important;
 }
 
 /* Cards inside feature modals */
 .recap-card {
-  border: 1px solid rgba(0, 229, 255, 0.2) !important;
+  border: 1px solid var(--border-glass) !important;
   border-radius: 12px !important;
   padding: 14px !important;
-  background: rgba(15, 23, 42, 0.7) !important;
-  color: #ffffff !important;
+  background: var(--bg-card-hover) !important;
+  color: var(--text-primary) !important;
 }
 
 .recap-card-title {
   font-size: 11px !important;
   font-weight: 800 !important;
   text-transform: uppercase !important;
-  color: #00e5ff !important;
+  color: var(--color-gold) !important;
   margin-bottom: 8px !important;
   letter-spacing: 0.05em !important;
 }

@@ -1844,11 +1844,11 @@ export function openGameAnalyticsCenter(game, state, render) {
       const pitchersData = getDeterministicPitcherSankeyStats(normGame, selectedTeamId, state);
       
       const scrollWrapper = document.createElement('div');
-      scrollWrapper.style.cssText = 'width: 100%; max-height: 440px; overflow-y: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border-glass); border-radius: 12px; background: #f8fafc; padding: 12px; display: flex; flex-direction: column; gap: 20px; position: relative;';
+      scrollWrapper.style.cssText = 'width: 100%; max-height: 440px; overflow-y: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border-glass-highlight); border-radius: 12px; background: var(--bg-card-hover); padding: 12px; display: flex; flex-direction: column; gap: 20px; position: relative;';
       
       pitchersData.forEach(pm => {
         const pCard = document.createElement('div');
-        pCard.style.cssText = 'background: #ffffff; border: 1px solid rgba(0,0,0,0.06); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);';
+        pCard.style.cssText = 'background: var(--bg-card); border: 1px solid var(--border-glass-highlight); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); color: var(--text-primary);';
         
         const pHeader = document.createElement('div');
         pHeader.style.cssText = 'display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-glass); padding-bottom: 8px;';
@@ -1858,7 +1858,7 @@ export function openGameAnalyticsCenter(game, state, render) {
         pName.innerText = pm.pitcherName;
         
         const pSummary = document.createElement('span');
-        pSummary.style.cssText = 'font-size: 11px; font-weight: 700; color: var(--text-secondary); background: rgba(0,0,0,0.05); padding: 2px 8px; border-radius: 12px;';
+        pSummary.style.cssText = 'font-size: 11px; font-weight: 700; color: var(--text-secondary); background: var(--border-glass); padding: 2px 8px; border-radius: 12px;';
         const irStr = pm.inheritedRunners > 0 ? ` • ${pm.inheritedRunnersScored}/${pm.inheritedRunners} IR` : '';
         pSummary.innerText = `${pm.totalPitches} Pitches • ${pm.innings.length} IP • ${pm.earnedRuns} ER${irStr}`;
         
@@ -1895,7 +1895,7 @@ export function openGameAnalyticsCenter(game, state, render) {
       selectLabel.innerText = 'Filter Batter:';
       
       const select = document.createElement('select');
-      select.style.cssText = 'background: #ffffff; color: var(--text-primary); font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-glass-highlight); cursor: pointer; flex: 1; max-width: 220px;';
+      select.style.cssText = 'background: var(--bg-card); color: var(--text-primary); font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border-glass-highlight); cursor: pointer; flex: 1; max-width: 220px;';
       
       const allOpt = document.createElement('option');
       allOpt.value = 'all';
@@ -2013,15 +2013,15 @@ export function openGameAnalyticsCenter(game, state, render) {
               <span style="font-size: 9.5px; font-weight: 800; padding: 2px 8px; border-radius: 100px; text-transform: uppercase; background: ${eventColor + '20'}; color: ${eventColor};">${play.desc}</span>
             </div>
             <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; text-align: center;">
-              <div style="background: #ffffff; padding: 4px; border-radius: 6px; border: 1px solid var(--border-glass);">
+              <div style="background: var(--bg-card); padding: 4px; border-radius: 6px; border: 1px solid var(--border-glass-highlight);">
                 <div style="font-size: 12px; font-weight: 800; color: var(--text-primary);">${play.speed.toFixed(1)} mph</div>
                 <div style="font-size: 7.5px; color: var(--text-secondary); text-transform: uppercase; margin-top: 1px;">Exit Velocity</div>
               </div>
-              <div style="background: #ffffff; padding: 4px; border-radius: 6px; border: 1px solid var(--border-glass);">
+              <div style="background: var(--bg-card); padding: 4px; border-radius: 6px; border: 1px solid var(--border-glass-highlight);">
                 <div style="font-size: 12px; font-weight: 800; color: var(--text-primary);">${play.angle.toFixed(0)}°</div>
                 <div style="font-size: 7.5px; color: var(--text-secondary); text-transform: uppercase; margin-top: 1px;">Launch Angle</div>
               </div>
-              <div style="background: #ffffff; padding: 4px; border-radius: 6px; border: 1px solid var(--border-glass);">
+              <div style="background: var(--bg-card); padding: 4px; border-radius: 6px; border: 1px solid var(--border-glass-highlight);">
                 <div style="font-size: 12px; font-weight: 800; color: var(--text-primary);">${play.dist ? play.dist + ' ft' : '-'}</div>
                 <div style="font-size: 7.5px; color: var(--text-secondary); text-transform: uppercase; margin-top: 1px;">Distance</div>
               </div>
