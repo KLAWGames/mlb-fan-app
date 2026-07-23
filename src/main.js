@@ -4385,23 +4385,16 @@ function updateFooterContent(footer) {
     const iconContainer = document.createElement('div');
     iconContainer.className = 'footer-nav-icon';
     
-    // For 'Teams' tab, let's draw a premium team badge containing the current active team initials!
+    // For 'Teams' tab, draw the active team's official logo!
     if (item.view === 'dashboard') {
       const activeTeam = teamsData[state.activeTeamId];
       if (activeTeam) {
-        iconContainer.innerText = activeTeam.abbreviation;
-        iconContainer.className = 'footer-nav-icon team-badge';
-        iconContainer.style.background = activeTeam.primaryColor;
-        iconContainer.style.color = activeTeam.textColor;
-        iconContainer.style.fontSize = '9px';
-        iconContainer.style.fontWeight = '800';
-        iconContainer.style.display = 'flex';
-        iconContainer.style.alignItems = 'center';
-        iconContainer.style.justifyContent = 'center';
-        iconContainer.style.borderRadius = '6px';
-        iconContainer.style.width = '24px';
-        iconContainer.style.height = '24px';
-        iconContainer.style.border = `1.5px solid ${state.activeView === 'dashboard' ? 'var(--color-gold)' : 'rgba(255,255,255,0.2)'}`;
+        iconContainer.style.cssText = 'width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;';
+        const logoImg = document.createElement('img');
+        logoImg.src = getTeamLogoUrl(activeTeam.abbreviation);
+        logoImg.alt = activeTeam.abbreviation;
+        logoImg.style.cssText = `width: 22px; height: 22px; object-fit: contain; background: #ffffff; border-radius: 50%; padding: 1.5px; box-shadow: 0 1px 4px rgba(0,0,0,0.3); border: 1.5px solid ${state.activeView === 'dashboard' ? 'var(--color-gold)' : 'transparent'};`;
+        iconContainer.appendChild(logoImg);
       } else {
         iconContainer.innerText = item.emoji;
       }

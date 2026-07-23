@@ -62,10 +62,33 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   }
   leftGroup.appendChild(backBtn);
 
-  const title = document.createElement('span');
-  title.style.cssText = 'font-family: var(--font-title); font-weight: 800; font-size: 15px; color: #00e5ff; letter-spacing: -0.01em;';
-  title.innerText = 'Vertical Standings';
-  leftGroup.appendChild(title);
+  const activeTeamObj = teamsData[state.activeTeamId] || (state.selectedTeamIds && teamsData[state.selectedTeamIds[0]]) || Object.values(teamsData)[0];
+
+  const teamTitleContainer = document.createElement('div');
+  teamTitleContainer.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+
+  if (activeTeamObj) {
+    const logoBadge = document.createElement('div');
+    logoBadge.style.cssText = 'width: 26px; height: 26px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 2px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3); flex-shrink: 0;';
+    
+    const logoImg = document.createElement('img');
+    logoImg.src = getTeamLogoUrl(activeTeamObj.abbreviation);
+    logoImg.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
+    logoBadge.appendChild(logoImg);
+    teamTitleContainer.appendChild(logoBadge);
+
+    const teamTitleName = document.createElement('span');
+    teamTitleName.style.cssText = 'font-family: var(--font-title); font-weight: 800; font-size: 15px; color: var(--text-primary); letter-spacing: -0.01em;';
+    teamTitleName.innerText = activeTeamObj.name;
+    teamTitleContainer.appendChild(teamTitleName);
+  } else {
+    const title = document.createElement('span');
+    title.style.cssText = 'font-family: var(--font-title); font-weight: 800; font-size: 15px; color: var(--text-primary);';
+    title.innerText = 'MLB Standings';
+    teamTitleContainer.appendChild(title);
+  }
+
+  leftGroup.appendChild(teamTitleContainer);
 
   header.appendChild(leftGroup);
 
