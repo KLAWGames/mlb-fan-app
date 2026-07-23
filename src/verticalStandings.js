@@ -887,6 +887,8 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
 
   // Interactive Team Action & Game Matchup Modal
   function showTeamActionModal(team, game, mode, teamGames = []) {
+    let currentOppAbbr = ''; // Scoped at modal level to prevent ReferenceErrors
+
     const targetTeamObj = teamsData[team.id] || team;
     const teamPrimary = targetTeamObj.primaryColor || '#00e5ff';
     const teamSecondary = targetTeamObj.secondaryColor || '#0284c7';
