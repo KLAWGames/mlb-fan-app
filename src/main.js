@@ -7458,24 +7458,29 @@ function HotPerformerCard(p, timeframe, teamName, isRookieHighlight = false, liv
   const headshotUrl = getPlayerHeadshotUrl(p.id);
 
   card.innerHTML = `
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-glass); padding-bottom: 12px;">
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <div style="width: 44px; height: 44px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 2px; border: 1.5px solid var(--border-glass-highlight); box-shadow: 0 2px 6px rgba(0,0,0,0.3); flex-shrink: 0;">
-          <img src="${headshotUrl}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.src='https://midfield.mlbstatic.com/v1/people/generic/headshot/silo/120';" />
+    <div class="card-header" style="display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--border-glass); padding-bottom: 10px; width: 100%; min-width: 0;">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; min-width: 0;">
+        <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1;">
+          <div style="width: 38px; height: 38px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 1.5px; border: 1.5px solid var(--border-glass-highlight); box-shadow: 0 1px 4px rgba(0,0,0,0.25); flex-shrink: 0;">
+            <img src="${headshotUrl}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.src='https://midfield.mlbstatic.com/v1/people/generic/headshot/silo/120';" />
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1;">
+            <span class="player-name" style="font-size: 15px; font-weight: 800; color: var(--color-gold); font-family: var(--font-title); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              ${nameHTML} <span style="font-size:11px; color:var(--text-muted); font-weight:600;">(${p.position})</span>
+            </span>
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <span class="player-team" style="font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">${teamName}</span>
+              <span style="font-size: 9px; opacity: 0.4; color: var(--text-muted);">|</span>
+              ${isRookieHighlight ? `
+                <span class="league-rank-badge" style="font-size: 9.5px; color: #10b981; font-weight: 700; font-family: var(--font-title);">📞 Call-up (${stats.gamesPlayed} Games)</span>
+              ` : `
+                <span class="league-rank-badge" style="font-size: 9.5px; color: #38bdf8; font-weight: 700; font-family: var(--font-title);">OPS+: ${opsPlus}</span>
+              `}
+            </div>
+          </div>
         </div>
-        <div style="display: flex; flex-direction: column; gap: 2px;">
-          <span class="player-name" style="font-size: 16px; font-weight: 800; color: var(--color-gold); font-family: var(--font-title);">${nameHTML} <span style="font-size:12px; color:var(--text-muted); font-weight:600;">(${p.position})</span></span>
-          <div style="display: flex; align-items: center; gap: 6px;">
-          <span class="player-team" style="font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">${teamName}</span>
-          <span style="font-size: 9px; opacity: 0.4; color: var(--text-muted);">|</span>
-          ${isRookieHighlight ? `
-            <span class="league-rank-badge" style="font-size: 10px; color: #10b981; font-weight: 700; font-family: var(--font-title);">📞 Call-up Highlight (${stats.gamesPlayed} MLB Games)</span>
-          ` : `
-            <span class="league-rank-badge" style="font-size: 10px; color: #38bdf8; font-weight: 700; font-family: var(--font-title);">Estimated OPS+: ${opsPlus}</span>
-          `}
-        </div>
+        <span class="timeframe-badge" style="font-size: 10px; font-weight: 700; color: var(--text-secondary); background: var(--bg-card); padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border-glass); flex-shrink: 0;">${timeframe}</span>
       </div>
-      <span class="timeframe-badge" style="font-size: 10px; font-weight: 700; color: var(--text-secondary); background: rgba(255,255,255,0.06); padding: 3px 8px; border-radius: 4px; border: 1px solid var(--border-glass);">${timeframe}</span>
     </div>
 
     <div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
