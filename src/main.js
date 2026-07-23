@@ -251,6 +251,12 @@ function getTeamLogoUrl(abbr) {
   return `https://a.espncdn.com/i/teamlogos/mlb/500/${logoCode}.png`;
 }
 
+// Global official MLB CDN player headshot photo URL generator
+function getPlayerHeadshotUrl(playerId) {
+  if (!playerId) return 'https://midfield.mlbstatic.com/v1/people/generic/headshot/silo/120';
+  return `https://midfield.mlbstatic.com/v1/people/${playerId}/headshot/silo/120`;
+}
+
 // Reusable official MLB team logo badge component
 function createOfficialTeamLogoBadge(team) {
   const container = document.createElement('div');
@@ -2199,9 +2205,15 @@ function showLeagueStreaksModal() {
   if (hotBatsList.length > 0) {
     hotBatsList.forEach(b => {
       const row = document.createElement('div');
-      row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 2px 0; font-size: 12.5px;';
+      row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 4px 0; font-size: 12.5px;';
+      const headshotUrl = getPlayerHeadshotUrl(b.id);
       row.innerHTML = `
-        <span><strong style="color: var(--text-primary);">${b.name}</strong> <span style="font-size: 10px; color: var(--text-secondary); opacity: 0.85;">(${b.teamAbbr})</span></span>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 28px; height: 28px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 1.5px; border: 1px solid var(--border-glass-highlight); box-shadow: 0 1px 3px rgba(0,0,0,0.3); flex-shrink: 0;">
+            <img src="${headshotUrl}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.src='https://midfield.mlbstatic.com/v1/people/generic/headshot/silo/120';" />
+          </div>
+          <span><strong style="color: var(--text-primary);">${b.name}</strong> <span style="font-size: 10px; color: var(--text-secondary); opacity: 0.85;">(${b.teamAbbr})</span></span>
+        </div>
         <span style="font-weight: 800; color: #f59e0b; font-family: var(--font-title);">${b.streak} Games</span>
       `;
       hitSec.listContainer.appendChild(row);
@@ -7438,16 +7450,17 @@ function HotPerformerCard(p, timeframe, teamName, isRookieHighlight = false, liv
     disciplineIntel += "Shows a high-risk, high-power approach.";
   }
 
-  const isInjured = state.injuredPlayers && state.injuredPlayers[p.name];
-  const nameHTML = isInjured 
-    ? `${p.name} <span class="status-badge" style="background: rgba(239, 68, 68, 0.12); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25); margin-left: 5px; padding: 1.5px 5px; border-radius: 4px; font-size: 9px; font-weight: 800; font-family: var(--font-title); display: inline-block; vertical-align: middle; line-height: 1;">IL</span>`
-    : p.name;
+  const headshotUrl = getPlayerHeadshotUrl(p.id);
 
   card.innerHTML = `
-    <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-glass); padding-bottom: 12px;">
-      <div style="display: flex; flex-direction: column; gap: 2px;">
-        <span class="player-name" style="font-size: 17px; font-weight: 800; color: var(--color-gold); font-family: var(--font-title);">${nameHTML} <span style="font-size:12px; color:var(--text-muted); font-weight:600;">(${p.position})</span></span>
-        <div style="display: flex; align-items: center; gap: 6px;">
+    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-glass); padding-bottom: 12px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 44px; height: 44px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 2px; border: 1.5px solid var(--border-glass-highlight); box-shadow: 0 2px 6px rgba(0,0,0,0.3); flex-shrink: 0;">
+          <img src="${headshotUrl}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.src='https://midfield.mlbstatic.com/v1/people/generic/headshot/silo/120';" />
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <span class="player-name" style="font-size: 16px; font-weight: 800; color: var(--color-gold); font-family: var(--font-title);">${nameHTML} <span style="font-size:12px; color:var(--text-muted); font-weight:600;">(${p.position})</span></span>
+          <div style="display: flex; align-items: center; gap: 6px;">
           <span class="player-team" style="font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">${teamName}</span>
           <span style="font-size: 9px; opacity: 0.4; color: var(--text-muted);">|</span>
           ${isRookieHighlight ? `
@@ -8901,18 +8914,27 @@ function renderMLBLeadersGraph(leaders, card, spinner, yesterdayPlayerHRsMap = {
   recordRow.style.cssText = 'display: flex; align-items: center; width: 100%; gap: 12px; padding-bottom: 8px; border-bottom: 1.5px dashed var(--border-glass);';
   
   const recordLabelCol = document.createElement('div');
-  recordLabelCol.style.cssText = 'width: 110px; display: flex; flex-direction: column; text-align: left; flex-shrink: 0;';
+  recordLabelCol.style.cssText = 'width: 140px; display: flex; align-items: center; gap: 8px; text-align: left; flex-shrink: 0;';
   
+  const recordPhoto = document.createElement('div');
+  recordPhoto.style.cssText = 'width: 32px; height: 32px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 1.5px; border: 1.5px solid var(--color-gold); box-shadow: 0 1px 4px rgba(245, 158, 11, 0.4); flex-shrink: 0;';
+  recordPhoto.innerHTML = `<img src="${getPlayerHeadshotUrl(111188)}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.src='https://midfield.mlbstatic.com/v1/people/generic/headshot/silo/120';" />`;
+  recordLabelCol.appendChild(recordPhoto);
+
+  const recordTextCol = document.createElement('div');
+  recordTextCol.style.cssText = 'display: flex; flex-direction: column; min-width: 0;';
+
   const recordName = document.createElement('span');
-  recordName.style.cssText = 'font-size: 12px; font-weight: 800; color: var(--color-gold); font-family: var(--font-title); display: flex; align-items: center; gap: 4px;';
+  recordName.style.cssText = 'font-size: 12px; font-weight: 800; color: var(--color-gold); font-family: var(--font-title); display: flex; align-items: center; gap: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;';
   recordName.innerHTML = `👑 Barry Bonds`;
   
   const recordSub = document.createElement('span');
   recordSub.style.cssText = 'font-size: 9px; color: var(--text-muted); font-weight: 700;';
   recordSub.innerText = 'RECORD (2001)';
   
-  recordLabelCol.appendChild(recordName);
-  recordLabelCol.appendChild(recordSub);
+  recordTextCol.appendChild(recordName);
+  recordTextCol.appendChild(recordSub);
+  recordLabelCol.appendChild(recordTextCol);
   recordRow.appendChild(recordLabelCol);
 
   const recordBarCol = document.createElement('div');
@@ -9021,8 +9043,20 @@ function renderMLBLeadersGraph(leaders, card, spinner, yesterdayPlayerHRsMap = {
     row.style.cssText = 'display: flex; align-items: center; width: 100%; gap: 12px;';
 
     const labelCol = document.createElement('div');
-    labelCol.style.cssText = 'width: 110px; display: flex; flex-direction: column; text-align: left; flex-shrink: 0;';
+    labelCol.style.cssText = 'width: 140px; display: flex; align-items: center; gap: 8px; text-align: left; flex-shrink: 0;';
     
+    const headshotDisc = document.createElement('div');
+    headshotDisc.style.cssText = 'width: 30px; height: 30px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 1.5px; border: 1px solid var(--border-glass-highlight); box-shadow: 0 1px 3px rgba(0,0,0,0.3); flex-shrink: 0;';
+    const headshotImg = document.createElement('img');
+    headshotImg.src = getPlayerHeadshotUrl(pId);
+    headshotImg.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
+    headshotImg.onerror = () => { headshotImg.src = 'https://midfield.mlbstatic.com/v1/people/generic/headshot/silo/120'; };
+    headshotDisc.appendChild(headshotImg);
+    labelCol.appendChild(headshotDisc);
+
+    const nameTextCol = document.createElement('div');
+    nameTextCol.style.cssText = 'display: flex; flex-direction: column; min-width: 0; flex: 1;';
+
     const nameSpan = document.createElement('span');
     nameSpan.style.cssText = 'font-size: 12px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-main); display: inline-flex; align-items: center;';
     nameSpan.innerText = leader.person?.fullName || 'Player';
@@ -9050,8 +9084,9 @@ function renderMLBLeadersGraph(leaders, card, spinner, yesterdayPlayerHRsMap = {
       teamSpan.appendChild(tag);
     }
 
-    labelCol.appendChild(nameSpan);
-    labelCol.appendChild(teamSpan);
+    nameTextCol.appendChild(nameSpan);
+    nameTextCol.appendChild(teamSpan);
+    labelCol.appendChild(nameTextCol);
     row.appendChild(labelCol);
 
     const barCol = document.createElement('div');
@@ -9337,9 +9372,18 @@ function renderTeamLeadersList(leaders, card, spinner) {
       leftCol.style.cssText = 'display: flex; align-items: center; gap: 12px; text-align: left;';
 
       const rankBadge = document.createElement('div');
-      rankBadge.style.cssText = `width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; font-family: var(--font-title); background: ${idx === 0 ? 'rgba(245,158,11,0.15)' : idx === 1 ? 'rgba(226,232,240,0.12)' : 'rgba(180,83,9,0.12)'}; color: ${idx === 0 ? 'var(--color-gold)' : idx === 1 ? 'var(--text-secondary)' : '#b45309'}; border: 1.2px solid ${idx === 0 ? 'var(--color-gold)' : idx === 1 ? 'var(--text-secondary)' : '#b45309'};`;
+      rankBadge.style.cssText = `width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; font-family: var(--font-title); background: ${idx === 0 ? 'rgba(245,158,11,0.15)' : idx === 1 ? 'rgba(226,232,240,0.12)' : 'rgba(180,83,9,0.12)'}; color: ${idx === 0 ? 'var(--color-gold)' : idx === 1 ? 'var(--text-secondary)' : '#b45309'}; border: 1.2px solid ${idx === 0 ? 'var(--color-gold)' : idx === 1 ? 'var(--text-secondary)' : '#b45309'}; flex-shrink: 0;`;
       rankBadge.innerText = idx + 1;
       leftCol.appendChild(rankBadge);
+
+      const headshotDisc = document.createElement('div');
+      headshotDisc.style.cssText = 'width: 28px; height: 28px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 1.5px; border: 1px solid var(--border-glass-highlight); box-shadow: 0 1px 3px rgba(0,0,0,0.3); flex-shrink: 0;';
+      const headshotImg = document.createElement('img');
+      headshotImg.src = getPlayerHeadshotUrl(leader.person?.id);
+      headshotImg.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
+      headshotImg.onerror = () => { headshotImg.src = 'https://midfield.mlbstatic.com/v1/people/generic/headshot/silo/120'; };
+      headshotDisc.appendChild(headshotImg);
+      leftCol.appendChild(headshotDisc);
 
       const nameSpan = document.createElement('span');
       nameSpan.style.cssText = 'font-weight: 700; color: var(--text-primary); font-family: var(--font-main);';
@@ -9564,6 +9608,16 @@ async function showDailyHRsModal(dateStr, labelText) {
       badge.style.justifyContent = 'center';
       badge.style.borderRadius = '5px';
       badge.style.flexShrink = '0';
+      playerInfo.appendChild(badge);
+
+      const headshotDisc = document.createElement('div');
+      headshotDisc.style.cssText = 'width: 28px; height: 28px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 1.5px; border: 1px solid var(--border-glass-highlight); box-shadow: 0 1px 3px rgba(0,0,0,0.3); flex-shrink: 0;';
+      const headshotImg = document.createElement('img');
+      headshotImg.src = getPlayerHeadshotUrl(hr.batterId);
+      headshotImg.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
+      headshotImg.onerror = () => { headshotImg.src = 'https://midfield.mlbstatic.com/v1/people/generic/headshot/silo/120'; };
+      headshotDisc.appendChild(headshotImg);
+      playerInfo.appendChild(headshotDisc);
 
       const textMeta = document.createElement('div');
       textMeta.style.cssText = 'display: flex; flex-direction: column; text-align: left;';
