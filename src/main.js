@@ -3380,15 +3380,18 @@ function showTeamSeasonModal(targetTeamId = null) {
 
   const content = document.createElement('div');
   content.className = 'recap-content';
+  content.style.borderTop = `5px solid ${teamPrimary}`;
+  content.style.boxShadow = `0 10px 30px rgba(0, 0, 0, 0.5), 0 0 25px ${teamPrimary}40`;
 
   const header = document.createElement('div');
   header.className = 'recap-header';
+  header.style.cssText = `display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-radius: 12px; background: linear-gradient(135deg, ${teamPrimary} 0%, ${teamSecondary} 100%); color: ${teamTextColor}; border: 1.5px solid rgba(255, 255, 255, 0.25); margin-bottom: 12px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);`;
 
   const headerTitleBox = document.createElement('div');
   headerTitleBox.style.cssText = 'display: flex; align-items: center; gap: 10px;';
 
   const titleLogo = document.createElement('div');
-  titleLogo.style.cssText = 'width: 30px; height: 30px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 2px; box-shadow: 0 1px 4px rgba(0,0,0,0.3); flex-shrink: 0;';
+  titleLogo.style.cssText = 'width: 32px; height: 32px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.35); flex-shrink: 0;';
   const titleImg = document.createElement('img');
   titleImg.src = getTeamLogoUrl(targetTeamObj.abbreviation);
   titleImg.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
@@ -3397,6 +3400,9 @@ function showTeamSeasonModal(targetTeamId = null) {
   const title = document.createElement('h2');
   title.innerText = `${targetTeamObj.name} Overview`;
   title.style.margin = '0';
+  title.style.color = '#ffffff';
+  title.style.fontFamily = 'var(--font-title)';
+  title.style.fontSize = '18px';
 
   headerTitleBox.appendChild(titleLogo);
   headerTitleBox.appendChild(title);
@@ -3404,6 +3410,7 @@ function showTeamSeasonModal(targetTeamId = null) {
 
   const closeBtn = document.createElement('button');
   closeBtn.className = 'recap-close-btn';
+  closeBtn.style.color = '#ffffff';
   closeBtn.innerHTML = '×';
   closeBtn.addEventListener('click', closeModal);
 

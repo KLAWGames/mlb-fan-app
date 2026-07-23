@@ -887,13 +887,18 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
 
   // Interactive Team Action & Game Matchup Modal
   function showTeamActionModal(team, game, mode, teamGames = []) {
-    let currentOppAbbr = ''; // Scoped at modal level to prevent ReferenceErrors
+    const targetTeamObj = teamsData[team.id] || team;
+    const teamPrimary = targetTeamObj.primaryColor || '#00e5ff';
+    const teamSecondary = targetTeamObj.secondaryColor || '#0284c7';
+    const teamTextColor = targetTeamObj.textColor || '#ffffff';
 
     const backdrop = document.createElement('div');
     backdrop.className = 'vertical-modal-backdrop';
 
     const modal = document.createElement('div');
     modal.className = 'vertical-team-action-card';
+    modal.style.borderTop = `5px solid ${teamPrimary}`;
+    modal.style.boxShadow = `0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px ${teamPrimary}35`;
 
     // Helper to open a sub-experience and return to Team Action Modal smoothly when closed
     const openSubView = (callbackFn, arg) => {
@@ -921,13 +926,13 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
 
     // Modal Header
     const header = document.createElement('div');
-    header.style.cssText = 'display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(0, 229, 255, 0.2); padding-bottom: 12px; margin-bottom: 16px;';
+    header.style.cssText = `display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-radius: 12px; margin-bottom: 16px; background: linear-gradient(135deg, ${teamPrimary} 0%, ${teamSecondary} 100%); color: ${teamTextColor}; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3); border: 1.5px solid rgba(255, 255, 255, 0.25);`;
 
     const teamHeaderInfo = document.createElement('div');
     teamHeaderInfo.style.cssText = 'display: flex; align-items: center; gap: 12px;';
 
     const logoDisc = document.createElement('div');
-    logoDisc.style.cssText = 'width: 44px; height: 44px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 4px; box-shadow: 0 0 12px rgba(0, 229, 255, 0.3); flex-shrink: 0;';
+    logoDisc.style.cssText = 'width: 44px; height: 44px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 4px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); flex-shrink: 0;';
 
     const logoImg = document.createElement('img');
     logoImg.src = getTeamLogoUrl(team.abbreviation);
@@ -938,7 +943,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     const teamTitleBox = document.createElement('div');
     teamTitleBox.innerHTML = `
       <div style="font-family: var(--font-title); font-size: 18px; font-weight: 900; color: #ffffff;">${team.name || team.abbreviation}</div>
-      <div style="font-size: 12px; color: #94a3b8; font-weight: 600;">${team.wins}-${team.losses} | ${team.divisionName || 'MLB Division'}</div>
+      <div style="font-size: 11.5px; color: rgba(255, 255, 255, 0.85); font-weight: 700;">${team.wins}-${team.losses} | ${team.divisionName || 'MLB Division'}</div>
     `;
     teamHeaderInfo.appendChild(teamTitleBox);
     header.appendChild(teamHeaderInfo);
