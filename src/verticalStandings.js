@@ -36,6 +36,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   let tapHintEl = null;
   let scrollTimer = null;
   let tapTimer = null;
+  let isPageFullyLoaded = false;
 
   const dismissScrollHint = () => {
     state.userHasScrolled = true;
@@ -57,63 +58,63 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     }
   };
 
-  // Immediate check: If user has already scrolled substantially in session, skip scroll timer
-  if (window.scrollY > 25) {
-    state.userHasScrolled = true;
-  }
+  // Start 4s and 8s timers ONLY after the entire home page finishes loading & rendering
+  const startIdleTimers = () => {
+    isPageFullyLoaded = true;
 
-  // 4-Second Scroll Idle Timer
-  if (!state.userHasScrolled) {
-    scrollTimer = setTimeout(() => {
-      if (!state.userHasScrolled && window.scrollY <= 25 && container && document.body.contains(container)) {
-        scrollHintEl = document.createElement('div');
-        scrollHintEl.className = 'idle-gesture-hint scroll-hint';
-        scrollHintEl.innerHTML = `
-          <div class="gesture-icon-wrapper">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 3v18M8 6l4-4 4 4M8 18l4 4 4-4" stroke="var(--color-cyan, #00e5ff)" opacity="0.85" />
-              <circle class="swipe-touch-disc" cx="12" cy="12" r="3" fill="var(--color-cyan, #00e5ff)" stroke="none" />
-            </svg>
-          </div>
-          <span>Swipe up/down to explore the standings</span>
-        `;
-        document.body.appendChild(scrollHintEl);
-        setTimeout(dismissScrollHint, 5000);
-      }
-    }, 4000);
-  }
+    // 4-Second Scroll Idle Timer (starts ONLY after full page load)
+    if (!state.userHasScrolled && !scrollTimer) {
+      scrollTimer = setTimeout(() => {
+        if (!state.userHasScrolled && container && document.body.contains(container)) {
+          scrollHintEl = document.createElement('div');
+          scrollHintEl.className = 'idle-gesture-hint scroll-hint';
+          scrollHintEl.innerHTML = `
+            <div class="gesture-icon-wrapper">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3v18M8 6l4-4 4 4M8 18l4 4 4-4" stroke="var(--color-cyan, #00e5ff)" opacity="0.85" />
+                <circle class="swipe-touch-disc" cx="12" cy="12" r="3" fill="var(--color-cyan, #00e5ff)" stroke="none" />
+              </svg>
+            </div>
+            <span>Swipe up/down to explore the standings</span>
+          `;
+          document.body.appendChild(scrollHintEl);
+          setTimeout(dismissScrollHint, 5000);
+        }
+      }, 4000);
+    }
 
-  // 8-Second Team Box Tap Idle Timer
-  if (!state.userHasTappedTeam) {
-    tapTimer = setTimeout(() => {
-      if (!state.userHasTappedTeam && container && document.body.contains(container)) {
-        tapHintEl = document.createElement('div');
-        tapHintEl.className = 'idle-gesture-hint tap-hint';
-        tapHintEl.innerHTML = `
-          <div class="gesture-icon-wrapper">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="5" width="18" height="14" rx="4" stroke="var(--color-cyan, #00e5ff)" stroke-width="1.8" opacity="0.75" />
-              <circle class="tap-ring-pulse" cx="12" cy="12" r="5" stroke="var(--color-cyan, #00e5ff)" stroke-width="1.5" />
-              <circle class="tap-dot-pulse" cx="12" cy="12" r="2.5" fill="#ffffff" stroke="none" />
-            </svg>
-          </div>
-          <span>Tap any team box for live scores & stats</span>
-        `;
-        document.body.appendChild(tapHintEl);
-        setTimeout(dismissTapHint, 5000);
-      }
-    }, 8000);
-  }
+    // 8-Second Team Box Tap Idle Timer (starts ONLY after full page load)
+    if (!state.userHasTappedTeam && !tapTimer) {
+      tapTimer = setTimeout(() => {
+        if (!state.userHasTappedTeam && container && document.body.contains(container)) {
+          tapHintEl = document.createElement('div');
+          tapHintEl.className = 'idle-gesture-hint tap-hint';
+          tapHintEl.innerHTML = `
+            <div class="gesture-icon-wrapper">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="5" width="18" height="14" rx="4" stroke="var(--color-cyan, #00e5ff)" stroke-width="1.8" opacity="0.75" />
+                <circle class="tap-ring-pulse" cx="12" cy="12" r="5" stroke="var(--color-cyan, #00e5ff)" stroke-width="1.5" />
+                <circle class="tap-dot-pulse" cx="12" cy="12" r="2.5" fill="#ffffff" stroke="none" />
+              </svg>
+            </div>
+            <span>Tap any team box for live scores & stats</span>
+          `;
+          document.body.appendChild(tapHintEl);
+          setTimeout(dismissTapHint, 5000);
+        }
+      }, 8000);
+    }
+  };
 
-  const handleScrollDetect = () => {
-    if (window.scrollY > 15 || container.scrollTop > 15) {
+  const handleUserScrollActivity = () => {
+    if (isPageFullyLoaded) {
       dismissScrollHint();
     }
   };
 
-  window.addEventListener('scroll', handleScrollDetect, { passive: true });
-  window.addEventListener('touchmove', handleScrollDetect, { passive: true });
-  window.addEventListener('wheel', handleScrollDetect, { passive: true });
+  window.addEventListener('scroll', handleUserScrollActivity, { passive: true });
+  window.addEventListener('touchmove', handleUserScrollActivity, { passive: true });
+  window.addEventListener('wheel', handleUserScrollActivity, { passive: true });
 
   // Determine initial league (AL = 103, NL = 104) based on active team if present
   let activeLeagueId = 103;
@@ -1654,6 +1655,11 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   }
 
   renderTimeline();
+
+  // Start idle timers ONLY after page load and initial team node positioning complete
+  setTimeout(() => {
+    startIdleTimers();
+  }, 400);
 
   return container;
 }
