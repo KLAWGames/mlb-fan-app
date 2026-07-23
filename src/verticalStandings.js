@@ -2,6 +2,31 @@
 
 import { teamsData } from './teamsData.js';
 
+function getTeamLogoUrl(abbr) {
+  if (!abbr) return 'https://a.espncdn.com/i/teamlogos/mlb/500/mlb.png';
+  const raw = abbr.toUpperCase();
+  const espnLogoMap = {
+    'AZ': 'ari',
+    'ARI': 'ari',
+    'CWS': 'chw',
+    'CHW': 'chw',
+    'ATH': 'oak',
+    'OAK': 'oak',
+    'WSH': 'was',
+    'WAS': 'was',
+    'KC': 'kc',
+    'KCR': 'kc',
+    'SD': 'sd',
+    'SDP': 'sd',
+    'SF': 'sf',
+    'SFG': 'sf',
+    'TB': 'tb',
+    'TBR': 'tb'
+  };
+  const logoCode = espnLogoMap[raw] || raw.toLowerCase();
+  return `https://a.espncdn.com/i/teamlogos/mlb/500/${logoCode}.png`;
+}
+
 export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   const container = document.createElement('div');
   container.className = 'vertical-standings-container';
@@ -542,7 +567,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
 
         const oppTeamImg = document.createElement('img');
         oppTeamImg.className = 'opp-team-logo';
-        oppTeamImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${gData.oppAbbr.toLowerCase()}.png`;
+        oppTeamImg.src = getTeamLogoUrl(gData.oppAbbr);
 
         const oppLeagueImg = document.createElement('img');
         oppLeagueImg.className = 'opp-league-logo';
@@ -555,7 +580,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
         oppCircle.appendChild(oppLeagueImg);
       } else {
         const oppImg = document.createElement('img');
-        oppImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${gData.oppAbbr.toLowerCase()}.png`;
+        oppImg.src = getTeamLogoUrl(gData.oppAbbr);
         oppImg.style.cssText = 'width: 16px; height: 16px; object-fit: contain;';
         oppCircle.appendChild(oppImg);
       }
@@ -696,7 +721,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       const logoBadge = document.createElement('div');
       logoBadge.style.cssText = 'width: 24px; height: 24px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 2px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);';
       const logoImg = document.createElement('img');
-      logoImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${team.abbreviation.toLowerCase()}.png`;
+      logoImg.src = getTeamLogoUrl(team.abbreviation);
       logoImg.alt = team.abbreviation;
       logoImg.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
       logoBadge.appendChild(logoImg);
@@ -754,7 +779,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       const logoBadge = document.createElement('div');
       logoBadge.style.cssText = 'width: 24px; height: 24px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 2px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);';
       const logoImg = document.createElement('img');
-      logoImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${team.abbreviation.toLowerCase()}.png`;
+      logoImg.src = getTeamLogoUrl(team.abbreviation);
       logoImg.alt = team.abbreviation;
       logoImg.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
       logoBadge.appendChild(logoImg);
@@ -791,7 +816,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
 
         if (gameData.isInterleague) {
           const oppTeamImg = document.createElement('img');
-          oppTeamImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${gameData.oppAbbr.toLowerCase()}.png`;
+          oppTeamImg.src = getTeamLogoUrl(gameData.oppAbbr);
           oppTeamImg.className = 'opp-team-logo';
 
           const oppLeagueImg = document.createElement('img');
@@ -805,7 +830,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
           oppCircle.appendChild(oppLeagueImg);
         } else {
           const oppImg = document.createElement('img');
-          oppImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${gameData.oppAbbr.toLowerCase()}.png`;
+          oppImg.src = getTeamLogoUrl(gameData.oppAbbr);
           oppImg.style.cssText = 'width: 16px; height: 16px; object-fit: contain;';
           oppCircle.appendChild(oppImg);
         }
@@ -878,7 +903,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     logoDisc.style.cssText = 'width: 44px; height: 44px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 4px; box-shadow: 0 0 12px rgba(0, 229, 255, 0.3); flex-shrink: 0;';
 
     const logoImg = document.createElement('img');
-    logoImg.src = `https://a.espncdn.com/i/teamlogos/mlb/500/${team.abbreviation.toLowerCase()}.png`;
+    logoImg.src = getTeamLogoUrl(team.abbreviation);
     logoImg.style.cssText = 'width: 100%; height: 100%; object-fit: contain;';
     logoDisc.appendChild(logoImg);
     teamHeaderInfo.appendChild(logoDisc);
@@ -991,7 +1016,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
         <div style="display: flex; align-items: center; justify-content: space-around; background: rgba(0, 0, 0, 0.4); padding: 12px; border-radius: 10px; border: 1px solid rgba(0, 229, 255, 0.2);">
           <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
             <div style="width: 32px; height: 32px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 2px; box-shadow: 0 1px 4px rgba(0,0,0,0.4); margin-bottom: 4px;">
-              <img src="https://a.espncdn.com/i/teamlogos/mlb/500/${awayAbbr.toLowerCase()}.png" style="width: 100%; height: 100%; object-fit: contain;" />
+              <img src="${getTeamLogoUrl(awayAbbr)}" style="width: 100%; height: 100%; object-fit: contain;" />
             </div>
             <div style="font-weight: 800; font-size: 12px; color: #fff;">${awayAbbr}</div>
             <div style="font-size: 16px; font-weight: 900; color: #00e5ff;">${awayScore}</div>
@@ -999,7 +1024,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
           <div style="font-size: 13px; font-weight: 800; color: #94a3b8;">VS</div>
           <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
             <div style="width: 32px; height: 32px; border-radius: 50%; background: #ffffff; display: flex; align-items: center; justify-content: center; padding: 2px; box-shadow: 0 1px 4px rgba(0,0,0,0.4); margin-bottom: 4px;">
-              <img src="https://a.espncdn.com/i/teamlogos/mlb/500/${homeAbbr.toLowerCase()}.png" style="width: 100%; height: 100%; object-fit: contain;" />
+              <img src="${getTeamLogoUrl(homeAbbr)}" style="width: 100%; height: 100%; object-fit: contain;" />
             </div>
             <div style="font-weight: 800; font-size: 12px; color: #fff;">${homeAbbr}</div>
             <div style="font-size: 16px; font-weight: 900; color: #00e5ff;">${homeScore}</div>
