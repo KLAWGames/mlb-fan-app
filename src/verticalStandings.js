@@ -1851,7 +1851,9 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
 
   // ── Initial compact → expanded animation ──
   // Immediately snap to compact after render, then animate to expanded after 1.5s.
+  // Only if teams were actually rendered (data may not be ready on first paint).
   requestAnimationFrame(() => {
+    if (Object.keys(teamNodesMap).length === 0 || !scrollArea._contentBox) return;
     isCompactMode = true;
     updateZoomBtnLabel();
     applyCompactMode(false); // snap, no animation
