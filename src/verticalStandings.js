@@ -1220,7 +1220,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
 
       // Listen for when sub-modal is removed from body and smoothly scale & fade back in
       const observer = new MutationObserver(() => {
-        const activeModal = document.querySelector('.recap-backdrop, .modal-overlay, .game-analytics-modal');
+        const activeModal = document.querySelector('.recap-backdrop, .modal-overlay, .game-analytics-modal, .analytics-center-backdrop');
         if (!activeModal) {
           observer.disconnect();
           if (backdrop && document.body.contains(backdrop)) {
@@ -1463,12 +1463,12 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
         matchupBox.insertAdjacentHTML('beforeend', pitcherInfoHtml);
       }
 
-      // 3. View Full Box Score & Pitcher Analytics Action Button
+      // 3. View Game Visualizations Action Button
       if (callbacks && callbacks.openGameAnalytics) {
         const boxScoreBtn = document.createElement('button');
         boxScoreBtn.className = 'vertical-action-card-btn';
         boxScoreBtn.style.cssText = 'width: 100%; margin-top: 12px; padding: 10px 14px; background: linear-gradient(135deg, #00e5ff 0%, #0284c7 100%); color: #071318; border: none; border-radius: 10px; font-size: 12.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 12px rgba(0, 229, 255, 0.25); transition: all 0.2s ease; outline: none;';
-        boxScoreBtn.innerHTML = `<span>📊</span> <span>Full Box Score & Pitcher Analytics</span>`;
+        boxScoreBtn.innerHTML = `<span>📊</span> <span>Game Visualizations</span>`;
         boxScoreBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           openSubView(callbacks.openGameAnalytics, targetGame);

@@ -1675,7 +1675,10 @@ export function openGameAnalyticsCenter(game, state = {}, render = () => {}) {
     font-size: 20px; font-weight: 300; cursor: pointer; padding: 4px; line-height: 1; outline: none;
   `;
   closeBtn.innerHTML = '×';
-  closeBtn.addEventListener('click', () => backdrop.remove());
+  closeBtn.addEventListener('click', (e) => {
+    if (e) e.stopPropagation();
+    backdrop.remove();
+  });
 
   headerRight.appendChild(refreshBtn);
   headerRight.appendChild(closeBtn);
@@ -1728,7 +1731,8 @@ export function openGameAnalyticsCenter(game, state = {}, render = () => {}) {
         <span style="width: 8px; height: 8px; border-radius: 50%; background: ${t.primaryColor}; display: inline-block;"></span>
         <span>${t.name}</span>
       `;
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        if (e) e.stopPropagation();
         selectedTeamId = parseInt(t.id, 10);
         selectedBatter = 'all';
         activePlayId = null;
@@ -1767,7 +1771,8 @@ export function openGameAnalyticsCenter(game, state = {}, render = () => {}) {
         transition: all 0.2s;
       `;
       btn.innerText = opt.label;
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (e) => {
+        if (e) e.stopPropagation();
         selectedVis = opt.id;
         activePlayId = null;
         updateVisContent();
@@ -1914,6 +1919,7 @@ export function openGameAnalyticsCenter(game, state = {}, render = () => {}) {
       });
       
       select.addEventListener('change', (e) => {
+        if (e) e.stopPropagation();
         selectedBatter = e.target.value;
         activePlayId = null;
         updateVisContent();
@@ -1925,7 +1931,8 @@ export function openGameAnalyticsCenter(game, state = {}, render = () => {}) {
       const prevBat = document.createElement('button');
       prevBat.innerText = '◀';
       prevBat.style.cssText = 'width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: var(--bg-card); border: 1px solid var(--border-glass-highlight); border-radius: 6px; color: var(--text-primary); cursor: pointer; font-size: 11px; transition: all 0.2s;';
-      prevBat.addEventListener('click', () => {
+      prevBat.addEventListener('click', (e) => {
+        if (e) e.stopPropagation();
         if (selectedBatter === 'all') {
           selectedBatter = uniqueBatters[uniqueBatters.length - 1];
         } else {
@@ -1940,7 +1947,8 @@ export function openGameAnalyticsCenter(game, state = {}, render = () => {}) {
       const nextBat = document.createElement('button');
       nextBat.innerText = '▶';
       nextBat.style.cssText = 'width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: var(--bg-card); border: 1px solid var(--border-glass-highlight); border-radius: 6px; color: var(--text-primary); cursor: pointer; font-size: 11px; transition: all 0.2s;';
-      nextBat.addEventListener('click', () => {
+      nextBat.addEventListener('click', (e) => {
+        if (e) e.stopPropagation();
         if (selectedBatter === 'all') {
           selectedBatter = uniqueBatters[0];
         } else {

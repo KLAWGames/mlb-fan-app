@@ -3705,7 +3705,7 @@ function showTeamSeasonModal(targetTeamId = null) {
     const analyticsBtn = document.createElement('button');
     analyticsBtn.className = 'banner-nav-btn';
     analyticsBtn.style.cssText = 'width: 100%; margin: 0; padding: 8px 14px; font-size: 12px; font-weight: 800; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(135deg, #00e5ff 0%, #0284c7 100%); border: none; color: #071318; box-shadow: 0 4px 12px rgba(0,229,255,0.25); transition: all 0.2s; outline: none;';
-    analyticsBtn.innerHTML = '<span>📊</span> <span>Open Full Game Visual Analytics</span>';
+    analyticsBtn.innerHTML = '<span>📊</span> <span>Game Visualizations</span>';
 
     const handleOpenVisuals = (e) => {
       if (e) e.stopPropagation();
@@ -5646,7 +5646,7 @@ function createGameCard(item, isNeutral, onToggleDetails) {
     const analyticsBtn = document.createElement('button');
     analyticsBtn.className = 'recap-trigger-btn';
     analyticsBtn.style.cssText = 'width: 100%; margin: 0; padding: 10px 14px; font-size: 12.5px; font-weight: 700; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;';
-    analyticsBtn.innerHTML = '<span>📊</span> <span>Open Game Visual Analytics</span>';
+    analyticsBtn.innerHTML = '<span>📊</span> <span>Game Visualizations</span>';
 
     const handleOpenCardVisuals = (e) => {
       if (e) e.stopPropagation();
