@@ -616,7 +616,10 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
         rowIdx++;
         colInRow = 0;
       }
-      const item = { col: colInRow, exactY: topPadding + (rowIdx * COMPACT_ROW_HEIGHT), gbRel: team.gbRel };
+      // labelY is where the left-axis GB label sits for this row
+      // nodeY is labelY - 19, matching the expanded view's centering offset
+      const labelY = topPadding + (rowIdx * COMPACT_ROW_HEIGHT);
+      const item = { col: colInRow, exactY: labelY - 19, labelY, gbRel: team.gbRel };
       assignments[team.id] = item;
       assignments[String(team.id)] = item;
       assignments[parseInt(team.id, 10)] = item;
@@ -638,9 +641,9 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     const topPadding = 80;
     const bottomPadding = 120;
 
-    // Compute compact layout first so we know how many unique rows there are
+    // Compute compact layout — exactY is node top, labelY is the centered label position
     const compactAssign = computeCompactColumns(snapData.teamsWithPos);
-    const maxRow = Math.max(...Object.values(compactAssign).map(a => a.exactY));
+    const maxRow = Math.max(...Object.values(compactAssign).map(a => a.labelY !== undefined ? a.labelY : a.exactY + 19));
     const totalHeight = maxRow + COMPACT_ROW_HEIGHT + bottomPadding;
     const tr = 'top 1.2s cubic-bezier(0.25, 1, 0.5, 1)';
     const trSize = 'min-height 1.2s cubic-bezier(0.25, 1, 0.5, 1), height 1.2s cubic-bezier(0.25, 1, 0.5, 1)';
@@ -652,24 +655,25 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     contentBox.style.minHeight = `${totalHeight}px`;
     contentBox.style.height = `${totalHeight}px`;
 
-    // Map gbKey → compact Y for occupied rows (only first occurrence per gbKey)
-    const gbToCompactY = {};
+    // Map gbKey → label Y for tick labels (one per unique GB row)
+    const gbToLabelY = {};
     snapData.teamsWithPos.forEach(t => {
       const a = compactAssign[t.id];
       const key = t.gbRel.toFixed(1);
-      if (a && gbToCompactY[key] === undefined) gbToCompactY[key] = a.exactY;
+      if (a && gbToLabelY[key] === undefined) gbToLabelY[key] = a.labelY !== undefined ? a.labelY : a.exactY + 19;
     });
 
-    // Slide occupied tick labels to team rows, hide others
+    // Slide occupied tick labels to their centered row position, hide others
     tickLabelElements.forEach(({ el, gbKey, isZero }) => {
       if (animate) { el.style.transition = tr; setTimeout(() => { el.style.transition = ''; }, 1300); }
-      if (gbToCompactY[gbKey] !== undefined) {
-        el.style.top = `${gbToCompactY[gbKey]}px`;
+      if (gbToLabelY[gbKey] !== undefined) {
+        el.style.top = `${gbToLabelY[gbKey]}px`;
         el.style.display = 'block';
       } else if (isZero && snapData.teamsWithPos.length > 0) {
         const closest = snapData.teamsWithPos.reduce((best, t) => Math.abs(t.gbRel) < Math.abs(best.gbRel) ? t : best);
         const a = compactAssign[closest.id];
-        el.style.top = `${a ? a.exactY + COMPACT_ROW_HEIGHT / 2 : topPadding}px`;
+        const ly = a ? (a.labelY !== undefined ? a.labelY : a.exactY + 19) : 80;
+        el.style.top = `${ly + COMPACT_ROW_HEIGHT / 2}px`;
         el.style.display = 'block';
       } else {
         el.style.display = 'none';
