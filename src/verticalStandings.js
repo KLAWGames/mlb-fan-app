@@ -1243,8 +1243,6 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     node.style.cursor = 'pointer';
     node.onclick = (e) => {
       e.stopPropagation();
-      dismissTapHint();
-      dismissScrollHint();
       let activeGame = teamGames[0] || null;
       if (teamGames.length > 1) {
         const cycleMs = 6000;
