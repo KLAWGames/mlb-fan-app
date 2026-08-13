@@ -3176,14 +3176,16 @@ body.theme-light .vertical-team-action-card {
 
 .overflow-indicator-bar.overflow-below {
   position: absolute;
-  bottom: 0;
+  /* Sit just above the fixed app footer (64px) + iOS safe area inset */
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   left: 0;
   right: 0;
   margin: 0;
   border-radius: 12px 12px 0 0;
   border-bottom: none;
   box-shadow: 0 -6px 24px rgba(0, 229, 255, 0.12), 0 -2px 12px rgba(0, 0, 0, 0.5);
-  z-index: 30;
+  /* Must be above the footer's z-index of 999 */
+  z-index: 1001;
 }
 
 .overflow-indicator-bar.overflow-bar-visible {
