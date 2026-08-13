@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Rajdhani:wght@500;600;700&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
 
 :root, [data-theme="dark"] {
   /* Default Team Theme variables */
@@ -7,7 +7,9 @@
   --team-text: #FFFFFF;
 
   --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  --font-title: 'Outfit', sans-serif;
+  --font-futuristic: 'Orbitron', 'Outfit', sans-serif;
+  --font-hud: 'Rajdhani', sans-serif;
+  --font-title: 'Orbitron', 'Outfit', sans-serif;
   --font-body: 'Inter', sans-serif;
 
   /* App Core Colors - 100% Sleek Dark Mode (Default) */
@@ -148,23 +150,31 @@ header {
 }
 
 .app-logo {
-  font-family: var(--font-title);
-  font-size: 24px;
+  font-family: var(--font-futuristic);
+  font-size: 20px;
   font-weight: 800;
-  /* MLB-styled deep gradient logo */
-  background: linear-gradient(135deg, #041e42 30%, var(--team-primary) 100%);
+  letter-spacing: 0.1em;
+  background: linear-gradient(135deg, #00f0ff 0%, #38bdf8 50%, #ffc107 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   text-transform: uppercase;
+  filter: drop-shadow(0 0 10px rgba(0, 240, 255, 0.4));
 }
 
 .app-logo::before {
-  content: '⚾';
-  font-size: 20px;
-  filter: drop-shadow(0 2px 4px rgba(var(--team-primary-rgb, 19, 74, 142), 0.3));
+  content: '';
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  background-image: url('/icon-192.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  border-radius: 6px;
+  filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.6));
 }
 
 .date-selector {
@@ -2461,33 +2471,66 @@ header {
 
 
 
-/* Splash Screen Styles */
+/* Splash Screen Styles - Futuristic Sci-Fi Tactical Radar Visuals */
 .splash-screen {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--bg-dark);
-  color: var(--text-primary);
+  background: #050a14;
+  color: #f8fafc;
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 999999;
   opacity: 1;
-  transition: opacity 0.5s ease, visibility 0.5s ease;
+  overflow: hidden;
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.6s ease;
 }
 
-[data-theme="dark"] .splash-screen,
-body.theme-dark .splash-screen {
-  background: radial-gradient(circle at center, #0b1a24 0%, #071318 100%);
-  color: #f8fafc;
+/* Tactical Radar Grid Background */
+.splash-radar-bg {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background-image: 
+    radial-gradient(circle at center, rgba(0, 240, 255, 0.15) 0%, rgba(5, 10, 20, 0.92) 65%),
+    linear-gradient(rgba(0, 240, 255, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 240, 255, 0.09) 1px, transparent 1px);
+  background-size: 100% 100%, 36px 36px, 36px 36px;
+  background-position: center center;
+  pointer-events: none;
+  animation: radarScan 30s linear infinite;
 }
 
-[data-theme="light"] .splash-screen,
-body.theme-light .splash-screen {
-  background: radial-gradient(circle at center, #ffffff 0%, #f1f5f9 100%);
-  color: #0f172a;
+/* Ambient Glowing Orbs */
+.splash-glow-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.splash-glow-1 {
+  width: 340px;
+  height: 340px;
+  top: 15%;
+  left: 25%;
+  background: rgba(0, 240, 255, 0.22);
+  animation: floatOrb 8s infinite ease-in-out alternate;
+}
+
+.splash-glow-2 {
+  width: 300px;
+  height: 300px;
+  bottom: 15%;
+  right: 25%;
+  background: rgba(255, 183, 3, 0.18);
+  animation: floatOrb 10s infinite ease-in-out alternate-reverse;
 }
 
 .splash-screen.fade-out {
@@ -2497,86 +2540,199 @@ body.theme-light .splash-screen {
 }
 
 .splash-content {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 16px;
-  max-width: 280px;
+  gap: 14px;
+  max-width: 340px;
   width: 90%;
+  padding: 32px 24px;
+  background: rgba(8, 16, 32, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: 20px;
+  box-shadow: 
+    0 20px 50px rgba(0, 0, 0, 0.6),
+    0 0 30px rgba(0, 240, 255, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Icon Emblem & Rotating HUD Ring */
+.splash-icon-wrapper {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.splash-icon-img {
+  width: 80px;
+  height: 80px;
+  border-radius: 18px;
+  object-fit: cover;
+  box-shadow: 
+    0 0 25px rgba(0, 240, 255, 0.4),
+    0 0 40px rgba(255, 183, 3, 0.25);
+  animation: pulseIcon 3s infinite ease-in-out;
+}
+
+.splash-hud-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(0, 240, 255, 0.4);
+  border-top-color: #ffc107;
+  border-bottom-color: #00f0ff;
+  animation: spinHud 12s linear infinite;
+}
+
+/* Title & Underline Beam */
+.splash-title-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
 }
 
 .splash-logo {
-  font-family: var(--font-title);
-  font-size: 42px;
+  font-family: var(--font-futuristic);
+  font-size: 32px;
   font-weight: 900;
-  letter-spacing: -0.03em;
+  letter-spacing: 0.12em;
   margin: 0;
-  background: linear-gradient(135deg, #0284c7 0%, #3b82f6 50%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #00f0ff 0%, #38bdf8 45%, #ffc107 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 2px 8px rgba(59, 130, 246, 0.15));
-  animation: pulseLogo 2s infinite ease-in-out;
+  filter: drop-shadow(0 0 16px rgba(0, 240, 255, 0.45));
+  text-transform: uppercase;
+}
+
+.splash-trajectory-line {
+  width: 140px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, #00f0ff 40%, #ffc107 80%, transparent 100%);
+  border-radius: 2px;
+  box-shadow: 0 0 10px #00f0ff;
+  animation: glowPulse 2s infinite ease-in-out;
+}
+
+.splash-tagline {
+  font-family: var(--font-hud);
+  font-size: 13px;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.28em;
+  margin-top: -2px;
+  text-transform: uppercase;
 }
 
 .splash-season {
-  font-size: 14px;
+  font-family: var(--font-hud);
+  font-size: 11px;
   font-weight: 700;
-  color: var(--color-gold);
+  color: #ffc107;
   text-transform: uppercase;
-  letter-spacing: 0.25em;
-  margin-top: -4px;
-  opacity: 0.95;
+  letter-spacing: 0.22em;
+  padding: 4px 12px;
+  background: rgba(0, 240, 255, 0.08);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.splash-badge-dot {
+  width: 6px;
+  height: 6px;
+  background: #00f0ff;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #00f0ff;
+  animation: blinkDot 1.2s infinite ease-in-out;
 }
 
 .splash-loader-bar {
   width: 100%;
-  height: 4px;
-  background: var(--border-glass-highlight);
-  border-radius: 2px;
+  height: 5px;
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  border-radius: 4px;
   overflow: hidden;
-  margin-top: 12px;
+  margin-top: 6px;
+  position: relative;
 }
 
 .splash-loader-progress {
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, #38bdf8, #3b82f6);
-  border-radius: 2px;
+  background: linear-gradient(90deg, #00f0ff 0%, #38bdf8 60%, #ffc107 100%);
+  border-radius: 4px;
+  box-shadow: 0 0 12px #00f0ff;
   transform: translateX(-100%);
-  animation: loadingProgress 3.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: loadingProgress 3.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .splash-status {
-  font-size: 11px;
-  color: var(--text-muted);
+  font-family: var(--font-hud);
+  font-size: 12px;
+  color: #cbd5e1;
   font-weight: 500;
-  letter-spacing: 0.02em;
-  margin-top: 4px;
-  animation: fadeInStatus 1.5s infinite alternate;
+  letter-spacing: 0.05em;
+  margin-top: 2px;
 }
 
-.splash-tagline {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  letter-spacing: 0.05em;
-  margin-top: -8px;
-  opacity: 0.85;
+.status-prefix {
+  color: #00f0ff;
+  font-weight: 700;
 }
 
 .splash-version {
-  font-size: 10px;
+  font-family: var(--font-hud);
+  font-size: 11px;
   font-weight: 600;
-  color: var(--text-muted);
-  letter-spacing: 0.1em;
-  margin-top: 24px;
-  opacity: 0.7;
+  color: #64748b;
+  letter-spacing: 0.15em;
+  margin-top: 6px;
 }
 
-@keyframes pulseLogo {
+@keyframes radarScan {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes floatOrb {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(30px, -20px) scale(1.15); }
+}
+
+@keyframes pulseIcon {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.03); }
+  50% { transform: scale(1.04); }
+}
+
+@keyframes spinHud {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.7; transform: scaleX(1); }
+  50% { opacity: 1; transform: scaleX(1.1); }
+}
+
+@keyframes blinkDot {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
 }
 
 @keyframes loadingProgress {

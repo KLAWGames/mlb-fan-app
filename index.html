@@ -26,18 +26,34 @@
     <meta name="description" content="Trajectory helps baseball fans track daily MLB standings, schedules, and calculations like wild card math, magic numbers, and who to root for in other matchups." />
     <!-- Web App Capabilities (PWA) -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- Futuristic Google Fonts for App Icon Matching Sci-Fi Aesthetic -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Rajdhani:wght@500;600;700&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   </head>
   <body>
     <div id="app"></div>
     <div id="app-splash-screen" class="splash-screen">
+      <div class="splash-radar-bg"></div>
+      <div class="splash-glow-orb splash-glow-1"></div>
+      <div class="splash-glow-orb splash-glow-2"></div>
       <div class="splash-content">
-        <h1 class="splash-logo">Trajectory</h1>
-        <div class="splash-tagline">Daily Fan Intelligence</div>
-        <div class="splash-season">2026 Season</div>
+        <div class="splash-icon-wrapper">
+          <img src="/icon-512.png" alt="Trajectory" class="splash-icon-img" />
+          <div class="splash-hud-ring"></div>
+        </div>
+        <div class="splash-title-container">
+          <h1 class="splash-logo">TRAJECTORY</h1>
+          <div class="splash-trajectory-line"></div>
+        </div>
+        <div class="splash-tagline">DAILY FAN INTELLIGENCE</div>
+        <div class="splash-season">
+          <span class="splash-badge-dot"></span>SYS.2026 // MLB RADAR
+        </div>
         <div class="splash-loader-bar">
           <div class="splash-loader-progress"></div>
         </div>
-        <div class="splash-status">Initializing standings & schedule...</div>
+        <div class="splash-status"><span class="status-prefix">[SYS.INIT]</span> Initializing standings & schedule...</div>
         <div class="splash-version">v2.0.2</div>
       </div>
     </div>
