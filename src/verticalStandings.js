@@ -766,7 +766,11 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     });
 
     if (animate) {
-      setTimeout(() => scrollToTeamNode(state.activeTeamId), 1350);
+      // Wait for the 1.2s layout animation to fully settle, then center active team
+      setTimeout(() => {
+        scrollToTeamNode(state.activeTeamId);
+        setTimeout(updateOverflowBars, 450);
+      }, 1500);
     }
   }
 
@@ -830,7 +834,11 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     updateNodesPosition(false);
 
     if (animate) {
-      setTimeout(() => scrollToTeamNode(state.activeTeamId), 1350);
+      // Wait for the 1.2s layout animation to fully settle, then center active team
+      setTimeout(() => {
+        scrollToTeamNode(state.activeTeamId);
+        setTimeout(updateOverflowBars, 450);
+      }, 1500);
     }
   }
 
