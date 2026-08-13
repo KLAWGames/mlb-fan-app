@@ -765,12 +765,17 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       node.style.left = `${78 + (info.col * 116)}px`;
     });
 
+    // Immediately scroll to where the active team will end up in compact layout,
+    // so it stays in view throughout the animation (no blank delay).
     if (animate) {
-      // Wait for the 1.2s layout animation to fully settle, then center active team
-      setTimeout(() => {
-        scrollToTeamNode(state.activeTeamId);
-        setTimeout(updateOverflowBars, 450);
-      }, 1500);
+      const activeAssign = compactAssign[state.activeTeamId] ||
+                           compactAssign[String(state.activeTeamId)] ||
+                           compactAssign[parseInt(state.activeTeamId, 10)];
+      if (activeAssign) {
+        const targetScrollTop = Math.max(0, activeAssign.exactY - (scrollArea.clientHeight / 2) + 20);
+        scrollArea.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+      }
+      setTimeout(updateOverflowBars, 1600);
     }
   }
 
@@ -833,12 +838,18 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     // Re-position team nodes via standard expanded logic
     updateNodesPosition(false);
 
+    // Immediately scroll to where the active team will end up in expanded layout,
+    // so it stays in view throughout the animation (no blank delay).
     if (animate) {
-      // Wait for the 1.2s layout animation to fully settle, then center active team
-      setTimeout(() => {
-        scrollToTeamNode(state.activeTeamId);
-        setTimeout(updateOverflowBars, 450);
-      }, 1500);
+      const activeTeam = snapData.teamsWithPos.find(
+        t => parseInt(t.id, 10) === parseInt(state.activeTeamId, 10)
+      );
+      if (activeTeam) {
+        const targetY = globalZeroLineY - (activeTeam.gbRel * globalPxPerGB) - 19;
+        const targetScrollTop = Math.max(0, targetY - (scrollArea.clientHeight / 2) + 20);
+        scrollArea.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+      }
+      setTimeout(updateOverflowBars, 1600);
     }
   }
 
