@@ -31,97 +31,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   const container = document.createElement('div');
   container.className = 'vertical-standings-container';
 
-  // ── Idle Gesture Hints ──────────────────────────────────────────────
-  // Scroll hint:  shown 5s after page is FULLY ready (animations settled)
-  //               IF the user has NOT scrolled.
-  // Tap hint:     shown 10s after page is FULLY ready
-  //               IF the user has NOT tapped any team box.
-  // "Page ready" = renderTimeline() done + 2 s grace for smooth-scroll
-  //                and entry animations to finish.
-  // ────────────────────────────────────────────────────────────────────
-  let scrollHintEl = null;
-  let tapHintEl = null;
-  let scrollTimer = null;
-  let tapTimer = null;
-  let hintSystemActive = false;   // true once grace period ends
 
-  const dismissScrollHint = () => {
-    state._hintScrollDone = true;
-    if (scrollTimer) { clearTimeout(scrollTimer); scrollTimer = null; }
-    if (scrollHintEl) {
-      scrollHintEl.style.opacity = '0';
-      scrollHintEl.style.transform = 'translate(-50%, 10px)';
-      setTimeout(() => { if (scrollHintEl && scrollHintEl.parentNode) scrollHintEl.remove(); scrollHintEl = null; }, 400);
-    }
-  };
-
-  const dismissTapHint = () => {
-    state._hintTapDone = true;
-    if (tapTimer) { clearTimeout(tapTimer); tapTimer = null; }
-    if (tapHintEl) {
-      tapHintEl.style.opacity = '0';
-      tapHintEl.style.transform = 'translate(-50%, -10px)';
-      setTimeout(() => { if (tapHintEl && tapHintEl.parentNode) tapHintEl.remove(); tapHintEl = null; }, 400);
-    }
-  };
-
-  // Called once the page is fully loaded + grace period elapsed.
-  const activateHintSystem = () => {
-    hintSystemActive = true;
-
-    // ── Scroll hint: 5 s from NOW ──
-    if (!state._hintScrollDone) {
-      scrollTimer = setTimeout(() => {
-        // Double-check: user may have scrolled during the 5 s wait
-        if (state._hintScrollDone || !container || !document.body.contains(container)) return;
-        scrollHintEl = document.createElement('div');
-        scrollHintEl.className = 'idle-gesture-hint scroll-hint';
-        scrollHintEl.innerHTML = `
-          <div class="gesture-icon-wrapper">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 3v18M8 6l4-4 4 4M8 18l4 4 4-4" stroke="var(--color-cyan, #00e5ff)" opacity="0.85" />
-              <circle class="swipe-touch-disc" cx="12" cy="12" r="3" fill="var(--color-cyan, #00e5ff)" stroke="none" />
-            </svg>
-          </div>
-          <span>Swipe up/down to explore the standings</span>
-        `;
-        document.body.appendChild(scrollHintEl);
-        // Auto-dismiss after 5 s of visibility
-        setTimeout(dismissScrollHint, 5000);
-      }, 5000);
-    }
-
-    // ── Tap hint: 10 s from NOW (so user gets scroll hint first) ──
-    if (!state._hintTapDone) {
-      tapTimer = setTimeout(() => {
-        if (state._hintTapDone || !container || !document.body.contains(container)) return;
-        tapHintEl = document.createElement('div');
-        tapHintEl.className = 'idle-gesture-hint tap-hint';
-        tapHintEl.innerHTML = `
-          <div class="gesture-icon-wrapper">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="5" width="18" height="14" rx="4" stroke="var(--color-cyan, #00e5ff)" stroke-width="1.8" opacity="0.75" />
-              <circle class="tap-ring-pulse" cx="12" cy="12" r="5" stroke="var(--color-cyan, #00e5ff)" stroke-width="1.5" />
-              <circle class="tap-dot-pulse" cx="12" cy="12" r="2.5" fill="#ffffff" stroke="none" />
-            </svg>
-          </div>
-          <span>Tap any team box for live scores & stats</span>
-        `;
-        document.body.appendChild(tapHintEl);
-        setTimeout(dismissTapHint, 5000);
-      }, 10000);
-    }
-  };
-
-  // Only react to user-initiated scroll AFTER the hint system is active
-  // (ignore programmatic smooth-scroll during page load).
-  const onUserScroll = () => {
-    if (!hintSystemActive) return;
-    dismissScrollHint();
-  };
-  window.addEventListener('scroll', onUserScroll, { passive: true });
-  window.addEventListener('touchmove', onUserScroll, { passive: true });
-  window.addEventListener('wheel', onUserScroll, { passive: true });
 
   // Determine initial league (AL = 103, NL = 104) based on active team if present
   let activeLeagueId = 103;
@@ -301,27 +211,11 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   snapshotGroup.appendChild(btnYestEnd);
   snapshotGroup.appendChild(btnTodayLive);
   motionBar.appendChild(snapshotGroup);
-
-  // Play / Stop Shift Button
-  const playMotionBtn = document.createElement('button');
-  playMotionBtn.className = 'motion-play-btn';
-  playMotionBtn.innerHTML = '▶ Play Shift';
-
-  playMotionBtn.addEventListener('click', () => {
-    if (isPlayingAnimation) {
-      cancelAnimationRequested = true;
-    } else {
-      runMotionReplaySequence();
-    }
-  });
-
-  motionBar.appendChild(playMotionBtn);
   container.appendChild(motionBar);
 
-  // Banner status for key legend & motion replay info
   const infoBanner = document.createElement('div');
   infoBanner.className = 'vertical-standings-key-box';
-  infoBanner.innerText = 'Viewing Live Standings (2:00 AM daily schedule rollover). Tap "Play Shift" to watch guided region animations.';
+  infoBanner.innerText = 'Viewing Live Standings — tap any team card for live scores & rooting intel.';
   container.appendChild(infoBanner);
 
   // ── Above-fold overflow indicator bar ──────────────────────────────
@@ -1869,189 +1763,10 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   }
 
   // Guided Region Motion Replay: Always starts at top (best teams) and moves down section by section
-  async function runMotionReplaySequence() {
-    isPlayingAnimation = true;
-    cancelAnimationRequested = false;
-
-    playMotionBtn.innerHTML = '⏹ Stop';
-    playMotionBtn.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
-    playMotionBtn.style.color = '#ffffff';
-
-    const snapYestStart = computeSnapshotData(getSnapshotDataset('yesterday-start').processed);
-    const snapYestEnd = computeSnapshotData(getSnapshotDataset('yesterday-end').processed);
-    const snapTodayLive = computeSnapshotData(getSnapshotDataset('today-live').processed);
-
-    // PASS 1: Yesterday Standings Shift (Ordered Top to Bottom starting at 1st place)
-    const moversYesterday = getMovingTeams(snapYestStart, snapYestEnd);
-    const clustersYesterday = groupMoversIntoClusters(moversYesterday);
-
-    // Baseline: Yesterday Start (Labels are 100% synced to Yesterday Start occupied rows)
-    activeSnapshotMode = 'yesterday-start';
-    updateSnapshotBtnStyles();
-    updateNodesPosition(false);
-
-    // Camera mounts at the very top of the standings (best teams)
-    scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
-    await new Promise(r => setTimeout(r, 600));
-
-    if (clustersYesterday.length === 0) {
-      infoBanner.innerText = 'PASS 1/2: Yesterday Shift — No standings shifts yesterday.';
-      await new Promise(r => setTimeout(r, 800));
-    } else {
-      infoBanner.innerText = `PASS 1/2: Yesterday Shift — Starting at top of standings (1st Place)...`;
-      await new Promise(r => setTimeout(r, 600));
-
-      for (let c = 0; c < clustersYesterday.length; c++) {
-        if (cancelAnimationRequested) break;
-        const cluster = clustersYesterday[c];
-        const teamNames = cluster.teams.map(t => t.name).join(', ');
-
-        infoBanner.innerText = `PASS 1/2 (Yesterday Region ${c + 1}/${clustersYesterday.length}): ${teamNames}`;
-
-        // 1. Scroll camera smoothly to center this section in the viewport frame
-        scrollArea.scrollTo({
-          top: Math.max(0, cluster.centerY - (scrollArea.clientHeight / 2) + 20),
-          behavior: 'smooth'
-        });
-        await new Promise(r => setTimeout(r, 600));
-        if (cancelAnimationRequested) break;
-
-        // 2. Attach focus glow rings to teams in this section BEFORE movement
-        cluster.teams.forEach(team => {
-          const node = teamNodesMap[team.id];
-          if (node) {
-            node.classList.add('animating-focus');
-          }
-        });
-
-        // 3. STEP 1: OLD LABEL FADES AWAY BEFORE CARD MOVEMENT
-        fadeOldClusterLabels(cluster.teams, 'yesterday-end');
-        await new Promise(r => setTimeout(r, 300));
-        if (cancelAnimationRequested) break;
-
-        // 4. STEP 2: TEAM BOX MOVES TO NEW LOCATION!
-        activeSnapshotMode = 'yesterday-end';
-        updateSnapshotBtnStyles();
-        cluster.teams.forEach(team => {
-          setSingleTeamPosition(team.id, 'yesterday-end');
-        });
-
-        // Wait 1.25s for team boxes to physically glide and arrive at their new location
-        await new Promise(r => setTimeout(r, 1250));
-        if (cancelAnimationRequested) break;
-
-        // 5. STEP 3: NEW LABEL POPS IN AFTER TEAM BOX ARRIVES AT NEW LOCATION!
-        popInClusterLabels(cluster.teams);
-
-        // Hold final positions for 1.2s so user can absorb the shift & scores!
-        await new Promise(r => setTimeout(r, 1200));
-
-        // 6. Clean up focus glow rings before moving to next section
-        cluster.teams.forEach(team => {
-          const node = teamNodesMap[team.id];
-          if (node) {
-            node.classList.remove('animating-focus');
-          }
-        });
-      }
-    }
-
-    // PASS 2: Today Live Shift (Ordered Top to Bottom starting at 1st place)
-    if (!cancelAnimationRequested) {
-      const moversToday = getMovingTeams(snapYestEnd, snapTodayLive);
-      const clustersToday = groupMoversIntoClusters(moversToday);
-
-      activeSnapshotMode = 'yesterday-end';
-      updateSnapshotBtnStyles();
-      updateNodesPosition(false);
-
-      // Return camera to top of standings (best teams) for Pass 2
-      scrollArea.scrollTo({ top: 0, behavior: 'smooth' });
-      await new Promise(r => setTimeout(r, 600));
-
-      if (clustersToday.length === 0) {
-        infoBanner.innerText = 'PASS 2/2: Today Live Shift — No standings shifts today yet.';
-        await new Promise(r => setTimeout(r, 800));
-      } else {
-        infoBanner.innerText = `PASS 2/2: Today Live Shift — Starting at top of standings (1st Place)...`;
-        await new Promise(r => setTimeout(r, 600));
-
-        for (let c = 0; c < clustersToday.length; c++) {
-          if (cancelAnimationRequested) break;
-          const cluster = clustersToday[c];
-          const teamNames = cluster.teams.map(t => t.name).join(', ');
-
-          infoBanner.innerText = `PASS 2/2 (Today Live Region ${c + 1}/${clustersToday.length}): ${teamNames}`;
-
-          // 1. Scroll camera smoothly to center this section in the viewport frame
-          scrollArea.scrollTo({
-            top: Math.max(0, cluster.centerY - (scrollArea.clientHeight / 2) + 20),
-            behavior: 'smooth'
-          });
-          await new Promise(r => setTimeout(r, 600));
-          if (cancelAnimationRequested) break;
-
-          // 2. Attach focus glow rings to teams in this section BEFORE movement
-          cluster.teams.forEach(team => {
-            const node = teamNodesMap[team.id];
-            if (node) {
-              node.classList.add('animating-focus');
-            }
-          });
-
-          // 3. STEP 1: OLD LABEL FADES AWAY BEFORE CARD MOVEMENT
-          fadeOldClusterLabels(cluster.teams, 'today-live');
-          await new Promise(r => setTimeout(r, 300));
-          if (cancelAnimationRequested) break;
-
-          // 4. STEP 2: TEAM BOX MOVES TO NEW LOCATION!
-          activeSnapshotMode = 'today-live';
-          updateSnapshotBtnStyles();
-          cluster.teams.forEach(team => {
-            setSingleTeamPosition(team.id, 'today-live');
-          });
-
-          // Wait 1.25s for team boxes to physically glide and arrive at their new location
-          await new Promise(r => setTimeout(r, 1250));
-          if (cancelAnimationRequested) break;
-
-          // 5. STEP 3: NEW LABEL POPS IN AFTER TEAM BOX ARRIVES AT NEW LOCATION!
-          popInClusterLabels(cluster.teams);
-
-          // Hold final positions for 1.2s so user can absorb the shift & scores!
-          await new Promise(r => setTimeout(r, 1200));
-
-          // 6. Clean up focus glow rings before moving to next section
-          cluster.teams.forEach(team => {
-            const node = teamNodesMap[team.id];
-            if (node) {
-              node.classList.remove('animating-focus');
-            }
-          });
-        }
-      }
-    }
-
-    // Reset UI state to Today Live
-    isPlayingAnimation = false;
-    cancelAnimationRequested = false;
-    activeSnapshotMode = 'today-live';
-    updateSnapshotBtnStyles();
-    updateNodesPosition(false);
-
-    scrollToTeamNode(state.activeTeamId);
-
-    playMotionBtn.innerHTML = '▶ Play Shift';
-    playMotionBtn.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
-    playMotionBtn.style.color = '#000000';
-    infoBanner.innerText = 'Replay complete! Tap any step or "Play Shift" to run again.';
-  }
 
   renderTimeline();
 
-  // ── Initial compact → expanded animation ──
-  // Immediately snap to compact after render, then animate to expanded after 1.5s.
-  // Only if teams were actually rendered (data may not be ready on first paint).
+  // Initial compact → expanded animation on load
   requestAnimationFrame(() => {
     if (Object.keys(teamNodesMap).length === 0 || !scrollArea._contentBox) return;
     isCompactMode = true;
@@ -2067,11 +1782,6 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       setTimeout(updateOverflowBars, 600);
     }, 1500);
   });
-
-  // Grace period for hints pushed out to account for compact→expanded animation
-  setTimeout(() => {
-    activateHintSystem();
-  }, 4000);
 
   return container;
 }
