@@ -3175,10 +3175,13 @@ body.theme-light .vertical-team-action-card {
 }
 
 .overflow-indicator-bar.overflow-below {
+  position: sticky;
+  bottom: 0;
   border-radius: 10px 10px 0 0;
   border-bottom: none;
-  margin-bottom: 0;
-  box-shadow: 0 -6px 20px rgba(0, 229, 255, 0.08);
+  margin: 0 12px;
+  box-shadow: 0 -6px 20px rgba(0, 229, 255, 0.12), 0 -2px 8px rgba(0, 0, 0, 0.4);
+  z-index: 30;
 }
 
 .overflow-indicator-bar.overflow-bar-visible {

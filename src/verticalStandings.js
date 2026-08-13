@@ -335,9 +335,9 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   container.appendChild(scrollArea);
 
   // ── Below-fold overflow indicator bar ──────────────────────────────
-  // Shows logos of teams scrolled below the bottom of the visible scrollArea.
+  // Must live INSIDE scrollArea so position:sticky bottom:0 works.
+  // It is re-appended after each renderTimeline() clears scrollArea.innerHTML.
   const belowBar = buildOverflowBar('below');
-  container.appendChild(belowBar);
 
   // Update overflow bars on every scroll event inside scrollArea
   scrollArea.addEventListener('scroll', () => updateOverflowBars(), { passive: true });
@@ -742,6 +742,11 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
 
     // Store contentBox ref for zoom relayout
     scrollArea._contentBox = contentBox;
+
+    // Re-append belowBar inside scrollArea after every render.
+    // renderTimeline() clears scrollArea.innerHTML so belowBar must be re-attached.
+    // position:sticky bottom:0 requires it to be a child of the scroll container.
+    scrollArea.appendChild(belowBar);
 
     // Initial position update based on activeSnapshotMode
     updateNodesPosition(false);
