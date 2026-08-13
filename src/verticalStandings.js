@@ -156,67 +156,47 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     if (isPlayingAnimation) cancelAnimationRequested = true;
     toggleZoom();
   });
+
+  // Snapshot state indicator — always shows current mode in the header HUD
+  const snapshotIndicator = document.createElement('div');
+  snapshotIndicator.className = 'snapshot-indicator';
+  rightGroup.appendChild(snapshotIndicator);
   rightGroup.appendChild(zoomBtn);
   header.appendChild(rightGroup);
 
   container.appendChild(header);
 
-  // Motion Control Bar (Snapshot Selectors & Motion Replay Button)
-  const motionBar = document.createElement('div');
-  motionBar.className = 'vertical-standings-motion-bar';
-
-  const snapshotGroup = document.createElement('div');
-  snapshotGroup.className = 'motion-snapshots-group';
-
-  const btnYestStart = document.createElement('button');
-  btnYestStart.className = 'motion-snapshot-btn';
-  btnYestStart.innerText = 'Yest. Start';
-
-  const btnYestEnd = document.createElement('button');
-  btnYestEnd.className = 'motion-snapshot-btn';
-  btnYestEnd.innerText = 'Yest. End';
-
-  const btnTodayLive = document.createElement('button');
-  btnTodayLive.className = 'motion-snapshot-btn active';
-  btnTodayLive.innerText = 'Today Live';
-
-  const updateSnapshotBtnStyles = () => {
-    btnYestStart.className = `motion-snapshot-btn ${activeSnapshotMode === 'yesterday-start' ? 'active' : ''}`;
-    btnYestEnd.className = `motion-snapshot-btn ${activeSnapshotMode === 'yesterday-end' ? 'active' : ''}`;
-    btnTodayLive.className = `motion-snapshot-btn ${activeSnapshotMode === 'today-live' ? 'active' : ''}`;
+  // ── Snapshot mode constants & functions (used by press-and-hold gesture) ──
+  // Ordered chronologically: 0 = earliest, 2 = most recent.
+  const SLIDE_MODES = ['yesterday-start', 'yesterday-end', 'today-live'];
+  const SLIDE_MODE_LABELS = {
+    'yesterday-start': 'YEST. START',
+    'yesterday-end':   'YEST. END',
+    'today-live':      'TODAY LIVE'
   };
 
-  btnYestStart.addEventListener('click', () => {
-    if (isPlayingAnimation) cancelAnimationRequested = true;
-    activeSnapshotMode = 'yesterday-start';
-    updateSnapshotBtnStyles();
-    updateNodesPosition(false, true);
-  });
+  function updateSnapshotIndicator() {
+    snapshotIndicator.textContent = SLIDE_MODE_LABELS[activeSnapshotMode] || 'TODAY LIVE';
+    snapshotIndicator.setAttribute('data-mode', activeSnapshotMode);
+  }
 
-  btnYestEnd.addEventListener('click', () => {
-    if (isPlayingAnimation) cancelAnimationRequested = true;
-    activeSnapshotMode = 'yesterday-end';
-    updateSnapshotBtnStyles();
-    updateNodesPosition(false, true);
-  });
+  let infoBannerHideTimer = null;
+  function showInfoBannerBriefly(text, delayMs) {
+    if (infoBannerHideTimer) { clearTimeout(infoBannerHideTimer); infoBannerHideTimer = null; }
+    infoBanner.textContent = text;
+    infoBanner.classList.remove('info-banner-hidden');
+    infoBannerHideTimer = setTimeout(() => infoBanner.classList.add('info-banner-hidden'), delayMs || 2000);
+  }
 
-  btnTodayLive.addEventListener('click', () => {
-    if (isPlayingAnimation) cancelAnimationRequested = true;
-    activeSnapshotMode = 'today-live';
-    updateSnapshotBtnStyles();
-    updateNodesPosition(false, true);
-  });
-
-  snapshotGroup.appendChild(btnYestStart);
-  snapshotGroup.appendChild(btnYestEnd);
-  snapshotGroup.appendChild(btnTodayLive);
-  motionBar.appendChild(snapshotGroup);
-  container.appendChild(motionBar);
+  updateSnapshotIndicator(); // set initial indicator to Today Live
 
   const infoBanner = document.createElement('div');
   infoBanner.className = 'vertical-standings-key-box';
-  infoBanner.innerText = 'Viewing Live Standings — tap any team card for live scores & rooting intel.';
+  infoBanner.textContent = 'Hold & slide \u2191/\u2193 to switch views \u2014 tap any team for scores.';
   container.appendChild(infoBanner);
+  // Auto-hide the hint after 5s on initial load
+  infoBannerHideTimer = setTimeout(() => infoBanner.classList.add('info-banner-hidden'), 5000);
+
 
   // ── Above-fold overflow indicator bar ──────────────────────────────
   // Shows logos of teams scrolled above the top of the visible scrollArea.
@@ -248,6 +228,203 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   // Estimated team node height (used for overflow visibility checks)
   const TEAM_NODE_HEIGHT = 78;
   const MAX_OVERFLOW_LOGOS = 5;
+
+  // ── Press-and-hold slide gesture state ─────────────────────────────────
+  let longPressTimer      = null;
+  let slideControlActive  = false;
+  let longPressStartY     = 0;
+  let longPressStartX     = 0;
+  let longPressStartModeIndex = 0;
+  let slideLastModeIndex  = -1;
+  let longPressOccurred   = false; // suppresses team-card onclick after long-press fires
+  const SLOT_HEIGHT       = 64;   // px of drag travel per mode step
+
+  // Visual charge ring (grows during the 1s hold countdown)
+  const chargeRing = document.createElement('div');
+  chargeRing.className = 'press-charge-ring';
+  chargeRing.style.display = 'none';
+  container.appendChild(chargeRing);
+
+  // Floating slide control overlay (built once, shown/hidden on demand)
+  const slideControl = buildSlideControl();
+  container.appendChild(slideControl);
+
+  // Wire long-press gesture
+  scrollArea.addEventListener('pointerdown', onScrollAreaPointerDown, { passive: true });
+
+  // ── Press-and-hold slide gesture functions ──────────────────────────────
+
+  function buildSlideControl() {
+    const overlay = document.createElement('div');
+    overlay.className = 'slide-control-overlay';
+    overlay.style.display = 'none';
+    overlay.setAttribute('aria-hidden', 'true');
+
+    const hint = document.createElement('div');
+    hint.className = 'slide-control-hint';
+    hint.textContent = '\u2191 forward  \u00b7  \u2193 back';
+    overlay.appendChild(hint);
+
+    const rowsContainer = document.createElement('div');
+    rowsContainer.className = 'slide-control-rows';
+
+    // Display in reverse chronological order so sliding UP (toward Today Live) feels natural.
+    // Top row = Today Live (most recent), bottom row = Yest. Start (earliest).
+    const displayOrder = [...SLIDE_MODES].reverse();
+    const displayLabels = {
+      'today-live':      'Today Live',
+      'yesterday-end':   'Yest. End',
+      'yesterday-start': 'Yest. Start'
+    };
+
+    displayOrder.forEach(mode => {
+      const row = document.createElement('div');
+      row.className = 'slide-control-row';
+      row.setAttribute('data-mode', mode);
+
+      const dot = document.createElement('span');
+      dot.className = 'row-dot';
+
+      const lbl = document.createElement('span');
+      lbl.textContent = displayLabels[mode];
+
+      row.appendChild(dot);
+      row.appendChild(lbl);
+      rowsContainer.appendChild(row);
+    });
+
+    overlay.appendChild(rowsContainer);
+    return overlay;
+  }
+
+  function updateSlideControlHighlight(modeIndex) {
+    const activeMode = SLIDE_MODES[modeIndex];
+    slideControl.querySelectorAll('.slide-control-row').forEach(row => {
+      row.classList.toggle('active', row.getAttribute('data-mode') === activeMode);
+    });
+  }
+
+  function showChargeRing(clientX, clientY) {
+    const rect = container.getBoundingClientRect();
+    chargeRing.style.left = `${clientX - rect.left}px`;
+    chargeRing.style.top  = `${clientY - rect.top}px`;
+    chargeRing.style.display = 'block';
+    // Restart animation
+    chargeRing.style.animation = 'none';
+    chargeRing.offsetHeight; // force reflow
+    chargeRing.style.animation = '';
+  }
+
+  function hideChargeRing() {
+    chargeRing.style.display = 'none';
+  }
+
+  function showSlideControl(clientX, clientY) {
+    const rect = container.getBoundingClientRect();
+    const controlW = 200;
+    const rowCount = SLIDE_MODES.length;
+    const controlH = rowCount * SLOT_HEIGHT + 44; // 44px for hint row
+    const relX = clientX - rect.left;
+    const relY = clientY - rect.top;
+
+    // Appear above the finger/cursor so it isn't hidden
+    const left = Math.min(Math.max(relX - controlW / 2, 12), rect.width  - controlW - 12);
+    const top  = Math.min(Math.max(relY - controlH - 24, 12), rect.height - controlH - 12);
+
+    slideControl.style.left    = `${left}px`;
+    slideControl.style.top     = `${top}px`;
+    slideControl.style.display = 'block';
+    // Restart appear animation
+    slideControl.style.animation = 'none';
+    slideControl.offsetHeight;
+    slideControl.style.animation = '';
+    updateSlideControlHighlight(SLIDE_MODES.indexOf(activeSnapshotMode));
+  }
+
+  function dismissSlideControl() {
+    slideControl.style.display = 'none';
+    slideControlActive = false;
+    // Restore scrollArea scrolling
+    scrollArea.style.overflowY = '';
+    scrollArea.style.overflowX = '';
+    // Fire the full label-pop animation once on release
+    updateNodesPosition(false, true);
+    setTimeout(updateOverflowBars, 1400);
+    // Clean up document listeners
+    document.removeEventListener('pointermove', onSlideMove);
+    document.removeEventListener('pointerup',   onSlideEnd);
+    document.removeEventListener('pointercancel', onSlideEnd);
+  }
+
+  function onSlideMove(e) {
+    if (!slideControlActive) {
+      // Pre-activation: cancel long-press if finger drifted > 8px
+      const dx = e.clientX - longPressStartX;
+      const dy = e.clientY - longPressStartY;
+      if (Math.sqrt(dx * dx + dy * dy) > 8) {
+        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+        hideChargeRing();
+      }
+      return;
+    }
+
+    const deltaY = e.clientY - longPressStartY;
+    // UP (negative deltaY) = forward in time = higher index = Today Live
+    // DOWN (positive deltaY) = backward in time = lower index = Yest. Start
+    const newIndex = Math.min(SLIDE_MODES.length - 1, Math.max(0,
+      longPressStartModeIndex + Math.round(-deltaY / SLOT_HEIGHT)
+    ));
+
+    if (newIndex !== slideLastModeIndex) {
+      slideLastModeIndex = newIndex;
+      activeSnapshotMode = SLIDE_MODES[newIndex];
+      updateSnapshotIndicator();
+      // No label animation during drag — just snap nodes to new positions
+      updateNodesPosition(false, false);
+      updateSlideControlHighlight(newIndex);
+      showInfoBannerBriefly(SLIDE_MODE_LABELS[activeSnapshotMode], 1500);
+      if (navigator.vibrate) navigator.vibrate(6); // micro haptic per slot
+    }
+  }
+
+  function onSlideEnd() {
+    hideChargeRing();
+    if (slideControlActive) {
+      longPressOccurred = true; // prevent team-card onclick from firing
+      dismissSlideControl();
+      // Clear flag after all click events have fired
+      setTimeout(() => { longPressOccurred = false; }, 150);
+    } else {
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+    }
+    document.removeEventListener('pointermove', onSlideMove);
+    document.removeEventListener('pointerup',   onSlideEnd);
+    document.removeEventListener('pointercancel', onSlideEnd);
+  }
+
+  function onScrollAreaPointerDown(e) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return; // left-click only
+    longPressStartY = e.clientY;
+    longPressStartX = e.clientX;
+    showChargeRing(e.clientX, e.clientY);
+
+    document.addEventListener('pointermove', onSlideMove, { passive: true });
+    document.addEventListener('pointerup',   onSlideEnd);
+    document.addEventListener('pointercancel', onSlideEnd);
+
+    longPressTimer = setTimeout(() => {
+      longPressTimer = null;
+      longPressStartModeIndex = SLIDE_MODES.indexOf(activeSnapshotMode);
+      slideLastModeIndex = longPressStartModeIndex;
+      slideControlActive = true;
+      hideChargeRing();
+      showSlideControl(longPressStartX, longPressStartY);
+      // Lock the scrollArea to prevent accidental scroll while sliding
+      scrollArea.style.overflowY = 'hidden';
+      scrollArea.style.overflowX = 'hidden';
+      if (navigator.vibrate) navigator.vibrate(15); // activation haptic
+    }, 1000);
+  }
 
   // ── Overflow bar helpers ────────────────────────────────────────────
 
@@ -1262,6 +1439,8 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     node.style.cursor = 'pointer';
     node.onclick = (e) => {
       e.stopPropagation();
+      // If a long-press slide just ended, suppress the team modal click
+      if (longPressOccurred) { longPressOccurred = false; return; }
       let activeGame = teamGames[0] || null;
       if (teamGames.length > 1) {
         const cycleMs = 6000;
