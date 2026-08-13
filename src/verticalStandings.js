@@ -335,9 +335,10 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   container.appendChild(scrollArea);
 
   // ── Below-fold overflow indicator bar ──────────────────────────────
-  // Must live INSIDE scrollArea so position:sticky bottom:0 works.
-  // It is re-appended after each renderTimeline() clears scrollArea.innerHTML.
+  // Uses position:absolute within the fixed container so it always overlays
+  // at the bottom edge of the standings view regardless of scroll position.
   const belowBar = buildOverflowBar('below');
+  container.appendChild(belowBar);
 
   // Update overflow bars on every scroll event inside scrollArea
   scrollArea.addEventListener('scroll', () => updateOverflowBars(), { passive: true });
@@ -426,15 +427,21 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
           chip.className = 'overflow-logo-chip overflow-chip-enter';
           chip.setAttribute('data-team-id', String(team.id));
           chip.title = team.abbreviation || String(team.id);
+          chip.style.cursor = 'pointer';
 
           const img = document.createElement('img');
           img.src = getTeamLogoUrl(team.abbreviation);
           img.alt = team.abbreviation || '';
           img.width = 22;
           img.height = 22;
-          img.style.cssText = 'width:22px;height:22px;object-fit:contain;';
+          img.style.cssText = 'width:22px;height:22px;object-fit:contain;pointer-events:none;';
           chip.appendChild(img);
           logosRow.appendChild(chip);
+
+          // Tap chip to scroll to that team
+          chip.addEventListener('click', () => {
+            scrollToTeamNode(team.id);
+          });
 
           // Remove enter class after animation completes
           requestAnimationFrame(() => {
@@ -742,11 +749,6 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
 
     // Store contentBox ref for zoom relayout
     scrollArea._contentBox = contentBox;
-
-    // Re-append belowBar inside scrollArea after every render.
-    // renderTimeline() clears scrollArea.innerHTML so belowBar must be re-attached.
-    // position:sticky bottom:0 requires it to be a child of the scroll container.
-    scrollArea.appendChild(belowBar);
 
     // Initial position update based on activeSnapshotMode
     updateNodesPosition(false);

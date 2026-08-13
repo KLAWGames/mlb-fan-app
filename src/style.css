@@ -3175,12 +3175,14 @@ body.theme-light .vertical-team-action-card {
 }
 
 .overflow-indicator-bar.overflow-below {
-  position: sticky;
+  position: absolute;
   bottom: 0;
-  border-radius: 10px 10px 0 0;
+  left: 0;
+  right: 0;
+  margin: 0;
+  border-radius: 12px 12px 0 0;
   border-bottom: none;
-  margin: 0 12px;
-  box-shadow: 0 -6px 20px rgba(0, 229, 255, 0.12), 0 -2px 8px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 -6px 24px rgba(0, 229, 255, 0.12), 0 -2px 12px rgba(0, 0, 0, 0.5);
   z-index: 30;
 }
 
@@ -3221,7 +3223,17 @@ body.theme-light .vertical-team-action-card {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.22s ease;
+  cursor: pointer;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.22s ease, border-color 0.15s ease;
+}
+
+.overflow-logo-chip:hover {
+  transform: scale(1.18);
+  border-color: rgba(0, 229, 255, 0.7);
+}
+
+.overflow-logo-chip:active {
+  transform: scale(0.92);
 }
 
 .overflow-logo-chip.overflow-chip-enter {
