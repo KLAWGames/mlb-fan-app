@@ -324,10 +324,23 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   infoBanner.innerText = 'Viewing Live Standings (2:00 AM daily schedule rollover). Tap "Play Shift" to watch guided region animations.';
   container.appendChild(infoBanner);
 
+  // ── Above-fold overflow indicator bar ──────────────────────────────
+  // Shows logos of teams scrolled above the top of the visible scrollArea.
+  const aboveBar = buildOverflowBar('above');
+  container.appendChild(aboveBar);
+
   // Scroll Area for Timeline
   const scrollArea = document.createElement('div');
   scrollArea.className = 'vertical-standings-scroll-area';
   container.appendChild(scrollArea);
+
+  // ── Below-fold overflow indicator bar ──────────────────────────────
+  // Shows logos of teams scrolled below the bottom of the visible scrollArea.
+  const belowBar = buildOverflowBar('below');
+  container.appendChild(belowBar);
+
+  // Update overflow bars on every scroll event inside scrollArea
+  scrollArea.addEventListener('scroll', () => updateOverflowBars(), { passive: true });
 
   // References for live nodes and snapshot calculations
   let teamNodesMap = {};
@@ -336,6 +349,159 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   let globalPxPerGB = 130;
   let maxGBAheadVal = 2.5;
   let minGBBehindVal = -5.0;
+
+  // Estimated team node height (used for overflow visibility checks)
+  const TEAM_NODE_HEIGHT = 78;
+  const MAX_OVERFLOW_LOGOS = 5;
+
+  // ── Overflow bar helpers ────────────────────────────────────────────
+
+  /**
+   * Builds a sticky overflow indicator bar element.
+   * Returns the element with an `.update(teams)` method for live updates.
+   * @param {'above'|'below'} position
+   */
+  function buildOverflowBar(position) {
+    const bar = document.createElement('div');
+    bar.className = `overflow-indicator-bar overflow-${position}`;
+    bar.setAttribute('aria-hidden', 'true');
+
+    const label = document.createElement('span');
+    label.className = 'overflow-label';
+    bar.appendChild(label);
+
+    const logosRow = document.createElement('div');
+    logosRow.className = 'overflow-logos-row';
+    bar.appendChild(logosRow);
+
+    // Track currently rendered team IDs to diff against
+    let renderedTeamIds = [];
+
+    bar.update = function(teams) {
+      const newIds = teams.map(t => String(t.id));
+
+      // Hide bar entirely when no teams are off-screen
+      if (teams.length === 0) {
+        bar.classList.remove('overflow-bar-visible');
+        renderedTeamIds = [];
+        logosRow.innerHTML = '';
+        label.textContent = '';
+        return;
+      }
+
+      // Show bar
+      bar.classList.add('overflow-bar-visible');
+
+      // Update label
+      const arrow = position === 'above' ? '↑' : '↓';
+      const word = position === 'above' ? 'above' : 'below';
+      label.textContent = `${arrow} ${teams.length} ${word}`;
+
+      // Diff: remove chips for teams now on-screen
+      const toRemove = renderedTeamIds.filter(id => !newIds.includes(id));
+      const toAdd = newIds.filter(id => !renderedTeamIds.includes(id));
+
+      // Animate out removed chips
+      toRemove.forEach(id => {
+        const chip = logosRow.querySelector(`[data-team-id="${id}"]`);
+        if (chip) {
+          chip.classList.add('overflow-chip-exit');
+          setTimeout(() => { if (chip.parentNode) chip.remove(); }, 220);
+        }
+      });
+
+      // Update rendered list immediately
+      renderedTeamIds = newIds;
+
+      // Rebuild full logos row from scratch when count changes
+      // (simpler than tracking more/chip state)
+      if (toAdd.length > 0 || toRemove.length > 0) {
+        logosRow.innerHTML = '';
+
+        const visibleTeams = teams.slice(0, MAX_OVERFLOW_LOGOS);
+        const extraCount = teams.length - visibleTeams.length;
+
+        visibleTeams.forEach(team => {
+          const chip = document.createElement('div');
+          chip.className = 'overflow-logo-chip overflow-chip-enter';
+          chip.setAttribute('data-team-id', String(team.id));
+          chip.title = team.abbreviation || String(team.id);
+
+          const img = document.createElement('img');
+          img.src = getTeamLogoUrl(team.abbreviation);
+          img.alt = team.abbreviation || '';
+          img.width = 22;
+          img.height = 22;
+          img.style.cssText = 'width:22px;height:22px;object-fit:contain;';
+          chip.appendChild(img);
+          logosRow.appendChild(chip);
+
+          // Remove enter class after animation completes
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => chip.classList.remove('overflow-chip-enter'));
+          });
+        });
+
+        if (extraCount > 0) {
+          const moreChip = document.createElement('div');
+          moreChip.className = 'overflow-more-chip';
+          moreChip.textContent = `+${extraCount}`;
+          logosRow.appendChild(moreChip);
+        }
+      }
+    };
+
+    return bar;
+  }
+
+  /**
+   * Determines which teams are currently above or below the visible
+   * viewport of scrollArea. Uses node.style.top (absolute px position
+   * within contentBox) compared to scrollArea.scrollTop.
+   */
+  function getOffScreenTeams() {
+    const scrollTop = scrollArea.scrollTop;
+    const viewportBottom = scrollTop + scrollArea.clientHeight;
+
+    const above = [];
+    const below = [];
+
+    Object.entries(teamNodesMap).forEach(([teamId, node]) => {
+      if (!node || !node.style.top) return;
+      const nodeTop = parseFloat(node.style.top);
+      if (isNaN(nodeTop)) return;
+      const nodeBottom = nodeTop + TEAM_NODE_HEIGHT;
+
+      // Abbreviation for logo rendering — read from node dataset or inner img
+      // We store abbr on the node so we don't need to recompute
+      const abbr = node._abbr || '';
+      const id = teamId;
+      const teamRef = { id, abbreviation: abbr, _nodeTop: nodeTop };
+
+      if (nodeBottom < scrollTop) {
+        // Fully above the viewport
+        above.push(teamRef);
+      } else if (nodeTop > viewportBottom) {
+        // Fully below the viewport
+        below.push(teamRef);
+      }
+    });
+
+    // Sort: above → closest to fold first (highest nodeTop = nearest fold)
+    above.sort((a, b) => b._nodeTop - a._nodeTop);
+    // Sort: below → closest to fold first (lowest nodeTop = nearest fold)
+    below.sort((a, b) => a._nodeTop - b._nodeTop);
+
+    return { above, below };
+  }
+
+  /** Refresh both overflow bars based on current scroll position. */
+  function updateOverflowBars() {
+    if (Object.keys(teamNodesMap).length === 0) return;
+    const { above, below } = getOffScreenTeams();
+    aboveBar.update(above);
+    belowBar.update(below);
+  }
 
   // Helper to extract snapshot dataset by mode
   function getSnapshotDataset(mode) {
@@ -584,6 +750,8 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     scrollArea.scrollTop = 0;
     setTimeout(() => {
       scrollToTeamNode(state.activeTeamId);
+      // Refresh overflow bars after scroll settles
+      setTimeout(updateOverflowBars, 400);
     }, 350);
   }
 
@@ -991,6 +1159,8 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
 
     node.style.top = `${yPos}px`;
     node.style.left = `${xPos}px`;
+    // Store abbreviation on node for overflow bar rendering
+    node._abbr = team.abbreviation || '';
 
     node.innerHTML = '';
 
@@ -1685,6 +1855,10 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     if (animateScroll) {
       scrollToTeamNode(state.activeTeamId);
     }
+
+    // Refresh overflow bars after nodes settle into position
+    const overflowDelay = isManualButtonClick ? 1400 : 100;
+    setTimeout(updateOverflowBars, overflowDelay);
   }
 
   // Guided Region Motion Replay: Always starts at top (best teams) and moves down section by section
@@ -1882,6 +2056,8 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       isCompactMode = false;
       updateZoomBtnLabel();
       relayoutToExpanded(true);
+      // Refresh overflow bars after expanded layout settles
+      setTimeout(updateOverflowBars, 600);
     }, 1500);
   });
 
