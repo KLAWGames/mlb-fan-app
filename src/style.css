@@ -3198,7 +3198,7 @@ body.theme-light .vertical-team-action-card {
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(0, 229, 255, 0.28);
   border-radius: 16px;
-  min-width: 200px;
+  width: max-content;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(0, 229, 255, 0.07);
   pointer-events: auto;
   animation: slide-control-appear 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) both;
@@ -3226,8 +3226,8 @@ body.theme-light .vertical-team-action-card {
 .slide-control-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 20px;
+  gap: 10px;
+  padding: 12px 14px;
   font-family: var(--font-hud, 'Orbitron', monospace);
   font-size: 12px;
   font-weight: 600;
@@ -3235,7 +3235,8 @@ body.theme-light .vertical-team-action-card {
   letter-spacing: 0.06em;
   transition: background 0.12s ease, color 0.12s ease;
   border-radius: 10px;
-  margin: 2px 6px;
+  margin: 2px 4px;
+  white-space: nowrap;
 }
 
 .slide-control-row:hover,

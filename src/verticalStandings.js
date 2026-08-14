@@ -406,8 +406,16 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
 
   function showSlideControl(clientX, clientY) {
     const rect = container.getBoundingClientRect();
-    const controlW = 200;
-    const controlH = SLIDE_MODES.length * 54 + 44; // rows + hint
+
+    // Show briefly off-screen to measure actual rendered dimensions
+    slideControl.style.visibility = 'hidden';
+    slideControl.style.display = 'block';
+    slideControl.style.left = '-9999px';
+    const controlW = slideControl.offsetWidth;
+    const controlH = slideControl.offsetHeight;
+    slideControl.style.visibility = '';
+    slideControl.style.display = 'none';
+
     const relX = clientX - rect.left;
     const relY = clientY - rect.top;
 
@@ -2035,19 +2043,33 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
 
   renderTimeline();
 
-  // Initial compact → expanded animation on load
+  // Guard: only run the intro animation on genuine first load or after 5+ min away.
+  // Background data refreshes recreate this view every 60s — suppress the animation for those.
+  const _now = Date.now();
+  const _lastInit = window._vertStandingsLastInitMs || 0;
+  const _skipIntroAnim = (_now - _lastInit) < 300000; // 5 minutes threshold
+  window._vertStandingsLastInitMs = _now;
+
   requestAnimationFrame(() => {
     if (Object.keys(teamNodesMap).length === 0 || !scrollArea._contentBox) return;
+
+    if (_skipIntroAnim) {
+      // Silent refresh — just reposition nodes instantly, no animation
+      updateNodesPosition(false, false);
+      setTimeout(updateOverflowBars, 100);
+      return;
+    }
+
+    // Initial compact → expanded intro animation
     isCompactMode = true;
     updateZoomBtnLabel();
-    applyCompactMode(false); // snap, no animation
+    applyCompactMode(false); // snap to compact, no animation
     scrollToTeamNode(state.activeTeamId);
 
     setTimeout(() => {
       isCompactMode = false;
       updateZoomBtnLabel();
       relayoutToExpanded(true);
-      // Refresh overflow bars after expanded layout settles
       setTimeout(updateOverflowBars, 600);
     }, 1500);
   });
