@@ -3200,7 +3200,7 @@ body.theme-light .vertical-team-action-card {
   border-radius: 16px;
   min-width: 200px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(0, 229, 255, 0.07);
-  pointer-events: none;
+  pointer-events: auto;
   animation: slide-control-appear 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
@@ -3236,6 +3236,12 @@ body.theme-light .vertical-team-action-card {
   transition: background 0.12s ease, color 0.12s ease;
   border-radius: 10px;
   margin: 2px 6px;
+}
+
+.slide-control-row:hover,
+.slide-control-row:active {
+  background: rgba(0, 229, 255, 0.07);
+  color: #94a3b8;
 }
 
 .slide-control-row.active {

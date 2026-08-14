@@ -258,18 +258,18 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     const overlay = document.createElement('div');
     overlay.className = 'slide-control-overlay';
     overlay.style.display = 'none';
+    // NOTE: pointer-events: auto so the rows are tappable
     overlay.setAttribute('aria-hidden', 'true');
 
     const hint = document.createElement('div');
     hint.className = 'slide-control-hint';
-    hint.textContent = '\u2191 forward  \u00b7  \u2193 back';
+    hint.textContent = 'Select a view';
     overlay.appendChild(hint);
 
     const rowsContainer = document.createElement('div');
     rowsContainer.className = 'slide-control-rows';
 
-    // Display in reverse chronological order so sliding UP (toward Today Live) feels natural.
-    // Top row = Today Live (most recent), bottom row = Yest. Start (earliest).
+    // Display in reverse chronological order: Today Live on top, Yest. Start on bottom.
     const displayOrder = [...SLIDE_MODES].reverse();
     const displayLabels = {
       'today-live':      'Today Live',
@@ -281,6 +281,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       const row = document.createElement('div');
       row.className = 'slide-control-row';
       row.setAttribute('data-mode', mode);
+      row.style.cursor = 'pointer';
 
       const dot = document.createElement('span');
       dot.className = 'row-dot';
@@ -291,14 +292,30 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
       row.appendChild(dot);
       row.appendChild(lbl);
       rowsContainer.appendChild(row);
+
+      // Tap a row → switch to that mode and close
+      row.addEventListener('pointerdown', e => {
+        e.stopPropagation(); // prevent outside-close handler from firing
+        onRowSelected(mode);
+      });
     });
 
     overlay.appendChild(rowsContainer);
     return overlay;
   }
 
-  function updateSlideControlHighlight(modeIndex) {
-    const activeMode = SLIDE_MODES[modeIndex];
+  function onRowSelected(mode) {
+    activeSnapshotMode = mode;
+    updateSnapshotIndicator();
+    updateNodesPosition(false, true); // full transition with label animation
+    showInfoBannerBriefly(SLIDE_MODE_LABELS[mode], 2000);
+    dismissSlideControl();
+    longPressOccurred = true;
+    setTimeout(() => { longPressOccurred = false; }, 150);
+  }
+
+  function updateSlideControlHighlight() {
+    const activeMode = activeSnapshotMode;
     slideControl.querySelectorAll('.slide-control-row').forEach(row => {
       row.classList.toggle('active', row.getAttribute('data-mode') === activeMode);
     });
@@ -309,9 +326,8 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     chargeRing.style.left = `${clientX - rect.left}px`;
     chargeRing.style.top  = `${clientY - rect.top}px`;
     chargeRing.style.display = 'block';
-    // Restart animation
     chargeRing.style.animation = 'none';
-    chargeRing.offsetHeight; // force reflow
+    chargeRing.offsetHeight; // force reflow to restart animation
     chargeRing.style.animation = '';
   }
 
@@ -322,109 +338,94 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   function showSlideControl(clientX, clientY) {
     const rect = container.getBoundingClientRect();
     const controlW = 200;
-    const rowCount = SLIDE_MODES.length;
-    const controlH = rowCount * SLOT_HEIGHT + 44; // 44px for hint row
+    const controlH = SLIDE_MODES.length * 54 + 44; // rows + hint
     const relX = clientX - rect.left;
     const relY = clientY - rect.top;
 
-    // Appear above the finger/cursor so it isn't hidden
+    // Position above the press point, clamped within container
     const left = Math.min(Math.max(relX - controlW / 2, 12), rect.width  - controlW - 12);
-    const top  = Math.min(Math.max(relY - controlH - 24, 12), rect.height - controlH - 12);
+    const top  = Math.min(Math.max(relY - controlH - 24,  12), rect.height - controlH - 12);
 
     slideControl.style.left    = `${left}px`;
     slideControl.style.top     = `${top}px`;
     slideControl.style.display = 'block';
-    // Restart appear animation
     slideControl.style.animation = 'none';
-    slideControl.offsetHeight;
+    slideControl.offsetHeight; // restart animation
     slideControl.style.animation = '';
-    updateSlideControlHighlight(SLIDE_MODES.indexOf(activeSnapshotMode));
+    updateSlideControlHighlight();
   }
 
   function dismissSlideControl() {
     slideControl.style.display = 'none';
     slideControlActive = false;
-    // Restore scrollArea scrolling
     scrollArea.style.overflowY = '';
     scrollArea.style.overflowX = '';
-    // Fire the full label-pop animation once on release
-    updateNodesPosition(false, true);
-    setTimeout(updateOverflowBars, 1400);
-    // Clean up document listeners
-    document.removeEventListener('pointermove', onSlideMove);
-    document.removeEventListener('pointerup',   onSlideEnd);
-    document.removeEventListener('pointercancel', onSlideEnd);
+    document.removeEventListener('pointerdown', onOutsidePointerDown, true);
+    setTimeout(updateOverflowBars, 400);
   }
 
-  function onSlideMove(e) {
-    if (!slideControlActive) {
-      // Pre-activation: cancel long-press if finger drifted > 8px
-      const dx = e.clientX - longPressStartX;
-      const dy = e.clientY - longPressStartY;
-      if (Math.sqrt(dx * dx + dy * dy) > 8) {
-        if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
-        hideChargeRing();
-      }
-      return;
-    }
-
-    const deltaY = e.clientY - longPressStartY;
-    // UP (negative deltaY) = forward in time = higher index = Today Live
-    // DOWN (positive deltaY) = backward in time = lower index = Yest. Start
-    const newIndex = Math.min(SLIDE_MODES.length - 1, Math.max(0,
-      longPressStartModeIndex + Math.round(-deltaY / SLOT_HEIGHT)
-    ));
-
-    if (newIndex !== slideLastModeIndex) {
-      slideLastModeIndex = newIndex;
-      activeSnapshotMode = SLIDE_MODES[newIndex];
-      updateSnapshotIndicator();
-      // No label animation during drag — just snap nodes to new positions
-      updateNodesPosition(false, false);
-      updateSlideControlHighlight(newIndex);
-      showInfoBannerBriefly(SLIDE_MODE_LABELS[activeSnapshotMode], 1500);
-      if (navigator.vibrate) navigator.vibrate(6); // micro haptic per slot
-    }
-  }
-
-  function onSlideEnd() {
-    hideChargeRing();
-    if (slideControlActive) {
-      longPressOccurred = true; // prevent team-card onclick from firing
+  // Fires when the user taps anywhere outside the control while it's open
+  function onOutsidePointerDown(e) {
+    if (!slideControl.contains(e.target)) {
       dismissSlideControl();
-      // Clear flag after all click events have fired
-      setTimeout(() => { longPressOccurred = false; }, 150);
-    } else {
-      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+      document.removeEventListener('pointerdown', onOutsidePointerDown, true);
     }
-    document.removeEventListener('pointermove', onSlideMove);
-    document.removeEventListener('pointerup',   onSlideEnd);
-    document.removeEventListener('pointercancel', onSlideEnd);
+  }
+
+  // Only used during the 1s countdown to cancel if the finger drifts
+  function onPreActivationMove(e) {
+    if (slideControlActive) return; // control already open, ignore
+    const dx = e.clientX - longPressStartX;
+    const dy = e.clientY - longPressStartY;
+    if (Math.sqrt(dx * dx + dy * dy) > 8) {
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+      hideChargeRing();
+      document.removeEventListener('pointermove', onPreActivationMove);
+    }
+  }
+
+  // Fires on finger/mouse lift during the countdown — just cancels the timer
+  function onPreActivationEnd() {
+    if (!slideControlActive) {
+      if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+      hideChargeRing();
+    }
+    document.removeEventListener('pointermove', onPreActivationMove);
+    document.removeEventListener('pointerup',   onPreActivationEnd);
+    document.removeEventListener('pointercancel', onPreActivationEnd);
   }
 
   function onScrollAreaPointerDown(e) {
     if (e.pointerType === 'mouse' && e.button !== 0) return; // left-click only
+    if (slideControlActive) return; // already open
+
     longPressStartY = e.clientY;
     longPressStartX = e.clientX;
     showChargeRing(e.clientX, e.clientY);
 
-    document.addEventListener('pointermove', onSlideMove, { passive: true });
-    document.addEventListener('pointerup',   onSlideEnd);
-    document.addEventListener('pointercancel', onSlideEnd);
+    document.addEventListener('pointermove', onPreActivationMove, { passive: true });
+    document.addEventListener('pointerup',   onPreActivationEnd);
+    document.addEventListener('pointercancel', onPreActivationEnd);
 
     longPressTimer = setTimeout(() => {
       longPressTimer = null;
-      longPressStartModeIndex = SLIDE_MODES.indexOf(activeSnapshotMode);
-      slideLastModeIndex = longPressStartModeIndex;
+      document.removeEventListener('pointermove', onPreActivationMove);
+      document.removeEventListener('pointerup',   onPreActivationEnd);
+      document.removeEventListener('pointercancel', onPreActivationEnd);
+
       slideControlActive = true;
       hideChargeRing();
       showSlideControl(longPressStartX, longPressStartY);
-      // Lock the scrollArea to prevent accidental scroll while sliding
-      scrollArea.style.overflowY = 'hidden';
-      scrollArea.style.overflowX = 'hidden';
-      if (navigator.vibrate) navigator.vibrate(15); // activation haptic
+      if (navigator.vibrate) navigator.vibrate(15);
+
+      // After the activation pointerup fires (user lifts from the hold),
+      // begin listening for outside taps. Small delay to skip current event.
+      setTimeout(() => {
+        document.addEventListener('pointerdown', onOutsidePointerDown, true);
+      }, 80);
     }, 1000);
   }
+
 
   // ── Overflow bar helpers ────────────────────────────────────────────
 
