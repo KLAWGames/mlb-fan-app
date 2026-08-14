@@ -249,8 +249,79 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   const slideControl = buildSlideControl();
   container.appendChild(slideControl);
 
-  // Wire long-press gesture
-  scrollArea.addEventListener('pointerdown', onScrollAreaPointerDown, { passive: true });
+  // ── Floating Action Button (FAB) — opens snapshot menu on tap, draggable on hold ──
+  const fab = document.createElement('button');
+  fab.className = 'snapshot-fab';
+  fab.setAttribute('aria-label', 'Switch snapshot view');
+  fab.innerHTML = '<span class="fab-icon">+</span>';
+  container.appendChild(fab);
+
+  let suppressFabOpen = false; // prevents menu reopening when tapping FAB to close it
+  let fabDragActive  = false;
+  let fabDragTimer   = null;
+  let fabPointerStartX = 0;
+  let fabPointerStartY = 0;
+
+  function openSnapshotMenu() {
+    if (slideControlActive) return;
+    const fabRect = fab.getBoundingClientRect();
+    showSlideControl(fabRect.left + fabRect.width / 2, fabRect.top);
+    slideControlActive = true;
+    fab.classList.add('menu-open');
+    // Small delay so the activation pointerdown doesn't immediately close via outside handler
+    setTimeout(() => document.addEventListener('pointerdown', onOutsidePointerDown, true), 80);
+  }
+
+  function onFabPointerMove(e) {
+    if (!fabDragActive) {
+      const dx = e.clientX - fabPointerStartX;
+      const dy = e.clientY - fabPointerStartY;
+      if (Math.sqrt(dx * dx + dy * dy) > 6) {
+        clearTimeout(fabDragTimer); fabDragTimer = null;
+        fabDragActive = true;
+        fab.classList.add('dragging');
+        // Close menu if open while starting drag
+        if (slideControlActive) dismissSlideControl();
+      }
+      return;
+    }
+    const rect = container.getBoundingClientRect();
+    const sz   = fab.offsetWidth;
+    const newL = Math.min(Math.max(e.clientX - rect.left - sz / 2, 8), rect.width  - sz - 8);
+    const newT = Math.min(Math.max(e.clientY - rect.top  - sz / 2, 8), rect.height - sz - 8);
+    fab.style.right  = 'auto';
+    fab.style.bottom = 'auto';
+    fab.style.left   = `${newL}px`;
+    fab.style.top    = `${newT}px`;
+  }
+
+  function onFabPointerUp() {
+    document.removeEventListener('pointermove', onFabPointerMove);
+    document.removeEventListener('pointerup',   onFabPointerUp);
+    document.removeEventListener('pointercancel', onFabPointerUp);
+    if (fabDragActive) {
+      fabDragActive = false;
+      fab.classList.remove('dragging');
+    } else {
+      clearTimeout(fabDragTimer); fabDragTimer = null;
+      if (!suppressFabOpen) openSnapshotMenu();
+      suppressFabOpen = false;
+    }
+  }
+
+  fab.addEventListener('pointerdown', e => {
+    e.stopPropagation();
+    fabPointerStartX = e.clientX;
+    fabPointerStartY = e.clientY;
+    fabDragActive = false;
+    fabDragTimer = setTimeout(() => {
+      fabDragActive = true;
+      fab.classList.add('dragging');
+    }, 450);
+    document.addEventListener('pointermove', onFabPointerMove, { passive: true });
+    document.addEventListener('pointerup',   onFabPointerUp);
+    document.addEventListener('pointercancel', onFabPointerUp);
+  });
 
   // ── Press-and-hold slide gesture functions ──────────────────────────────
 
@@ -309,9 +380,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     updateSnapshotIndicator();
     updateNodesPosition(false, true); // full transition with label animation
     showInfoBannerBriefly(SLIDE_MODE_LABELS[mode], 2000);
-    dismissSlideControl();
-    longPressOccurred = true;
-    setTimeout(() => { longPressOccurred = false; }, 150);
+    updateSlideControlHighlight(); // keep menu open, just refresh the active highlight
   }
 
   function updateSlideControlHighlight() {
@@ -360,6 +429,7 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
     slideControlActive = false;
     scrollArea.style.overflowY = '';
     scrollArea.style.overflowX = '';
+    fab.classList.remove('menu-open');
     document.removeEventListener('pointerdown', onOutsidePointerDown, true);
     setTimeout(updateOverflowBars, 400);
   }
@@ -367,6 +437,8 @@ export function createVerticalStandingsView(state, onBack, callbacks = {}) {
   // Fires when the user taps anywhere outside the control while it's open
   function onOutsidePointerDown(e) {
     if (!slideControl.contains(e.target)) {
+      // If user taps the FAB itself, suppress re-opening so it acts as a close toggle
+      if (fab.contains(e.target)) suppressFabOpen = true;
       dismissSlideControl();
       document.removeEventListener('pointerdown', onOutsidePointerDown, true);
     }

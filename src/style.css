@@ -3285,6 +3285,61 @@ body.theme-light .vertical-team-action-card {
   100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.7; }
 }
 
+/* ── Snapshot FAB (Floating Action Button) ────────────────────────────── */
+
+.snapshot-fab {
+  position: absolute;
+  right: 16px;
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px) + 72px);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(5, 10, 20, 0.9);
+  border: 1.5px solid rgba(0, 229, 255, 0.45);
+  color: #00e5ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 485;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55), 0 0 14px rgba(0, 229, 255, 0.1);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  padding: 0;
+}
+
+.snapshot-fab .fab-icon {
+  font-size: 26px;
+  font-weight: 300;
+  line-height: 1;
+  pointer-events: none;
+  transition: transform 0.2s ease;
+}
+
+.snapshot-fab:hover {
+  border-color: rgba(0, 229, 255, 0.7);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 229, 255, 0.18);
+}
+
+.snapshot-fab.menu-open {
+  border-color: rgba(0, 229, 255, 0.85);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6), 0 0 24px rgba(0, 229, 255, 0.25);
+}
+
+.snapshot-fab.menu-open .fab-icon {
+  transform: rotate(45deg); /* + becomes × when menu open */
+}
+
+.snapshot-fab.dragging {
+  cursor: grabbing;
+  border-color: rgba(0, 229, 255, 0.9);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7), 0 0 28px rgba(0, 229, 255, 0.28);
+  transform: scale(1.12);
+  transition: box-shadow 0.1s ease;
+}
+
 /* ── Off-Screen Team Overflow Indicator Bars ─────────────────────────── */
 
 .overflow-indicator-bar {
