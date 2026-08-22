@@ -2165,24 +2165,33 @@ function showLeagueStreaksModal() {
   const activeGroup = document.createElement('div');
   activeGroup.style.cssText = 'display: flex; flex-direction: column; gap: 16px; padding: 12px; background: rgba(245, 158, 11, 0.02); border: 1.5px solid rgba(245, 158, 11, 0.15); border-radius: 12px;';
 
-  // 1. Team Win/Loss Streaks
+  // 1. Team Win/Loss Streaks — read directly from MLB API streakCode (e.g. "W9", "L3")
   const teamsMap = state.processedStandings?.teamsMap || {};
   const teamStreaks = [];
   for (const teamId in teamsMap) {
     const t = teamsMap[teamId];
-    const wins = t.wins !== undefined ? t.wins : 0;
-    const losses = t.losses !== undefined ? t.losses : 0;
-    const streakObj = getTeamStreak(t.id, wins, losses);
-    teamStreaks.push({ team: t, streak: streakObj });
+    const code = t.streakCode || '-';
+    let streakObj = { type: 'neutral', count: 0 };
+    if (code && code !== '-') {
+      if (code.startsWith('W')) {
+        const n = parseInt(code.substring(1), 10);
+        if (n > 0) streakObj = { type: 'win', count: n };
+      } else if (code.startsWith('L')) {
+        const n = parseInt(code.substring(1), 10);
+        if (n > 0) streakObj = { type: 'loss', count: n };
+      }
+    }
+    if (streakObj.count > 0) teamStreaks.push({ team: t, streak: streakObj });
   }
 
+  // Win streaks
   const winStreaks = teamStreaks
     .filter(x => x.streak.type === 'win' && x.streak.count >= 2)
     .sort((a, b) => b.streak.count - a.streak.count);
 
-  const winSec = createSection('Longest MLB Win Streaks', '🛡️');
+  const winSec = createSection('Active Win Streaks', '🛡️');
   if (winStreaks.length > 0) {
-    winStreaks.slice(0, 3).forEach(x => {
+    winStreaks.forEach(x => {
       const row = document.createElement('div');
       row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 2px 0; font-size: 12.5px;';
       row.innerHTML = `
@@ -2194,10 +2203,34 @@ function showLeagueStreaksModal() {
   } else {
     const noWins = document.createElement('div');
     noWins.style.cssText = 'font-size: 12px; color: var(--text-muted); font-style: italic;';
-    noWins.innerText = 'No team currently on a win streak.';
+    noWins.innerText = 'No team currently on a win streak of 2+.';
     winSec.listContainer.appendChild(noWins);
   }
   activeGroup.appendChild(winSec.container);
+
+  // Loss streaks
+  const lossStreaks = teamStreaks
+    .filter(x => x.streak.type === 'loss' && x.streak.count >= 2)
+    .sort((a, b) => b.streak.count - a.streak.count);
+
+  const lossSec = createSection('Active Loss Streaks', '❄️');
+  if (lossStreaks.length > 0) {
+    lossStreaks.forEach(x => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 2px 0; font-size: 12.5px;';
+      row.innerHTML = `
+        <span style="font-weight: 600; color: var(--text-secondary);">${x.team.name}</span>
+        <span style="background: rgba(99, 102, 241, 0.15); color: #818cf8; border: 1.5px solid rgba(99, 102, 241, 0.4); font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 20px; font-family: var(--font-title);">L${x.streak.count}</span>
+      `;
+      lossSec.listContainer.appendChild(row);
+    });
+  } else {
+    const noLoss = document.createElement('div');
+    noLoss.style.cssText = 'font-size: 12px; color: var(--text-muted); font-style: italic;';
+    noLoss.innerText = 'No team currently on a losing streak of 2+.';
+    lossSec.listContainer.appendChild(noLoss);
+  }
+  activeGroup.appendChild(lossSec.container);
 
   // 2. Hitting Streaks
   const hitSec = createSection('Active Hitting Streaks (10+ Games)', '⚡');
@@ -4914,13 +4947,28 @@ function createLoader() {
 
 // Calculate current win/loss streak for a team
 function getTeamStreak(teamId, wins, losses) {
+  // ── Priority 1: Real streak data from MLB Standings API ─────────────────
+  // processedStandings stores streakCode from tr.streak.streakCode (e.g. "W9", "L3")
+  const teamRec = state.processedStandings?.teamsMap?.[teamId];
+  if (teamRec && teamRec.streakCode && teamRec.streakCode !== '-') {
+    const code = teamRec.streakCode;
+    if (code.startsWith('W')) {
+      const n = parseInt(code.substring(1), 10);
+      if (n > 0) return { type: 'win',  count: n };
+    } else if (code.startsWith('L')) {
+      const n = parseInt(code.substring(1), 10);
+      if (n > 0) return { type: 'loss', count: n };
+    }
+  }
+
+  // ── Priority 2: Real per-game schedule if already fetched ─────────────
   const games = generateSeasonGames(teamId, wins, losses);
   if (!games || games.length === 0) return { type: 'neutral', count: 0 };
-  
+
   const lastGame = games[games.length - 1];
   const isWinStreak = lastGame.isWin;
   let count = 0;
-  
+
   for (let i = games.length - 1; i >= 0; i--) {
     if (games[i].isWin === isWinStreak) {
       count++;
@@ -4928,7 +4976,7 @@ function getTeamStreak(teamId, wins, losses) {
       break;
     }
   }
-  
+
   return {
     type: isWinStreak ? 'win' : 'loss',
     count: count
