@@ -261,10 +261,29 @@
         // Point the iframe at ourselves with ?mobile=1 so it renders as the app
         var iframe = document.getElementById('phone-iframe');
         if (iframe) {
-          var sep = location.search ? '&' : '?';
-          iframe.src = location.href.split('?')[0] + sep.replace('&','?') + 'mobile=1' +
-                       (location.hash || '');
+          var base = location.href.split('?')[0].split('#')[0];
+          iframe.src = base + '?mobile=1' + (location.hash || '');
         }
+
+        // ── Auto-scale the phone frame to always fit the visible viewport ──
+        // Phone outer body natural dimensions (screen 393×852 + 14px padding each side)
+        var PHONE_H = 880; // 852 + 14*2
+        var PHONE_W = 421; // 393 + 14*2
+        var MARGIN  = 20;  // px gap around phone (top+bottom combined, left+right combined)
+
+        function scalePhoneToFit() {
+          var outer = document.getElementById('phone-frame-outer');
+          if (!outer) return;
+          var availH = window.innerHeight - MARGIN;
+          var availW = window.innerWidth  - MARGIN;
+          var scale  = Math.min(availH / PHONE_H, availW / PHONE_W, 1);
+          // CSS zoom: scales the element AND its layout footprint (unlike transform:scale)
+          // Supported by all modern desktop browsers (Chrome, Edge, Safari, Firefox 126+)
+          outer.style.zoom = scale;
+        }
+
+        scalePhoneToFit();
+        window.addEventListener('resize', scalePhoneToFit);
       })();
     </script>
   </body>
