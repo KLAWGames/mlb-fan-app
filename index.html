@@ -6,6 +6,20 @@
       (function() {
         var theme = localStorage.getItem('app_theme_mode') || 'dark';
         document.documentElement.setAttribute('data-theme', theme);
+
+        // Desktop preview detection:
+        // Show phone frame only when on a mouse/trackpad desktop browser (not in iframe, not forced mobile)
+        try {
+          var isInIframe   = window !== window.top;
+          var isMobileFlag = location.search.indexOf('mobile=1') > -1;
+          var isDesktop    = !isInIframe && !isMobileFlag &&
+                             window.innerWidth > 900 &&
+                             window.matchMedia('(pointer: fine)').matches;
+          if (isDesktop) {
+            window.__isDesktopShell = true;
+            document.documentElement.classList.add('desktop-preview-shell');
+          }
+        } catch(e) {}
       })();
     </script>
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
@@ -30,8 +44,182 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&family=Rajdhani:wght@500;600;700&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <!-- Desktop preview phone-frame styles (inlined to avoid FOUC) -->
+    <style>
+      /* ── Mobile / non-desktop: completely hide phone frame wrapper ──────── */
+      html:not(.desktop-preview-shell) #phone-frame-outer { display: none !important; }
+
+      /* ── Desktop: hide the direct mobile app elements (iframe loads the app) */
+      html.desktop-preview-shell #app,
+      html.desktop-preview-shell #app-splash-screen { display: none !important; }
+
+      /* ── Desktop phone-frame shell ────────────────────────────────────── */
+      html.desktop-preview-shell, html.desktop-preview-shell body {
+        margin: 0; padding: 0; width: 100%; height: 100%;
+        overflow: hidden;
+      }
+      html.desktop-preview-shell body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        /* Dark desktop background with subtle cyan grid */
+        background-color: #060810;
+        background-image:
+          radial-gradient(ellipse 70% 45% at 50% 0%, rgba(0,229,255,0.06) 0%, transparent 65%),
+          linear-gradient(rgba(0,229,255,0.025) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0,229,255,0.025) 1px, transparent 1px);
+        background-size: 100% 100%, 40px 40px, 40px 40px;
+      }
+
+      /* Desktop PREVIEW label */
+      html.desktop-preview-shell body::after {
+        content: 'DESKTOP PREVIEW';
+        position: fixed;
+        bottom: 18px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-family: 'Orbitron', monospace;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.2em;
+        color: rgba(0, 229, 255, 0.18);
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      /* Outer phone body */
+      html.desktop-preview-shell #phone-frame-outer {
+        position: relative;
+        border-radius: 58px;
+        padding: 14px;
+        background: linear-gradient(155deg, #48484a 0%, #2c2c2e 30%, #1c1c1e 55%, #2c2c2e 80%, #3a3a3c 100%);
+        box-shadow:
+          0 0 0 1px rgba(255,255,255,0.13),
+          0 0 0 2px rgba(0,0,0,0.85),
+          inset 0 1px 0 rgba(255,255,255,0.2),
+          inset 0 -1px 0 rgba(0,0,0,0.6),
+          0 50px 140px rgba(0,0,0,0.95),
+          0 0 80px rgba(0,0,0,0.6);
+        z-index: 1;
+        /* Volume up button (left, lower) */
+      }
+      /* Volume buttons - left side */
+      html.desktop-preview-shell #phone-frame-outer::before {
+        content: '';
+        position: absolute;
+        left: -4px;
+        top: 160px;
+        width: 3px;
+        height: 34px;
+        background: linear-gradient(180deg, #48484a, #2c2c2e);
+        border-radius: 2px 0 0 2px;
+        box-shadow: -1px 0 0 rgba(255,255,255,0.07), inset 0 1px 0 rgba(255,255,255,0.12);
+      }
+      /* Power button - right side */
+      html.desktop-preview-shell #phone-frame-outer::after {
+        content: '';
+        position: absolute;
+        right: -4px;
+        top: 185px;
+        width: 3px;
+        height: 70px;
+        background: linear-gradient(180deg, #48484a, #2c2c2e);
+        border-radius: 0 2px 2px 0;
+        box-shadow: 1px 0 0 rgba(255,255,255,0.07), inset 0 1px 0 rgba(255,255,255,0.12);
+      }
+
+      /* Phone screen bezel */
+      html.desktop-preview-shell #phone-bezel {
+        width: 393px;
+        height: 852px;
+        background: #000;
+        border-radius: 44px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.07);
+      }
+
+      /* App iframe - fills the screen area */
+      html.desktop-preview-shell #phone-iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+        display: block;
+        border-radius: 44px;
+      }
+
+      /* Dynamic Island */
+      html.desktop-preview-shell #phone-dynamic-island {
+        position: absolute;
+        top: 13px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 126px;
+        height: 37px;
+        background: #000;
+        border-radius: 20px;
+        z-index: 10;
+        pointer-events: none;
+        box-shadow: 0 0 0 2px rgba(255,255,255,0.04);
+      }
+
+      /* Home indicator */
+      html.desktop-preview-shell #phone-home-indicator {
+        position: absolute;
+        bottom: 9px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 134px;
+        height: 5px;
+        background: rgba(255,255,255,0.32);
+        border-radius: 3px;
+        z-index: 10;
+        pointer-events: none;
+      }
+
+      /* Volume down button (second left-side button, below the ::before one) */
+      html.desktop-preview-shell #phone-vol-down {
+        position: absolute;
+        left: -4px;
+        top: 205px;
+        width: 3px;
+        height: 64px;
+        background: linear-gradient(180deg, #48484a, #2c2c2e);
+        border-radius: 2px 0 0 2px;
+        box-shadow: -1px 0 0 rgba(255,255,255,0.07), inset 0 1px 0 rgba(255,255,255,0.12);
+      }
+      /* Silent switch */
+      html.desktop-preview-shell #phone-silent {
+        position: absolute;
+        left: -4px;
+        top: 110px;
+        width: 3px;
+        height: 32px;
+        background: linear-gradient(180deg, #48484a, #2c2c2e);
+        border-radius: 2px 0 0 2px;
+        box-shadow: -1px 0 0 rgba(255,255,255,0.07), inset 0 1px 0 rgba(255,255,255,0.12);
+      }
+    </style>
   </head>
   <body>
+    <!-- ── Desktop phone-frame wrapper (invisible on mobile via display:contents) ── -->
+    <div id="phone-frame-outer">
+      <!-- Side buttons (decorative, desktop only) -->
+      <div id="phone-silent"></div>
+      <div id="phone-vol-down"></div>
+
+      <!-- Phone screen -->
+      <div id="phone-bezel">
+        <div id="phone-dynamic-island"></div>
+        <!-- App content: iframe on desktop, direct elements on mobile -->
+        <iframe id="phone-iframe" title="Trajectory App" allowfullscreen></iframe>
+        <div id="phone-home-indicator"></div>
+      </div>
+    </div>
+
+    <!-- ── Normal mobile app content (rendered directly, no iframe) ── -->
     <div id="app"></div>
     <div id="app-splash-screen" class="splash-screen">
       <div class="splash-radar-bg"></div>
@@ -58,5 +246,26 @@
       </div>
     </div>
     <script type="module" src="/src/main.js"></script>
+
+    <!-- ── Desktop shell setup ── -->
+    <script>
+      (function() {
+        if (!window.__isDesktopShell) return;
+
+        // Hide the direct mobile elements — they don't run in shell mode
+        var appEl     = document.getElementById('app');
+        var splashEl  = document.getElementById('app-splash-screen');
+        if (appEl)    appEl.style.display    = 'none';
+        if (splashEl) splashEl.style.display = 'none';
+
+        // Point the iframe at ourselves with ?mobile=1 so it renders as the app
+        var iframe = document.getElementById('phone-iframe');
+        if (iframe) {
+          var sep = location.search ? '&' : '?';
+          iframe.src = location.href.split('?')[0] + sep.replace('&','?') + 'mobile=1' +
+                       (location.hash || '');
+        }
+      })();
+    </script>
   </body>
 </html>

@@ -6,6 +6,13 @@ import { openGameAnalyticsCenter, reconstructGameFromSeasonGame, fetchLiveGameFe
 import { mountRecapApp } from './recap/mount.jsx';
 import { createVerticalStandingsView } from './verticalStandings.js';
 
+// ── Desktop preview shell guard ────────────────────────────────────────────
+// When index.html is the outer phone-frame wrapper on desktop, it sets
+// window.__isDesktopShell = true before this module runs. The DOMContentLoaded
+// call at the bottom checks this flag and skips init() so the real app only
+// runs inside the iframe (which has its own fresh copy of this module).
+// ──────────────────────────────────────────────────────────────────────────
+
 function formatOffDayDate(dateStr) {
   if (!dateStr) return '';
   const parts = dateStr.split('-');
@@ -10002,10 +10009,12 @@ function createRecapScrollView() {
   return container;
 }
 
-// Fire application initialization
-document.addEventListener('DOMContentLoaded', init);
-// Run init immediately in case DOM is already loaded
-if (document.readyState === 'complete' || document.readyState === 'interactive') {
-  init();
+// Fire application initialization (skip if this page is the desktop phone-frame shell)
+if (!window.__isDesktopShell) {
+  document.addEventListener('DOMContentLoaded', init);
+  // Run init immediately in case DOM is already loaded
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    init();
+  }
 }
 export { init };
