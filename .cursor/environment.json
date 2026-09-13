@@ -1,0 +1,17 @@
+{
+  "name": "Trajectory MLB Fan App",
+  "install": "npm ci",
+  "terminals": [
+    {
+      "name": "dev",
+      "command": "npm run dev",
+      "description": "Vite dev server for the Trajectory MLB fan app (http://localhost:5173)."
+    }
+  ],
+  "ports": [
+    {
+      "name": "vite",
+      "port": 5173
+    }
+  ]
+}
