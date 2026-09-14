@@ -5,6 +5,7 @@ import { processStandings, analyzeMatchups } from './rootingEngine.js';
 import { openGameAnalyticsCenter, reconstructGameFromSeasonGame, fetchLiveGameFeed } from './gameAnalytics.js';
 import { mountRecapApp } from './recap/mount.jsx';
 import { createVerticalStandingsView } from './verticalStandings.js';
+import { createPlayoffsView } from './playoffs.js';
 
 // ── Desktop preview shell guard ────────────────────────────────────────────
 // When index.html is the outer phone-frame wrapper on desktop, it sets
@@ -51,7 +52,7 @@ function getBaseballDate(offsetDays = 0) {
 let state = {
   selectedTeamIds: [], // Tracked favorite team IDs (max 3)
   activeTeamId: null,  // Currently active team ID in view
-  activeView: 'dashboard', // 'dashboard' | 'standings' | 'settings'
+  activeView: 'dashboard', // 'dashboard' | 'playoffs' | 'standings' | 'scores' | 'settings' | ...
   selectedDate: getBaseballDate(0), // YYYY-MM-DD
   rawStandings: null,
   rawSchedule: null,
@@ -74,7 +75,10 @@ let state = {
   rawScheduleYesterday: null, // Cache of yesterday's schedule
   recapOpened: false, // Tracks whether the recap modal is currently open
   highFivedTeams: [], // Track which team IDs have been high-fived
-  previousMainView: 'dashboard', // Tracks previous view ('dashboard' | 'standings')
+  previousMainView: 'dashboard', // Tracks previous view ('dashboard' | 'playoffs' | 'standings')
+  playoffsLeagueId: null,
+  playoffsEliminatedExpanded: false,
+  standingsLeagueId: null,
   hotPerformersTimeframe: 'Last 30 Games', // 'Last 10 Games' | 'Last 30 Games' | 'Season'
   injuredPlayers: {
     "Aaron Judge": "Injured 10-Day"
@@ -4059,33 +4063,17 @@ function transitionToView(targetView, targetTeamId = null) {
   state.selectedTeamIds.forEach(id => {
     viewsList.push({ view: 'dashboard', teamId: id });
   });
+  viewsList.push({ view: 'playoffs' });
   viewsList.push({ view: 'standings' });
   viewsList.push({ view: 'scores' });
   viewsList.push({ view: 'settings' });
 
-  // Resolve current active view index
-  let currentIndex = -1;
-  if (state.activeView === 'standings') {
-    currentIndex = viewsList.length - 3;
-  } else if (state.activeView === 'scores') {
-    currentIndex = viewsList.length - 2;
-  } else if (state.activeView === 'settings') {
-    currentIndex = viewsList.length - 1;
-  } else if (state.activeView === 'dashboard') {
-    currentIndex = viewsList.findIndex(item => item.view === 'dashboard' && item.teamId === state.activeTeamId);
-  }
+  const resolveIndex = (view, teamId) => view === 'dashboard'
+    ? viewsList.findIndex(item => item.view === 'dashboard' && item.teamId === teamId)
+    : viewsList.findIndex(item => item.view === view);
 
-  // Resolve target index
-  let targetIndex = -1;
-  if (targetView === 'standings') {
-    targetIndex = viewsList.length - 3;
-  } else if (targetView === 'scores') {
-    targetIndex = viewsList.length - 2;
-  } else if (targetView === 'settings') {
-    targetIndex = viewsList.length - 1;
-  } else if (targetView === 'dashboard') {
-    targetIndex = viewsList.findIndex(item => item.view === 'dashboard' && item.teamId === targetTeamId);
-  }
+  const currentIndex = resolveIndex(state.activeView, state.activeTeamId);
+  const targetIndex = resolveIndex(targetView, targetTeamId);
 
   if (currentIndex !== -1 && targetIndex !== -1 && currentIndex !== targetIndex) {
     if (targetIndex > currentIndex) {
@@ -4093,6 +4081,10 @@ function transitionToView(targetView, targetTeamId = null) {
     } else {
       state.transitionDirection = 'backward';
     }
+  }
+
+  if (state.activeView === 'playoffs' || state.activeView === 'standings' || state.activeView === 'dashboard') {
+    state.previousMainView = state.activeView;
   }
 
   state.activeView = targetView;
@@ -4119,7 +4111,7 @@ function transitionToView(targetView, targetTeamId = null) {
     return;
   }
 
-  if (targetView === 'standings' && state.selectedDate !== todayStr) {
+  if ((targetView === 'playoffs' || targetView === 'standings') && state.selectedDate !== todayStr) {
     state.selectedDate = todayStr;
     state.loading = true;
     loadData().then(() => {
@@ -4204,6 +4196,17 @@ function render() {
         }));
         break;
 
+      case 'playoffs':
+        main.appendChild(createPlayoffsView(state, {
+          render,
+          createTeamLogoBadge: createOfficialTeamLogoBadge,
+          getTeamLogoUrl,
+          openStandings: () => transitionToView('standings'),
+          openTeamDashboard: (id) => transitionToView('dashboard', id),
+          showGraphModal: showStandingsGraphModal,
+          createMultiTeamRaceChart
+        }));
+        break;
       case 'standings':
         main.appendChild(createStandingsView());
         break;
@@ -4408,13 +4411,14 @@ function updateFooterContent(footer) {
     { view: 'dashboard', label: teamsLabel, emoji: '🧢' },
     { view: 'mlb-hub', label: 'MLB', isMlbLogo: true },
     { view: 'scores', label: 'Scores', emoji: '⚾' },
-    { view: 'standings', label: 'Standings', emoji: '🏆' },
+    { view: 'playoffs', label: 'Playoffs', emoji: '🏆' },
     { view: 'settings', label: 'Settings', emoji: '⚙️' }
   ];
   
   menuItems.forEach(item => {
     const btn = document.createElement('button');
-    btn.className = `footer-nav-item ${state.activeView === item.view ? 'active' : ''}`;
+    const isPlayoffsChild = item.view === 'playoffs' && state.activeView === 'standings';
+    btn.className = `footer-nav-item ${state.activeView === item.view || isPlayoffsChild ? 'active' : ''}`;
     
     // Icon/Visual container
     const iconContainer = document.createElement('div');
@@ -4867,7 +4871,7 @@ function updateHeaderContent(header) {
   topRow.className = 'header-top';
   topRow.style.minHeight = '0px';
 
-  if (state.activeView === 'settings' || state.activeView === 'all-teams' || state.activeView === 'mlb-hub') {
+  if (state.activeView === 'settings' || state.activeView === 'all-teams' || state.activeView === 'mlb-hub' || state.activeView === 'playoffs') {
     topRow.style.minHeight = '44px';
     const logo = document.createElement('div');
     logo.className = 'app-logo';
@@ -8022,6 +8026,22 @@ function createStandingsView() {
     state.standingsLeagueId = favTeam.leagueId;
   }
 
+  // Standings is reached from Playoffs — offer a clear way back
+  const backRow = document.createElement('div');
+  backRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 12px;';
+  const backBtn = document.createElement('button');
+  backBtn.type = 'button';
+  backBtn.className = 'playoff-status-link';
+  backBtn.innerText = '← Playoffs';
+  backBtn.style.cssText = 'background: none; border: none; color: var(--color-gold); font-family: var(--font-title); font-size: 13px; font-weight: 700; cursor: pointer; padding: 4px 0;';
+  backBtn.addEventListener('click', () => transitionToView('playoffs'));
+  backRow.appendChild(backBtn);
+  const standingsLabel = document.createElement('span');
+  standingsLabel.style.cssText = 'font-family: var(--font-title); font-size: 12px; color: var(--text-muted); letter-spacing: 0.04em; text-transform: uppercase;';
+  standingsLabel.innerText = 'Full Standings';
+  backRow.appendChild(standingsLabel);
+  container.appendChild(backRow);
+
   // 1. League Selection Tabs
   const tabContainer = document.createElement('div');
   tabContainer.className = 'standings-tab-container';
@@ -8676,24 +8696,25 @@ function createEmptyState(message) {
   return div;
 }
 
-// Navigate between team dashboards and standings using swipe actions
+// Navigate between team dashboards, playoffs, and standings using swipe actions
 function navigateToTab(direction) {
   // Build a list of valid switcher view targets
   const viewsList = [];
   state.selectedTeamIds.forEach(id => {
     viewsList.push({ view: 'dashboard', teamId: id });
   });
+  viewsList.push({ view: 'playoffs' });
   viewsList.push({ view: 'standings' });
 
   // Resolve current active view index
   let currentIndex = -1;
-  if (state.activeView === 'standings') {
-    currentIndex = viewsList.length - 1;
+  if (state.activeView === 'playoffs' || state.activeView === 'standings') {
+    currentIndex = viewsList.findIndex(item => item.view === state.activeView);
   } else if (state.activeView === 'dashboard') {
     currentIndex = viewsList.findIndex(item => item.view === 'dashboard' && item.teamId === state.activeTeamId);
   }
 
-  // Swipe only functional on main switcher pages (dashboard & standings)
+  // Swipe only functional on main switcher pages (dashboard, playoffs, standings)
   if (currentIndex === -1) return;
 
   let nextIndex = currentIndex;
@@ -8727,7 +8748,9 @@ document.addEventListener('touchstart', (e) => {
       e.target.closest('.recap-content') ||
       e.target.closest('.drawer-content') ||
       e.target.closest('.team-list-grid') ||
-      e.target.closest('.analytics-center-backdrop')) {
+      e.target.closest('.analytics-center-backdrop') ||
+      e.target.closest('.playoff-bracket-scroll') ||
+      e.target.closest('.playoff-bracket')) {
     return;
   }
   touchStartX = e.touches[0].clientX;
