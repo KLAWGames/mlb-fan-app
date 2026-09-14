@@ -643,10 +643,10 @@ export function playoffPicture(processedStandings, leagueId) {
 
   const divisionIds = LEAGUE_DIVISION_ORDER[leagueId] || [...new Set(teams.map(t => t.divisionId))];
   const divisions = divisionIds.map(divisionId => {
-    const source = divisionTeams[divisionId] || teams.filter(t => t.divisionId === divisionId);
+    const source = divisionTeams[divisionId] || teams.filter(t => t.divisionId === divisionId).sort(compareByRecord);
     const divisionStatuses = source.map(t => statusById.get(t.id)).filter(Boolean);
     const leader = divisionStatuses.find(s => s.divisionLeader) || divisionStatuses[0] || null;
-    if (leader) leader.magic.division = deriveDivisionMagic(leader, divisionStatuses);
+    if (leader && leader.divisionLeader) leader.magic.division = deriveDivisionMagic(leader, divisionStatuses);
     return {
       divisionId,
       divisionName: (leader && leader.divisionName) || DIVISION_LABELS[divisionId] || null,
