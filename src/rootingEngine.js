@@ -481,7 +481,8 @@ function compareByRecord(a, b) {
   return b.wins - a.wins || a.losses - b.losses;
 }
 
-// The API omits these fields entirely outside of the stretch run
+// Clinch and elimination numbers only carry signal once the API starts publishing them,
+// so the whole status layer stays neutral until at least one team has a real value.
 function hasUsableClinchData(team) {
   if (team.clinched === true || team.divisionChamp === true || team.clinchIndicator) return true;
   if (isEliminatedMarker(team.eliminationNumber) || isEliminatedMarker(team.wildCardEliminationNumber)) return true;
