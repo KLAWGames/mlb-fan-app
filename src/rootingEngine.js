@@ -2,6 +2,29 @@
 
 import { teamsData } from './teamsData.js';
 
+// Winning percentages are compared as strings rounded to 3 decimals, so anything
+// closer than this is an exact tie in the standings.
+const PCT_TIE_EPSILON = 0.0005;
+
+// Wild Card pool ordering: winning percentage first, then the official API league rank
+function compareWildCardPool(a, b) {
+  const pctA = parseFloat(a.pct);
+  const pctB = parseFloat(b.pct);
+  if (Math.abs(pctA - pctB) > PCT_TIE_EPSILON) {
+    return pctB - pctA;
+  }
+
+  // If win percentage is tied, check official leagueRank/wildCardRank from API
+  const rankA = parseInt(a.apiLeagueRank, 10);
+  const rankB = parseInt(b.apiLeagueRank, 10);
+  if (!isNaN(rankA) && !isNaN(rankB)) {
+    return rankA - rankB; // Lower rank (e.g. 4) is better than higher rank (e.g. 5)
+  }
+
+  // Fallback
+  return b.wins - a.wins || a.losses - b.losses;
+}
+
 // Parse raw standings from MLB Stats API into a rich, structured format with computed Wild Card standings
 export function processStandings(rawStandings) {
   const teamsMap = {};
@@ -37,12 +60,20 @@ export function processStandings(rawStandings) {
         wins: tr.wins,
         losses: tr.losses,
         pct: tr.wins + tr.losses > 0 ? (tr.wins / (tr.wins + tr.losses)).toFixed(3) : "0.000",
+        gamesPlayed: typeof tr.gamesPlayed === 'number' ? tr.gamesPlayed : (tr.wins + tr.losses),
         divisionRank: parseInt(tr.divisionRank, 10) || 5,
         gamesBack: tr.gamesBack === "-" ? 0 : parseFloat(tr.gamesBack) || 0,
         divisionLeader: tr.divisionLeader || tr.divisionRank === "1",
         apiMagicNumber: tr.magicNumber || null,
         apiLeagueRank: tr.leagueRank || null,
         apiWildCardRank: tr.wildCardRank || null,
+        // Clinch / elimination data straight from the API ('-' = N/A, 'E' = eliminated)
+        clinched: tr.clinched === true,
+        clinchIndicator: tr.clinchIndicator || null,
+        divisionChamp: tr.divisionChamp === true,
+        magicNumber: tr.magicNumber ?? null,
+        eliminationNumber: tr.eliminationNumber ?? null,
+        wildCardEliminationNumber: tr.wildCardEliminationNumber ?? null,
         // Streak info
         streakType: tr.streak?.streakType || null,
         streakNumber: tr.streak?.streakNumber || 0,
@@ -96,23 +127,7 @@ export function processStandings(rawStandings) {
     // Wild Card pool: teams that are NOT division leaders
     const wcPool = allLeague.filter(t => !t.divisionLeader);
     // Sort pool by winning percentage (descending), then by official API rankings
-    wcPool.sort((a, b) => {
-      const pctA = parseFloat(a.pct);
-      const pctB = parseFloat(b.pct);
-      if (Math.abs(pctA - pctB) > 0.0005) {
-        return pctB - pctA;
-      }
-      
-      // If win percentage is tied, check official leagueRank/wildCardRank from API
-      const rankA = parseInt(a.apiLeagueRank, 10);
-      const rankB = parseInt(b.apiLeagueRank, 10);
-      if (!isNaN(rankA) && !isNaN(rankB)) {
-        return rankA - rankB; // Lower rank (e.g. 4) is better than higher rank (e.g. 5)
-      }
-      
-      // Fallback
-      return b.wins - a.wins || a.losses - b.losses;
-    });
+    wcPool.sort(compareWildCardPool);
 
     // Cutoff team is the 3rd wildcard team (index 2 in sorted pool)
     const cutoffTeam = wcPool[2];
@@ -425,4 +440,296 @@ function generateExplanation(threatTeam, targetOpponent, favorite, isAwayThreat)
   }
   
   return `Root for the ${targetOpponent.shortName}. A loss by the ${threatTeam.shortName} is favorable for the ${favPossessive} overall playoff positioning.`;
+}
+
+// ---------------------------------------------------------------------------
+// Playoff picture: seeding, clinch/elimination status and the postseason bracket
+// ---------------------------------------------------------------------------
+
+const REGULAR_SEASON_GAMES = 162;
+// x = playoff berth, y = division, z = best record, w = wild card
+const CLINCH_INDICATORS = ['x', 'y', 'z', 'w'];
+const LEAGUE_DIVISION_ORDER = { 103: [201, 202, 200], 104: [204, 205, 203] };
+const DIVISION_LABELS = {
+  200: 'AL West', 201: 'AL East', 202: 'AL Central',
+  203: 'NL West', 204: 'NL East', 205: 'NL Central'
+};
+
+// Magic and elimination numbers come back as strings: a count, '-' (not applicable) or 'E' (eliminated)
+export function parseMagicNumber(val) {
+  if (val === null || val === undefined) return null;
+  if (typeof val === 'number') return Number.isFinite(val) ? val : null;
+  const text = String(val).trim();
+  if (!text || text === '-' || text.toUpperCase() === 'E') return null;
+  const num = Number(text);
+  return Number.isFinite(num) ? num : null;
+}
+
+function isEliminatedMarker(val) {
+  return typeof val === 'string' && val.trim().toUpperCase() === 'E';
+}
+
+function isPctTie(a, b) {
+  return Math.abs(parseFloat(a.pct) - parseFloat(b.pct)) <= PCT_TIE_EPSILON;
+}
+
+// Division leaders are seeded on record alone
+function compareByRecord(a, b) {
+  const pctA = parseFloat(a.pct);
+  const pctB = parseFloat(b.pct);
+  if (Math.abs(pctA - pctB) > PCT_TIE_EPSILON) return pctB - pctA;
+  return b.wins - a.wins || a.losses - b.losses;
+}
+
+// The API omits these fields entirely outside of the stretch run
+function hasUsableClinchData(team) {
+  if (team.clinched === true || team.divisionChamp === true || team.clinchIndicator) return true;
+  if (isEliminatedMarker(team.eliminationNumber) || isEliminatedMarker(team.wildCardEliminationNumber)) return true;
+  return parseMagicNumber(team.eliminationNumber) !== null ||
+         parseMagicNumber(team.wildCardEliminationNumber) !== null ||
+         parseMagicNumber(team.magicNumber) !== null;
+}
+
+function createTeamStatus(team, hasClinchData) {
+  const gamesPlayed = typeof team.gamesPlayed === 'number' ? team.gamesPlayed : (team.wins + team.losses);
+  const gamesRemaining = Math.max(0, REGULAR_SEASON_GAMES - gamesPlayed);
+
+  const indicator = typeof team.clinchIndicator === 'string' ? team.clinchIndicator.toLowerCase() : null;
+  const locked = team.clinched === true || team.divisionChamp === true || CLINCH_INDICATORS.includes(indicator);
+
+  let lockKind = null;
+  let lockLabel = null;
+  if (indicator === 'z') {
+    lockKind = 'league';
+    lockLabel = 'Best record clinched';
+  } else if (indicator === 'y' || team.divisionChamp === true) {
+    lockKind = 'division';
+    lockLabel = 'Division clinched';
+  } else if (indicator === 'w') {
+    lockKind = 'wildcard';
+    lockLabel = 'Wild Card clinched';
+  } else if (locked) {
+    lockKind = 'berth';
+    lockLabel = 'Berth clinched';
+  }
+
+  const divisionElim = hasClinchData && isEliminatedMarker(team.eliminationNumber);
+  const wildCardElim = hasClinchData && isEliminatedMarker(team.wildCardEliminationNumber);
+  // Division leaders carry '-' as their Wild Card elimination number, so they never fall out this way
+  const playoffsElim = !team.divisionLeader && wildCardElim;
+
+  return {
+    teamId: team.id,
+    team,
+    name: team.name,
+    shortName: team.shortName,
+    abbreviation: team.abbreviation,
+    leagueId: team.leagueId,
+    divisionId: team.divisionId,
+    divisionName: team.divisionName || DIVISION_LABELS[team.divisionId] || null,
+    wins: team.wins,
+    losses: team.losses,
+    pct: team.pct,
+    gamesPlayed,
+    gamesRemaining,
+    gamesBack: team.gamesBack,
+    wildCardGamesBack: team.wildCardGamesBack,
+    divisionRank: team.divisionRank,
+    divisionLeader: !!team.divisionLeader,
+    isWildCardSpot: !!team.isWildCardSpot,
+    wildCardRank: team.wildCardRank,
+    streakCode: team.streakCode,
+    seed: null,
+    seedKind: null,
+    hasBye: false,
+    lock: { locked, kind: lockKind, label: lockLabel },
+    eliminated: { division: divisionElim, wildCard: wildCardElim, playoffs: playoffsElim },
+    elimNumbers: {
+      division: team.eliminationNumber ?? null,
+      wildCard: team.wildCardEliminationNumber ?? null
+    },
+    magic: { division: null, wildCard: null }
+  };
+}
+
+function deriveDivisionMagic(leader, divisionStatuses) {
+  if (!leader) return null;
+  const runnerUp = divisionStatuses.find(s => s.teamId !== leader.teamId) || null;
+
+  const apiValue = parseMagicNumber(leader.team.magicNumber ?? leader.team.apiMagicNumber);
+  if (apiValue !== null) {
+    return { value: apiValue, source: 'api', vs: runnerUp ? runnerUp.name : null };
+  }
+
+  // Once a team clinches a berth the API drops its magic number, but the runner-up's
+  // division elimination number is the same figure viewed from the other side.
+  if (leader.lock.locked && runnerUp) {
+    const symmetric = parseMagicNumber(runnerUp.team.eliminationNumber);
+    if (symmetric !== null) {
+      return { value: symmetric, source: 'symmetric', vs: runnerUp.name };
+    }
+  }
+
+  const derived = parseMagicNumber(leader.team.divisionMagicNumber);
+  if (derived !== null) {
+    return {
+      value: derived,
+      source: 'derived',
+      vs: leader.team.divisionChallengerName || (runnerUp ? runnerUp.name : null)
+    };
+  }
+
+  return null;
+}
+
+function deriveWildCardMagic(status, wildCardRank, firstOut) {
+  if (status.lock.locked || !firstOut) return null;
+
+  // Only the team holding the last spot has an API counterpart number to lean on
+  if (wildCardRank === 3) {
+    const apiValue = parseMagicNumber(firstOut.team.wildCardEliminationNumber);
+    if (apiValue !== null) {
+      return { value: apiValue, source: 'api', vs: firstOut.name };
+    }
+  }
+
+  if (typeof firstOut.gamesPlayed === 'number' && typeof firstOut.wins === 'number' && typeof status.wins === 'number') {
+    const chaserMaxWins = REGULAR_SEASON_GAMES - firstOut.gamesPlayed + firstOut.wins;
+    return { value: Math.max(1, chaserMaxWins - status.wins + 1), source: 'derived', vs: firstOut.name };
+  }
+
+  const fallback = parseMagicNumber(status.team.wildCardMagicNumber);
+  if (fallback !== null) {
+    return { value: fallback, source: 'derived', vs: status.team.wildCardChallengerName || firstOut.name };
+  }
+
+  return null;
+}
+
+// Build the full playoff picture for one league: seeds, divisions, Wild Card race and status groups
+export function playoffPicture(processedStandings, leagueId) {
+  if (!processedStandings) return null;
+
+  const { teamsMap = {}, leagueTeams = {}, divisionTeams = {} } = processedStandings;
+  const teams = (leagueTeams[leagueId] || []).map(t => teamsMap[t.id] || t);
+  if (!teams.length) return null;
+
+  const hasClinchData = teams.some(hasUsableClinchData);
+  const statuses = teams.map(t => createTeamStatus(t, hasClinchData));
+  const statusById = new Map(statuses.map(s => [s.teamId, s]));
+  const gamesRemainingMax = statuses.reduce((max, s) => Math.max(max, s.gamesRemaining), 0);
+
+  // Seeds 1-3: division leaders by record, top two earn a first round bye
+  const leaders = statuses.filter(s => s.divisionLeader).sort((a, b) => compareByRecord(a.team, b.team));
+  const seededLeaders = leaders.slice(0, 3);
+  seededLeaders.forEach((status, idx) => {
+    status.seed = idx + 1;
+    status.seedKind = 'division';
+    status.hasBye = idx < 2;
+  });
+
+  // Seeds 4-6: the top three of the Wild Card pool
+  const wildCardPool = statuses.filter(s => !s.divisionLeader).sort((a, b) => compareWildCardPool(a.team, b.team));
+  const wildCardSpots = wildCardPool.slice(0, 3);
+  const firstOut = wildCardPool[3] || null;
+  wildCardSpots.forEach((status, idx) => {
+    status.seed = idx + 4;
+    status.seedKind = 'wildcard';
+    status.hasBye = false;
+    status.magic.wildCard = deriveWildCardMagic(status, idx + 1, firstOut);
+  });
+
+  const seeds = [...seededLeaders, ...wildCardSpots];
+
+  const divisionIds = LEAGUE_DIVISION_ORDER[leagueId] || [...new Set(teams.map(t => t.divisionId))];
+  const divisions = divisionIds.map(divisionId => {
+    const source = divisionTeams[divisionId] || teams.filter(t => t.divisionId === divisionId);
+    const divisionStatuses = source.map(t => statusById.get(t.id)).filter(Boolean);
+    const leader = divisionStatuses.find(s => s.divisionLeader) || divisionStatuses[0] || null;
+    if (leader) leader.magic.division = deriveDivisionMagic(leader, divisionStatuses);
+    return {
+      divisionId,
+      divisionName: (leader && leader.divisionName) || DIVISION_LABELS[divisionId] || null,
+      leader,
+      teams: divisionStatuses
+    };
+  });
+
+  const tiebreaks = [];
+  for (let i = 0; i < seeds.length - 1; i++) {
+    const ahead = seeds[i];
+    const behind = seeds[i + 1];
+    if (isPctTie(ahead.team, behind.team)) {
+      tiebreaks.push({
+        teamIds: [ahead.teamId, behind.teamId],
+        scope: 'seed',
+        note: `${ahead.name} and ${behind.name} are tied at ${ahead.pct}; the No. ${ahead.seed} and No. ${behind.seed} seeds hinge on the tiebreaker.`
+      });
+    }
+  }
+  const cutoff = wildCardSpots[2];
+  if (cutoff && firstOut && isPctTie(cutoff.team, firstOut.team)) {
+    tiebreaks.push({
+      teamIds: [cutoff.teamId, firstOut.teamId],
+      scope: 'wildCard',
+      note: `${cutoff.name} and ${firstOut.name} are tied for the final Wild Card spot.`
+    });
+  }
+
+  const clinchedTeams = statuses.filter(s => s.lock.locked)
+    .sort((a, b) => (a.seed || 99) - (b.seed || 99) || compareByRecord(a.team, b.team));
+  const eliminatedTeams = statuses.filter(s => s.eliminated.playoffs).sort((a, b) => compareByRecord(a.team, b.team));
+  const inTheHunt = statuses.filter(s => !s.lock.locked && !s.eliminated.playoffs)
+    .sort((a, b) => (a.seed || 99) - (b.seed || 99) || compareByRecord(a.team, b.team));
+
+  return {
+    leagueId,
+    leagueName: leagueId === 103 ? 'AL' : 'NL',
+    hasClinchData,
+    gamesRemainingMax,
+    seeds,
+    divisions,
+    wildCard: { spots: wildCardSpots, firstOut, chasers: wildCardPool.slice(3) },
+    clinchedTeams,
+    inTheHunt,
+    eliminatedTeams,
+    tiebreaks
+  };
+}
+
+function buildLeagueBracket(picture, prefix) {
+  const seeds = (picture && picture.seeds) || [];
+  const seedAt = n => seeds[n - 1] || null;
+
+  return {
+    leagueId: picture ? picture.leagueId : null,
+    leagueName: prefix,
+    byes: [seedAt(1), seedAt(2)],
+    wildCardRound: [
+      { label: 'WC A', home: seedAt(3), away: seedAt(6) },
+      { label: 'WC B', home: seedAt(4), away: seedAt(5) }
+    ],
+    divisionSeries: [
+      { label: `${prefix}DS 1`, top: seedAt(1), bottom: { placeholder: 'Winner 4 v 5' } },
+      { label: `${prefix}DS 2`, top: seedAt(2), bottom: { placeholder: 'Winner 3 v 6' } }
+    ],
+    championship: {
+      label: `${prefix}CS`,
+      top: { placeholder: `${prefix}DS 1 winner` },
+      bottom: { placeholder: `${prefix}DS 2 winner` }
+    }
+  };
+}
+
+// Assemble the postseason bracket from both league pictures
+export function buildBracket(alPicture, nlPicture) {
+  return {
+    al: buildLeagueBracket(alPicture, 'AL'),
+    nl: buildLeagueBracket(nlPicture, 'NL'),
+    worldSeries: {
+      label: 'World Series',
+      top: { placeholder: 'AL champion' },
+      bottom: { placeholder: 'NL champion' }
+    }
+  };
 }
